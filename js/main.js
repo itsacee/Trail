@@ -41,16 +41,14 @@ const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:0
 const DAYS_AHEAD = 28; // how many days out parents can book
 
 const SESSIONS = {
-  single: { name: "Single Lesson", price: "$70 · 1 hour", label: () => "Pay $70 — Book Lesson" },
-  group: { name: "Group Session", price: "$40 / player · 1 hour", label: (n) => `Pay $${40 * n} — Book Group (${n} players)` },
-  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: () => "Start Membership — $240/mo" },
+  single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson" },
+  group: { name: "Group Session", price: "$35 / player · 2 players · 1 hour", label: "Pay $70 — Book Group (2 players)" },
+  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo" },
 };
 
 const form = document.getElementById("bookingForm");
 const dayChips = document.getElementById("dayChips");
 const timeChips = document.getElementById("timeChips");
-const playersField = document.getElementById("playersField");
-const playersSelect = document.getElementById("bkPlayers");
 const submitBtn = document.getElementById("bookingSubmit");
 const statusEl = document.getElementById("bookingStatus");
 
@@ -134,14 +132,11 @@ async function loadTimes(date) {
 }
 
 function refreshSubmit() {
-  const n = parseInt(playersSelect.value, 10);
-  playersField.hidden = selectedType !== "group";
-  submitBtn.textContent = SESSIONS[selectedType].label(n);
+  submitBtn.textContent = SESSIONS[selectedType].label;
 }
 
 if (form) {
   renderDays();
-  playersSelect.addEventListener("change", refreshSubmit);
   // "Pick Your Path" buttons carry the chosen session into the booking form
   document.querySelectorAll("[data-book]").forEach((a) =>
     a.addEventListener("click", () => setType(a.dataset.book))
@@ -169,7 +164,6 @@ if (form) {
           player: form.elements.player.value.trim(),
           parent: form.elements.parent.value.trim(),
           phone: form.elements.phone.value.trim(),
-          players: playersSelect.value,
         }),
       });
       const data = await res.json().catch(() => ({}));

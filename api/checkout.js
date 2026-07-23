@@ -5,9 +5,9 @@
 import { bookedTimes } from "./slots.js";
 
 const SESSION_TYPES = {
-  single: { amount: 7000, label: "Private Lesson (1 hour)", mode: "payment" },
-  group: { amount: 4000, label: "Group Session (1 hour, per player)", mode: "payment" },
-  membership: { amount: 24000, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
+  single: { amount: 7000, quantity: 1, label: "Private Lesson (1 hour)", mode: "payment" },
+  group: { amount: 3500, quantity: 2, label: "Group Session — 1 hour, 2 players (per player)", mode: "payment" },
+  membership: { amount: 24000, quantity: 1, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
 };
 
 export default async function handler(req, res) {
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { type, date, time, player, parent, phone, players } = req.body || {};
+  const { type, date, time, player, parent, phone } = req.body || {};
   const session = SESSION_TYPES[type];
   if (!session || !date || !time || !player) {
     res.status(400).json({ error: "Please pick a date, time and enter the player's name." });
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     // If the check fails, continue; the owner reconciles via Stripe dashboard.
   }
 
-  const quantity = type === "group" ? Math.min(Math.max(parseInt(players, 10) || 2, 2), 4) : 1;
+  const quantity = session.quantity;
   const origin = `https://${req.headers.host}`;
   const sessionLabel = `${date} at ${time} — ${player}`;
 
