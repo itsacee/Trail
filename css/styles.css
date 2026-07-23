@@ -5,14 +5,15 @@
    ========================================================================== */
 
 :root {
-  --bg: #0c0f14;
-  --bg-alt: #11151d;
-  --surface: #171c26;
-  --line: #262d3a;
-  --text: #eef1f6;
-  --text-dim: #9aa4b5;
-  --accent: #e8452e;          /* fiery red-orange */
-  --accent-soft: rgba(232, 69, 46, 0.12);
+  --bg: #06080b;              /* near black with a cold tint */
+  --bg-alt: #0b0e13;
+  --surface: #11151c;
+  --line: #262d38;            /* dark silver */
+  --text: #f4f7fa;            /* white */
+  --text-dim: #aab6c4;        /* silver */
+  --accent: #8fd6ff;          /* ice blue */
+  --accent-soft: rgba(143, 214, 255, 0.12);
+  --on-accent: #06121c;       /* dark text used on ice-blue buttons */
   --radius: 16px;
   --font-display: "Bebas Neue", sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
@@ -76,10 +77,10 @@ h3 { font-size: 1.6rem; }
 .btn--lg { padding: 1rem 2.2rem; font-size: 1.05rem; }
 .btn--primary {
   background: var(--accent);
-  color: #fff;
-  box-shadow: 0 8px 24px rgba(232, 69, 46, 0.35);
+  color: var(--on-accent);
+  box-shadow: 0 8px 24px rgba(143, 214, 255, 0.3);
 }
-.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(232, 69, 46, 0.45); }
+.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(143, 214, 255, 0.4); }
 .btn--ghost {
   border-color: var(--line);
   color: var(--text);
@@ -163,14 +164,14 @@ h3 { font-size: 1.6rem; }
   padding: clamp(5rem, 12vh, 9rem) 0 4.5rem;
   text-align: center;
   background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(232, 69, 46, 0.16), transparent),
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(143, 214, 255, 0.14), transparent),
     repeating-linear-gradient(115deg, transparent 0 46px, rgba(255,255,255,0.015) 46px 48px);
 }
 .hero__glow {
   position: absolute;
   inset: auto -20% -60% -20%;
   height: 70%;
-  background: radial-gradient(ellipse at center, rgba(232, 69, 46, 0.08), transparent 65%);
+  background: radial-gradient(ellipse at center, rgba(143, 214, 255, 0.07), transparent 65%);
   pointer-events: none;
 }
 .hero__title {
@@ -259,7 +260,7 @@ h3 { font-size: 1.6rem; }
   left: 50%;
   transform: translateX(-50%);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 700;
   font-size: 0.8rem;
   letter-spacing: 0.08em;
@@ -333,7 +334,7 @@ h3 { font-size: 1.6rem; }
 .price-card:hover { transform: translateY(-4px); }
 .price-card--featured {
   border-color: var(--accent);
-  box-shadow: 0 12px 48px rgba(232, 69, 46, 0.18);
+  box-shadow: 0 12px 48px rgba(143, 214, 255, 0.15);
 }
 .price-card__tag {
   position: absolute;
@@ -341,7 +342,7 @@ h3 { font-size: 1.6rem; }
   left: 50%;
   transform: translateX(-50%);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -392,7 +393,7 @@ h3 { font-size: 1.6rem; }
   flex-direction: column;
   gap: 0.9rem;
 }
-.quote__stars { color: #f5b62d; letter-spacing: 0.2em; font-size: 0.9rem; }
+.quote__stars { color: var(--accent); letter-spacing: 0.2em; font-size: 0.9rem; }
 .quote blockquote { color: var(--text); font-size: 0.96rem; flex: 1; }
 .quote figcaption { color: var(--text-dim); font-size: 0.85rem; font-weight: 600; }
 
@@ -430,7 +431,7 @@ h3 { font-size: 1.6rem; }
 /* ---------- CTA band ---------- */
 .cta-band {
   background:
-    radial-gradient(ellipse 70% 100% at 50% 120%, rgba(232, 69, 46, 0.25), transparent),
+    radial-gradient(ellipse 70% 100% at 50% 120%, rgba(143, 214, 255, 0.18), transparent),
     var(--bg-alt);
   border-block: 1px solid var(--line);
   padding: 5rem 0;
