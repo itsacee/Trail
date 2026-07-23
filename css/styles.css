@@ -113,9 +113,9 @@ h3 { font-size: 1.6rem; }
 .nav__logo {
   display: grid;
   place-items: center;
-  height: 44px;
+  height: 46px;
 }
-.nav__logo svg { height: 44px; width: auto; display: block; }
+.nav__logo img { height: 46px; width: auto; display: block; border-radius: 8px; }
 .nav__name {
   font-family: var(--font-display);
   font-size: 1.25rem;
