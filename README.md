@@ -22,12 +22,26 @@ it will update the code for you. Still needed:
 
 Want different colors? Change `--accent` at the top of `css/styles.css`.
 
-## Booking
+## Booking (built into this site)
 
-All "Book" buttons currently link to your existing booking page at
-`https://www.apacademybsb.com` (with the Stripe checkout). When you're ready,
-you can move that booking form into this site — or keep it as-is and just
-point this page at it.
+The site has its own booking section (`#book`): parents pick a session type
+(single $70 / group $50 per player / membership $240 per month), a date, a
+time, enter the player's name, and pay through Stripe Checkout.
+
+The payment is created by `api/checkout.js`, a serverless function that runs
+automatically when this repo is deployed on Vercel. **One-time setup:**
+
+1. In Vercel: your project → Settings → Environment Variables
+2. Add `STRIPE_SECRET_KEY` = your Stripe secret key
+   (Stripe Dashboard → Developers → API keys → "Secret key", starts with `sk_live_`)
+3. Redeploy
+
+Until that key is set (and on non-Vercel previews), the booking form shows a
+friendly "call or text to book" message instead of failing silently.
+
+Training hours shown in the time picker are set at the top of `js/main.js`
+(`OPEN_HOURS`) — weekdays 4–8pm, weekends 9am–5pm by default. Adjust to your
+real availability.
 
 ## Put it online (free)
 
