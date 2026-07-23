@@ -250,6 +250,27 @@ h3 { font-size: 1.6rem; }
 }
 .photo-placeholder svg { width: 72px; height: 72px; opacity: 0.5; }
 .photo-placeholder small { font-weight: 400; opacity: 0.7; }
+.photo-placeholder--brand {
+  border-style: solid;
+  border-color: var(--line);
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 110%, rgba(232, 69, 46, 0.18), transparent),
+    var(--surface);
+  gap: 0.4rem;
+}
+.photo-placeholder--brand svg { color: var(--accent); opacity: 0.9; width: 88px; height: 88px; margin-bottom: 0.6rem; }
+.photo-placeholder__brand {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+.photo-placeholder--brand small {
+  text-transform: uppercase;
+  letter-spacing: 0.35em;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
 .coach__photo img { border-radius: var(--radius); aspect-ratio: 4 / 5; object-fit: cover; }
 .coach__badge {
   position: absolute;

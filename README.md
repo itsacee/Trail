@@ -8,23 +8,23 @@ Plain HTML/CSS/JS — nothing to install, easy to edit, free to host.
 Open `index.html` in your browser, or in Cursor right-click it and choose
 "Open with Live Server" style preview. That's it.
 
-## Make it yours (checklist)
+## Make it yours
 
-Search `index.html` for the text `EDIT ME` — every spot that needs your real
-info is marked. In order of importance:
+The site is fully written and ready to view — just tell the Cursor agent what
+to change and it will update the code for you. Info still needed from you:
 
-1. **Your bio** — the "Meet the Coach" section. Your name, playing background,
-   coaching story. This is the #1 thing that gets parents to book.
-2. **Your photo** — drop a photo into the `img/` folder named `coach.jpg`,
-   then in `index.html` delete the placeholder box and uncomment the `<img>` line.
-3. **Testimonials** — text 3–4 parents you've trained with and ask for one
-   sentence each. Real quotes with names convert way better than anything else.
-4. **Membership price** — fill in the real monthly price and what's included.
-5. **Contact info** — phone, email, city, and your Instagram/socials in the footer.
-6. **FAQ answers** — ages, location, cancellation policy.
-7. **Stats in the hero** — years coaching, players trained.
+1. **Your real name** (currently "Coach Ace") and any bio details you want
+   (where you played, how long you've coached).
+2. **A photo of you** for the "Meet the Coach" section.
+3. **Real testimonials** — the three quotes on the site are samples. Text a
+   few parents you've trained and ask for one sentence each. Replace before
+   going live.
+4. **Real membership price** (currently shown as $240/month for 4 lessons)
+   and small group price ($45/player) — confirm or correct.
+5. **Contact info** — phone, email, city, and Instagram/social handles.
+6. **Hero stats** — years coaching and players trained (currently 10+/200+).
 
-Want different colors? Open `css/styles.css` and change `--accent` at the top.
+Want different colors? Change `--accent` at the top of `css/styles.css`.
 
 ## Booking
 
