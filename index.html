@@ -56,7 +56,7 @@
         speed &amp; conditioning, and the mental side of the game. Every session has a plan, every player leaves better.
       </p>
       <div class="hero__actions reveal">
-        <a class="btn btn--primary btn--lg" href="#book">Book a Lesson — $70</a>
+        <a class="btn btn--primary btn--lg" href="#book" data-book="single">Book a Lesson — $70</a>
         <a class="btn btn--ghost btn--lg" href="#programs">See Programs</a>
       </div>
 
@@ -181,7 +181,7 @@
             <li>Personalized feedback &amp; drills</li>
             <li>Perfect for a first session</li>
           </ul>
-          <a class="btn btn--ghost" href="#book">Book a Lesson</a>
+          <a class="btn btn--ghost" href="#book" data-book="single">Book a Lesson</a>
         </div>
 
         <div class="price-card price-card--featured reveal">
@@ -194,7 +194,7 @@
             <li>Save $40 vs. booking single lessons</li>
             <li>Season-long development plan</li>
           </ul>
-          <a class="btn btn--primary" href="#book">Become a Member</a>
+          <a class="btn btn--primary" href="#book" data-book="membership">Become a Member</a>
         </div>
 
         <div class="price-card reveal">
@@ -206,7 +206,7 @@
             <li>Discounted rate — save $30 each</li>
             <li>Competitive, game-like reps</li>
           </ul>
-          <a class="btn btn--ghost" href="#book">Book a Group</a>
+          <a class="btn btn--ghost" href="#book" data-book="group">Book a Group</a>
         </div>
       </div>
     </div>
@@ -220,58 +220,28 @@
       <p class="section__sub center reveal">Choose your session, pick an open day and time, and pay — the spot is yours.</p>
 
       <form class="booking reveal" id="bookingForm">
-        <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Choose your session</h3>
-          <div class="booking__types" role="radiogroup" aria-label="Session type">
-            <label class="booking__type">
-              <input type="radio" name="type" value="single" checked />
-              <span class="booking__type-card">
-                <strong>Single Lesson</strong>
-                <em>$70 &middot; 1 hour</em>
-                <small>One-on-one private training</small>
-              </span>
-            </label>
-            <label class="booking__type">
-              <input type="radio" name="type" value="group" />
-              <span class="booking__type-card">
-                <strong>Group Session</strong>
-                <em>$40 / player &middot; 1 hour</em>
-                <small>Bring a teammate or friend</small>
-              </span>
-            </label>
-            <label class="booking__type">
-              <input type="radio" name="type" value="membership" />
-              <span class="booking__type-card">
-                <strong>Membership</strong>
-                <em>$240 / month &middot; 4 lessons</em>
-                <small>Best value &mdash; you pick your days</small>
-              </span>
-            </label>
+        <div class="booking__selected">
+          <div>
+            <strong id="selName">Single Lesson</strong>
+            <span id="selPrice">$70 &middot; 1 hour</span>
           </div>
-          <div class="booking__field booking__field--players" id="playersField" hidden>
-            <label for="bkPlayers">How many players?</label>
-            <select id="bkPlayers" name="players">
-              <option value="2">2 players</option>
-              <option value="3">3 players</option>
-              <option value="4">4 players</option>
-            </select>
-          </div>
+          <a class="booking__change" href="#programs">Change</a>
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Pick a day <span class="booking__step-hint">Monday&ndash;Thursday</span></h3>
+          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Pick a day <span class="booking__step-hint">Monday&ndash;Thursday</span></h3>
           <div class="booking__chips" id="dayChips"></div>
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">3</span> Pick a time <span class="booking__step-hint">9 AM &ndash; 5 PM</span></h3>
+          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Pick a time <span class="booking__step-hint">9 AM &ndash; 5 PM</span></h3>
           <div class="booking__chips" id="timeChips">
             <p class="booking__hint">Pick a day first and open times will show up here.</p>
           </div>
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">4</span> Who's training?</h3>
+          <h3 class="booking__step-title"><span class="booking__step-num">3</span> Who's training?</h3>
           <div class="booking__grid">
             <div class="booking__field">
               <label for="bkPlayer">Player's name *</label>
@@ -284,6 +254,14 @@
             <div class="booking__field">
               <label for="bkPhone">Phone</label>
               <input type="tel" id="bkPhone" name="phone" placeholder="(405) 555-0123" />
+            </div>
+            <div class="booking__field" id="playersField" hidden>
+              <label for="bkPlayers">How many players?</label>
+              <select id="bkPlayers" name="players">
+                <option value="2">2 players</option>
+                <option value="3">3 players</option>
+                <option value="4">4 players</option>
+              </select>
             </div>
           </div>
         </div>

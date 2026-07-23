@@ -40,10 +40,10 @@ const OPEN_DAYS = [1, 2, 3, 4];
 const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
 const DAYS_AHEAD = 28; // how many days out parents can book
 
-const PRICES = {
-  single: { label: () => "Pay $70 — Book Lesson" },
-  group: { label: (n) => `Pay $${40 * n} — Book Group (${n} players)` },
-  membership: { label: () => "Start Membership — $240/mo" },
+const SESSIONS = {
+  single: { name: "Single Lesson", price: "$70 · 1 hour", label: () => "Pay $70 — Book Lesson" },
+  group: { name: "Group Session", price: "$40 / player · 1 hour", label: (n) => `Pay $${40 * n} — Book Group (${n} players)` },
+  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: () => "Start Membership — $240/mo" },
 };
 
 const form = document.getElementById("bookingForm");
@@ -54,8 +54,17 @@ const playersSelect = document.getElementById("bkPlayers");
 const submitBtn = document.getElementById("bookingSubmit");
 const statusEl = document.getElementById("bookingStatus");
 
+let selectedType = "single";
 let selectedDate = "";
 let selectedTime = "";
+
+function setType(type) {
+  if (!SESSIONS[type]) return;
+  selectedType = type;
+  document.getElementById("selName").textContent = SESSIONS[type].name;
+  document.getElementById("selPrice").textContent = SESSIONS[type].price;
+  refreshSubmit();
+}
 
 function fmtTime(t) {
   const [h, m] = t.split(":").map(Number);
@@ -125,16 +134,18 @@ async function loadTimes(date) {
 }
 
 function refreshSubmit() {
-  const type = form.elements.type.value;
   const n = parseInt(playersSelect.value, 10);
-  playersField.hidden = type !== "group";
-  submitBtn.textContent = PRICES[type].label(n);
+  playersField.hidden = selectedType !== "group";
+  submitBtn.textContent = SESSIONS[selectedType].label(n);
 }
 
 if (form) {
   renderDays();
   playersSelect.addEventListener("change", refreshSubmit);
-  form.querySelectorAll('input[name="type"]').forEach((r) => r.addEventListener("change", refreshSubmit));
+  // "Pick Your Path" buttons carry the chosen session into the booking form
+  document.querySelectorAll("[data-book]").forEach((a) =>
+    a.addEventListener("click", () => setType(a.dataset.book))
+  );
   refreshSubmit();
 
   form.addEventListener("submit", async (e) => {
@@ -152,7 +163,7 @@ if (form) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: form.elements.type.value,
+          type: selectedType,
           date: selectedDate,
           time: selectedTime,
           player: form.elements.player.value.trim(),

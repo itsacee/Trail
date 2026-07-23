@@ -452,32 +452,26 @@ h3 { font-size: 1.6rem; }
   color: var(--text-dim);
   margin-left: auto;
 }
-.booking__types {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-.booking__type input { position: absolute; opacity: 0; }
-.booking__type-card {
+.booking__selected {
   display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 1.2rem 1.1rem;
-  border: 2px solid var(--line);
-  border-radius: 14px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  height: 100%;
-}
-.booking__type-card strong { font-size: 1rem; }
-.booking__type-card em { font-style: normal; color: var(--accent); font-size: 0.88rem; font-weight: 700; }
-.booking__type-card small { color: var(--text-dim); font-size: 0.8rem; }
-.booking__type input:checked + .booking__type-card {
-  border-color: var(--accent);
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.3rem;
   background: var(--accent-soft);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  margin-bottom: 2.2rem;
 }
-.booking__type input:focus-visible + .booking__type-card { outline: 2px solid var(--accent); outline-offset: 2px; }
-.booking__field--players { margin-top: 1.1rem; max-width: 260px; }
+.booking__selected strong { font-size: 1.05rem; margin-right: 0.6rem; }
+.booking__selected span { color: var(--text-dim); font-size: 0.9rem; }
+.booking__change {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+.booking__change:hover { text-decoration: underline; }
 .booking__chips {
   display: flex;
   flex-wrap: wrap;
@@ -717,7 +711,7 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
         speed &amp; conditioning, and the mental side of the game. Every session has a plan, every player leaves better.
       </p>
       <div class="hero__actions reveal">
-        <a class="btn btn--primary btn--lg" href="#book">Book a Lesson — $70</a>
+        <a class="btn btn--primary btn--lg" href="#book" data-book="single">Book a Lesson — $70</a>
         <a class="btn btn--ghost btn--lg" href="#programs">See Programs</a>
       </div>
 
@@ -842,7 +836,7 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
             <li>Personalized feedback &amp; drills</li>
             <li>Perfect for a first session</li>
           </ul>
-          <a class="btn btn--ghost" href="#book">Book a Lesson</a>
+          <a class="btn btn--ghost" href="#book" data-book="single">Book a Lesson</a>
         </div>
 
         <div class="price-card price-card--featured reveal">
@@ -855,7 +849,7 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
             <li>Save $40 vs. booking single lessons</li>
             <li>Season-long development plan</li>
           </ul>
-          <a class="btn btn--primary" href="#book">Become a Member</a>
+          <a class="btn btn--primary" href="#book" data-book="membership">Become a Member</a>
         </div>
 
         <div class="price-card reveal">
@@ -867,7 +861,7 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
             <li>Discounted rate — save $30 each</li>
             <li>Competitive, game-like reps</li>
           </ul>
-          <a class="btn btn--ghost" href="#book">Book a Group</a>
+          <a class="btn btn--ghost" href="#book" data-book="group">Book a Group</a>
         </div>
       </div>
     </div>
@@ -881,58 +875,28 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
       <p class="section__sub center reveal">Choose your session, pick an open day and time, and pay — the spot is yours.</p>
 
       <form class="booking reveal" id="bookingForm">
-        <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Choose your session</h3>
-          <div class="booking__types" role="radiogroup" aria-label="Session type">
-            <label class="booking__type">
-              <input type="radio" name="type" value="single" checked />
-              <span class="booking__type-card">
-                <strong>Single Lesson</strong>
-                <em>$70 &middot; 1 hour</em>
-                <small>One-on-one private training</small>
-              </span>
-            </label>
-            <label class="booking__type">
-              <input type="radio" name="type" value="group" />
-              <span class="booking__type-card">
-                <strong>Group Session</strong>
-                <em>$40 / player &middot; 1 hour</em>
-                <small>Bring a teammate or friend</small>
-              </span>
-            </label>
-            <label class="booking__type">
-              <input type="radio" name="type" value="membership" />
-              <span class="booking__type-card">
-                <strong>Membership</strong>
-                <em>$240 / month &middot; 4 lessons</em>
-                <small>Best value &mdash; you pick your days</small>
-              </span>
-            </label>
+        <div class="booking__selected">
+          <div>
+            <strong id="selName">Single Lesson</strong>
+            <span id="selPrice">$70 &middot; 1 hour</span>
           </div>
-          <div class="booking__field booking__field--players" id="playersField" hidden>
-            <label for="bkPlayers">How many players?</label>
-            <select id="bkPlayers" name="players">
-              <option value="2">2 players</option>
-              <option value="3">3 players</option>
-              <option value="4">4 players</option>
-            </select>
-          </div>
+          <a class="booking__change" href="#programs">Change</a>
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Pick a day <span class="booking__step-hint">Monday&ndash;Thursday</span></h3>
+          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Pick a day <span class="booking__step-hint">Monday&ndash;Thursday</span></h3>
           <div class="booking__chips" id="dayChips"></div>
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">3</span> Pick a time <span class="booking__step-hint">9 AM &ndash; 5 PM</span></h3>
+          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Pick a time <span class="booking__step-hint">9 AM &ndash; 5 PM</span></h3>
           <div class="booking__chips" id="timeChips">
             <p class="booking__hint">Pick a day first and open times will show up here.</p>
           </div>
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">4</span> Who's training?</h3>
+          <h3 class="booking__step-title"><span class="booking__step-num">3</span> Who's training?</h3>
           <div class="booking__grid">
             <div class="booking__field">
               <label for="bkPlayer">Player's name *</label>
@@ -945,6 +909,14 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
             <div class="booking__field">
               <label for="bkPhone">Phone</label>
               <input type="tel" id="bkPhone" name="phone" placeholder="(405) 555-0123" />
+            </div>
+            <div class="booking__field" id="playersField" hidden>
+              <label for="bkPlayers">How many players?</label>
+              <select id="bkPlayers" name="players">
+                <option value="2">2 players</option>
+                <option value="3">3 players</option>
+                <option value="4">4 players</option>
+              </select>
             </div>
           </div>
         </div>
@@ -1115,10 +1087,10 @@ const OPEN_DAYS = [1, 2, 3, 4];
 const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
 const DAYS_AHEAD = 28; // how many days out parents can book
 
-const PRICES = {
-  single: { label: () => "Pay $70 — Book Lesson" },
-  group: { label: (n) => `Pay $${40 * n} — Book Group (${n} players)` },
-  membership: { label: () => "Start Membership — $240/mo" },
+const SESSIONS = {
+  single: { name: "Single Lesson", price: "$70 · 1 hour", label: () => "Pay $70 — Book Lesson" },
+  group: { name: "Group Session", price: "$40 / player · 1 hour", label: (n) => `Pay $${40 * n} — Book Group (${n} players)` },
+  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: () => "Start Membership — $240/mo" },
 };
 
 const form = document.getElementById("bookingForm");
@@ -1129,8 +1101,17 @@ const playersSelect = document.getElementById("bkPlayers");
 const submitBtn = document.getElementById("bookingSubmit");
 const statusEl = document.getElementById("bookingStatus");
 
+let selectedType = "single";
 let selectedDate = "";
 let selectedTime = "";
+
+function setType(type) {
+  if (!SESSIONS[type]) return;
+  selectedType = type;
+  document.getElementById("selName").textContent = SESSIONS[type].name;
+  document.getElementById("selPrice").textContent = SESSIONS[type].price;
+  refreshSubmit();
+}
 
 function fmtTime(t) {
   const [h, m] = t.split(":").map(Number);
@@ -1200,16 +1181,18 @@ async function loadTimes(date) {
 }
 
 function refreshSubmit() {
-  const type = form.elements.type.value;
   const n = parseInt(playersSelect.value, 10);
-  playersField.hidden = type !== "group";
-  submitBtn.textContent = PRICES[type].label(n);
+  playersField.hidden = selectedType !== "group";
+  submitBtn.textContent = SESSIONS[selectedType].label(n);
 }
 
 if (form) {
   renderDays();
   playersSelect.addEventListener("change", refreshSubmit);
-  form.querySelectorAll('input[name="type"]').forEach((r) => r.addEventListener("change", refreshSubmit));
+  // "Pick Your Path" buttons carry the chosen session into the booking form
+  document.querySelectorAll("[data-book]").forEach((a) =>
+    a.addEventListener("click", () => setType(a.dataset.book))
+  );
   refreshSubmit();
 
   form.addEventListener("submit", async (e) => {
@@ -1227,7 +1210,7 @@ if (form) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: form.elements.type.value,
+          type: selectedType,
           date: selectedDate,
           time: selectedTime,
           player: form.elements.player.value.trim(),

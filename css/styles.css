@@ -435,32 +435,26 @@ h3 { font-size: 1.6rem; }
   color: var(--text-dim);
   margin-left: auto;
 }
-.booking__types {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-.booking__type input { position: absolute; opacity: 0; }
-.booking__type-card {
+.booking__selected {
   display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 1.2rem 1.1rem;
-  border: 2px solid var(--line);
-  border-radius: 14px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  height: 100%;
-}
-.booking__type-card strong { font-size: 1rem; }
-.booking__type-card em { font-style: normal; color: var(--accent); font-size: 0.88rem; font-weight: 700; }
-.booking__type-card small { color: var(--text-dim); font-size: 0.8rem; }
-.booking__type input:checked + .booking__type-card {
-  border-color: var(--accent);
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.3rem;
   background: var(--accent-soft);
+  border: 2px solid var(--accent);
+  border-radius: 14px;
+  margin-bottom: 2.2rem;
 }
-.booking__type input:focus-visible + .booking__type-card { outline: 2px solid var(--accent); outline-offset: 2px; }
-.booking__field--players { margin-top: 1.1rem; max-width: 260px; }
+.booking__selected strong { font-size: 1.05rem; margin-right: 0.6rem; }
+.booking__selected span { color: var(--text-dim); font-size: 0.9rem; }
+.booking__change {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+.booking__change:hover { text-decoration: underline; }
 .booking__chips {
   display: flex;
   flex-wrap: wrap;
