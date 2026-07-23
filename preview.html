@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ============================================================
+       SEO: Edit the title + description below. This is what shows
+       up on Google. Include your city so local parents find you!
+       ============================================================ -->
+  <title>AP Academy | Private Baseball Training in Oklahoma City</title>
+  <meta name="description" content="One-on-one baseball training in Oklahoma City with Elijah Alexander — former Oklahoma State Cowboy and .434 JUCO hitter. Hitting, pitching and fielding lessons for youth players. Book online for $70." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+/* ==========================================================================
+   AP Academy — styles
+   Want to change colors? Edit the variables right below and the whole
+   site updates. --accent is the "brand" color used on buttons/highlights.
+   ========================================================================== */
+
+:root {
+  --bg: #06080b;              /* near black with a cold tint */
+  --bg-alt: #0b0e13;
+  --surface: #11151c;
+  --line: #262d38;            /* dark silver */
+  --text: #f4f7fa;            /* white */
+  --text-dim: #aab6c4;        /* silver */
+  --accent: #8fd6ff;          /* ice blue */
+  --accent-soft: rgba(143, 214, 255, 0.12);
+  --on-accent: #06121c;       /* dark text used on ice-blue buttons */
+  --radius: 16px;
+  --font-display: "Bebas Neue", sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; display: block; }
+
+.container {
+  width: min(1120px, 92%);
+  margin-inline: auto;
+}
+.container--narrow { width: min(760px, 92%); }
+
+/* ---------- typography ---------- */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+}
+h2 { font-size: clamp(2.2rem, 4.5vw, 3.4rem); margin-bottom: 0.5rem; }
+h3 { font-size: 1.6rem; }
+
+.eyebrow {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+}
+.center { text-align: center; }
+.accent { color: var(--accent); }
+.section__sub { color: var(--text-dim); max-width: 560px; margin: 0.25rem auto 0; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-block;
+  padding: 0.8rem 1.6rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  cursor: pointer;
+  border: 2px solid transparent;
+  text-align: center;
+}
+.btn--lg { padding: 1rem 2.2rem; font-size: 1.05rem; }
+.btn--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 8px 24px rgba(143, 214, 255, 0.3);
+}
+.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(143, 214, 255, 0.4); }
+.btn--ghost {
+  border-color: var(--line);
+  color: var(--text);
+}
+.btn--ghost:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+
+/* ---------- navbar ---------- */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(12, 15, 20, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.nav__inner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.85rem 0;
+}
+.nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--text);
+  margin-right: auto;
+}
+.nav__logo {
+  display: grid;
+  place-items: center;
+  height: 44px;
+}
+.nav__logo svg { height: 44px; width: auto; display: block; }
+.nav__name {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  letter-spacing: 0.05em;
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.nav__name small {
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+.nav__links { display: flex; gap: 1.4rem; }
+.nav__links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.nav__links a:hover { color: var(--text); }
+.nav__burger {
+  display: none;
+  background: none;
+  border: none;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px;
+}
+.nav__burger span {
+  width: 24px; height: 2.5px;
+  background: var(--text);
+  border-radius: 2px;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+/* ---------- hero ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(5rem, 12vh, 9rem) 0 4.5rem;
+  text-align: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(143, 214, 255, 0.14), transparent),
+    repeating-linear-gradient(115deg, transparent 0 46px, rgba(255,255,255,0.015) 46px 48px);
+}
+.hero__glow {
+  position: absolute;
+  inset: auto -20% -60% -20%;
+  height: 70%;
+  background: radial-gradient(ellipse at center, rgba(143, 214, 255, 0.07), transparent 65%);
+  pointer-events: none;
+}
+.hero__title {
+  font-size: clamp(3.2rem, 9vw, 6.5rem);
+  margin: 0.5rem 0 1.2rem;
+}
+.hero__sub {
+  max-width: 620px;
+  margin: 0 auto 2rem;
+  color: var(--text-dim);
+  font-size: 1.1rem;
+}
+.hero__sub em { color: var(--text); font-style: normal; font-weight: 600; }
+.hero__actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 3.5rem;
+}
+.hero__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  max-width: 860px;
+  margin: 0 auto;
+}
+.stat { background: var(--bg-alt); padding: 1.4rem 1rem; }
+.stat__num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  color: var(--accent);
+}
+.stat__label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
+/* ---------- sections ---------- */
+.section { padding: 5.5rem 0; }
+.section--alt { background: var(--bg-alt); border-block: 1px solid var(--line); }
+
+/* ---------- coach ---------- */
+.coach {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 3.5rem;
+  align-items: center;
+}
+.coach__photo { position: relative; }
+.photo-placeholder {
+  aspect-ratio: 4 / 5;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: var(--text-dim);
+  text-align: center;
+  font-weight: 600;
+}
+.photo-placeholder svg { width: 72px; height: 72px; opacity: 0.5; }
+.photo-placeholder small { font-weight: 400; opacity: 0.7; }
+.coach__card { padding: 0 1.5rem; }
+.coach__card svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 30px rgba(245, 245, 245, 0.08));
+}
+.coach__photo img { border-radius: var(--radius); aspect-ratio: 4 / 5; object-fit: cover; }
+.coach__badge {
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.coach__bio p { color: var(--text-dim); margin-bottom: 1rem; }
+.coach__bio h2 { margin-bottom: 1rem; }
+.coach__creds {
+  list-style: none;
+  margin: 1.5rem 0 2rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.coach__creds li {
+  padding-left: 1.8rem;
+  position: relative;
+  color: var(--text);
+  font-weight: 500;
+}
+.coach__creds li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+/* ---------- cards grid ---------- */
+.grid { display: grid; gap: 1.4rem; margin-top: 2.8rem; }
+.grid--4 { grid-template-columns: repeat(4, 1fr); }
+.grid--3 { grid-template-columns: repeat(3, 1fr); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.8rem 1.5rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.card:hover { transform: translateY(-4px); border-color: var(--accent); }
+.card__icon {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  margin-bottom: 1.1rem;
+}
+.card__icon svg { width: 28px; height: 28px; }
+.card h3 { margin-bottom: 0.5rem; }
+.card p { color: var(--text-dim); font-size: 0.93rem; }
+
+/* ---------- pricing ---------- */
+.price-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2.2rem 1.8rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+.price-card:hover { transform: translateY(-4px); }
+.price-card--featured {
+  border-color: var(--accent);
+  box-shadow: 0 12px 48px rgba(143, 214, 255, 0.15);
+}
+.price-card__tag {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.35rem 1rem;
+  border-radius: 999px;
+}
+.price-card__price {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  color: var(--text);
+  margin: 0.6rem 0 1.2rem;
+}
+.price-card__price span {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  margin-left: 0.4rem;
+}
+.price-card ul {
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 1.8rem;
+  flex: 1;
+}
+.price-card li {
+  padding-left: 1.6rem;
+  position: relative;
+  color: var(--text-dim);
+  font-size: 0.93rem;
+}
+.price-card li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 800;
+}
+
+/* ---------- testimonials ---------- */
+.quote {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.8rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.quote__stars { color: var(--accent); letter-spacing: 0.2em; font-size: 0.9rem; }
+.quote blockquote { color: var(--text); font-size: 0.96rem; flex: 1; }
+.quote figcaption { color: var(--text-dim); font-size: 0.85rem; font-weight: 600; }
+
+/* ---------- FAQ ---------- */
+.faq { margin-top: 2.4rem; display: grid; gap: 0.8rem; }
+.faq details {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.faq details[open] { border-color: var(--accent); }
+.faq summary {
+  padding: 1.1rem 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+  position: relative;
+  padding-right: 3rem;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: "+";
+  position: absolute;
+  right: 1.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.4rem;
+  color: var(--accent);
+  transition: transform 0.2s;
+}
+.faq details[open] summary::after { transform: translateY(-50%) rotate(45deg); }
+.faq details p { padding: 0 1.4rem 1.2rem; color: var(--text-dim); }
+
+/* ---------- CTA band ---------- */
+.cta-band {
+  background:
+    radial-gradient(ellipse 70% 100% at 50% 120%, rgba(143, 214, 255, 0.18), transparent),
+    var(--bg-alt);
+  border-block: 1px solid var(--line);
+  padding: 5rem 0;
+  text-align: center;
+}
+.cta-band p { color: var(--text-dim); margin: 0.6rem 0 1.8rem; }
+
+/* ---------- footer ---------- */
+.footer { padding: 4rem 0 2rem; }
+.footer__grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 2.5rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 1px solid var(--line);
+}
+.footer__blurb { color: var(--text-dim); font-size: 0.9rem; margin-top: 1rem; max-width: 280px; }
+.footer h4 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+}
+.footer__list { list-style: none; display: grid; gap: 0.55rem; }
+.footer__list a, .footer__list li { color: var(--text); text-decoration: none; font-size: 0.92rem; }
+.footer__list a:hover { color: var(--accent); }
+.footer__bottom {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 1.5rem;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+
+/* ---------- scroll reveal ----------
+   Only hides elements when JS is confirmed running (html.js),
+   so content is always visible even if scripts fail to load. */
+html.js .reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+html.js .reveal.is-visible { opacity: 1; transform: none; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 900px) {
+  .grid--4 { grid-template-columns: repeat(2, 1fr); }
+  .grid--3 { grid-template-columns: 1fr; max-width: 460px; margin-inline: auto; }
+  .coach { grid-template-columns: 1fr; gap: 3rem; }
+  .coach__photo { max-width: 380px; margin-inline: auto; width: 100%; }
+  .footer__grid { grid-template-columns: 1fr 1fr; }
+  .hero__stats { grid-template-columns: repeat(2, 1fr); }
+
+  .nav__links {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-alt);
+    border-bottom: 1px solid var(--line);
+    flex-direction: column;
+    padding: 1.2rem 5%;
+    gap: 1rem;
+    display: none;
+  }
+  .nav__links.is-open { display: flex; }
+  .nav__burger { display: flex; }
+  .nav__cta { display: none; }
+}
+
+@media (max-width: 560px) {
+  .grid--4 { grid-template-columns: 1fr; }
+  .footer__grid { grid-template-columns: 1fr; gap: 2rem; }
+  .section { padding: 4rem 0; }
+}
+
+</style>
+</head>
+<body>
+
+  <!-- ================= NAVBAR ================= -->
+  <header class="nav" id="top">
+    <div class="nav__inner container">
+      <a class="nav__brand" href="#top">
+        <span class="nav__logo">
+          <svg viewBox="3 1 18 22" aria-hidden="true">
+            <path fill="#f5f5f5" d="M12 2C9 7 4 9 4 14c0 2.5 2 4.5 4.5 4.5 1 0 1.9-.3 2.6-.9-.3 1.4-1 2.6-2.1 3.4h6c-1.1-.8-1.8-2-2.1-3.4.7.6 1.6.9 2.6.9C18 18.5 20 16.5 20 14c0-5-5-7-8-12z"/>
+            <text x="12" y="16.4" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="8.6" letter-spacing="0.2" fill="#0b0e13">AP</text>
+          </svg>
+        </span>
+        <span class="nav__name">AP&nbsp;Academy<small>Ace Performance</small></span>
+      </a>
+      <nav class="nav__links" id="navLinks">
+        <a href="#coach">Meet the Coach</a>
+        <a href="#programs">Programs</a>
+        <a href="#results">Results</a>
+        <a href="#faq">FAQ</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <a class="btn btn--primary nav__cta" href="https://www.apacademybsb.com" target="_blank" rel="noopener">Book Training</a>
+      <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="hero__glow" aria-hidden="true"></div>
+    <div class="container hero__inner">
+      <p class="eyebrow reveal">Private Baseball Training &middot; Oklahoma City</p>
+      <h1 class="hero__title reveal">
+        Train With Purpose.<br />
+        <span class="accent">Play With Confidence.</span>
+      </h1>
+      <p class="hero__sub reveal">
+        One-on-one lessons with a coach who's hit at the Division I level — hitting, pitching,
+        fielding and the mental side of the game. Every session has a plan, every player leaves better.
+      </p>
+      <div class="hero__actions reveal">
+        <a class="btn btn--primary btn--lg" href="https://www.apacademybsb.com" target="_blank" rel="noopener">Book a Lesson — $70</a>
+        <a class="btn btn--ghost btn--lg" href="#programs">See Programs</a>
+      </div>
+
+      <!-- Coach Elijah's career numbers at Connors State -->
+      <div class="hero__stats reveal">
+        <div class="stat">
+          <span class="stat__num">D1</span>
+          <span class="stat__label">Oklahoma State '24–25</span>
+        </div>
+        <div class="stat">
+          <span class="stat__num">.434</span>
+          <span class="stat__label">JUCO Batting Avg</span>
+        </div>
+        <div class="stat">
+          <span class="stat__num">26</span>
+          <span class="stat__label">College Home Runs</span>
+        </div>
+        <div class="stat">
+          <span class="stat__num">129</span>
+          <span class="stat__label">RBIs at Connors State</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MEET THE COACH ================= -->
+  <section class="section" id="coach">
+    <div class="container coach">
+      <div class="coach__photo reveal">
+        <!-- Ace Performance logo card. Send me a photo of you and I can
+             show the photo here instead (or keep the card — it looks sharp). -->
+        <div class="coach__card">
+          <svg viewBox="0 0 682 1024" role="img" aria-label="Ace Performance logo card">
+            <rect x="14" y="14" width="654" height="996" rx="56" fill="#0b0b0d" stroke="#f5f5f5" stroke-width="7"/>
+            <rect x="32" y="32" width="618" height="960" rx="46" fill="none" stroke="#2b2b30" stroke-width="2"/>
+            <!-- center AP spade monogram -->
+            <g transform="translate(29 194.5) scale(26)" fill="#f5f5f5">
+              <path d="M12 2C9 7 4 9 4 14c0 2.5 2 4.5 4.5 4.5 1 0 1.9-.3 2.6-.9-.3 1.4-1 2.6-2.1 3.4h6c-1.1-.8-1.8-2-2.1-3.4.7.6 1.6.9 2.6.9C18 18.5 20 16.5 20 14c0-5-5-7-8-12z"/>
+            </g>
+            <text x="341" y="628" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="230" letter-spacing="6" fill="#0b0b0d">AP</text>
+            <!-- crown + flourish -->
+            <g fill="#f5f5f5">
+              <path d="M313 96 L369 96 L361 70 L349 82 L341 62 L333 82 L321 70 Z"/>
+              <path d="M196 112 H 292 L 306 104 L 320 112 H 362 L 376 104 L 390 112 H 486" stroke="#f5f5f5" stroke-width="3" fill="none"/>
+            </g>
+            <!-- top-left index -->
+            <text x="62" y="180" font-family="'Bebas Neue',sans-serif" font-size="140" fill="#f5f5f5">A</text>
+            <g transform="translate(58 196) scale(4)" fill="#f5f5f5">
+              <path d="M12 2C9 7 4 9 4 14c0 2.5 2 4.5 4.5 4.5 1 0 1.9-.3 2.6-.9-.3 1.4-1 2.6-2.1 3.4h6c-1.1-.8-1.8-2-2.1-3.4.7.6 1.6.9 2.6.9C18 18.5 20 16.5 20 14c0-5-5-7-8-12z"/>
+            </g>
+            <!-- bottom-right index (rotated) -->
+            <g transform="rotate(180 341 512)">
+              <text x="62" y="180" font-family="'Bebas Neue',sans-serif" font-size="140" fill="#f5f5f5">A</text>
+              <g transform="translate(60 200) scale(4)" fill="#f5f5f5">
+                <path d="M12 21s-7-4.5-9-9.5C1.5 7.5 4 4.5 7 4.5c2 0 3.5 1 5 3 1.5-2 3-3 5-3 3 0 5.5 3 4 7-2 5-9 9.5-9 9.5z"/>
+              </g>
+            </g>
+            <!-- side rails -->
+            <rect x="44" y="392" width="24" height="240" rx="12" fill="none" stroke="#3a3a40" stroke-width="2"/>
+            <rect x="614" y="392" width="24" height="240" rx="12" fill="none" stroke="#3a3a40" stroke-width="2"/>
+            <!-- bottom lockup -->
+            <path d="M64 934 H 108 M574 934 H 618" stroke="#f5f5f5" stroke-width="3"/>
+            <path d="M341 962 l 7 8 -7 8 -7 -8 z" fill="#f5f5f5"/>
+            <text x="341" y="946" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="42" letter-spacing="12" fill="#f5f5f5">ACE PERFORMANCE</text>
+          </svg>
+        </div>
+        <!-- <img src="img/coach.jpg" alt="Coach at AP Academy" /> -->
+        <div class="coach__badge">Founder &amp; Head Trainer</div>
+      </div>
+      <div class="coach__bio">
+        <p class="eyebrow reveal">Meet Your Coach</p>
+        <h2 class="reveal">Elijah Alexander</h2>
+        <div class="reveal">
+          <p>
+            I'm Elijah Alexander, founder of AP Academy here in Oklahoma City —
+            and I've hit at every level of college baseball. Two seasons at
+            Connors State, where I batted <em>.434 with 17 home runs, 47 doubles
+            and 129 RBIs</em> in 113 games. A season with the
+            <em>Oklahoma State Cowboys</em> (2024–25). And at the University of
+            Central Oklahoma, where I hit <em>.333 with 9 home runs</em>. I'm not
+            teaching from a textbook — I'm teaching what I do in the box every day.
+          </p>
+          <p>
+            Every lesson is one-on-one and built around <em>your</em> player. We find
+            what's holding them back, attack it with drills they actually enjoy, and
+            send them home with a plan. No cookie-cutter programs — just honest
+            feedback, real reps, and progress you can see.
+          </p>
+        </div>
+        <ul class="coach__creds reveal">
+          <li>Oklahoma State Cowboys &mdash; Division I, 2024&ndash;25</li>
+          <li>.333 with 9 home runs at the University of Central Oklahoma</li>
+          <li>.434, 17 HR &amp; 129 RBIs over 113 games at Connors State</li>
+          <li>Founder &amp; head trainer, AP Academy &middot; Oklahoma City</li>
+        </ul>
+        <a class="btn btn--primary reveal" href="https://www.apacademybsb.com" target="_blank" rel="noopener">Train With Me</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= WHAT WE TRAIN ================= -->
+  <section class="section section--alt" id="training">
+    <div class="container">
+      <p class="eyebrow center reveal">What We Work On</p>
+      <h2 class="center reveal">Complete Player Development</h2>
+      <div class="grid grid--4">
+        <div class="card reveal">
+          <div class="card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20 20 4"/><circle cx="17" cy="7" r="3.2"/><path d="M4 16.5 7.5 20"/></svg>
+          </div>
+          <h3>Hitting</h3>
+          <p>Swing mechanics, bat speed, approach at the plate and live-arm reps with instant feedback.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M7 5.5c2 2 2 4.5 1.5 6.5S7.5 16.5 6 18.5M17 5.5c-2 2-2 4.5-1.5 6.5s1 4.5 2.5 6.5"/></svg>
+          </div>
+          <h3>Pitching</h3>
+          <p>Arm care, clean mechanics, command and velocity development — built safely for growing arms.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3 4 7v5c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7l-8-4z"/><path d="m9 12 2 2 4-4.5"/></svg>
+          </div>
+          <h3>Fielding</h3>
+          <p>Footwork, glove work, reads and game-speed reps for infield and outfield.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9-9.5C1.5 7.5 4 4.5 7 4.5c2 0 3.5 1 5 3 1.5-2 3-3 5-3 3 0 5.5 3 4 7-2 5-9 9.5-9 9.5z"/></svg>
+          </div>
+          <h3>Confidence</h3>
+          <p>The mental game — routines, focus and the mindset to compete when it counts.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PROGRAMS & PRICING ================= -->
+  <section class="section" id="programs">
+    <div class="container">
+      <p class="eyebrow center reveal">Programs &amp; Pricing</p>
+      <h2 class="center reveal">Pick Your Path</h2>
+      <p class="section__sub center reveal">Simple pricing, no surprises. Book online in under a minute — secure payment by Stripe.</p>
+
+      <div class="grid grid--3 pricing">
+        <div class="price-card reveal">
+          <h3>Single Lesson</h3>
+          <div class="price-card__price">$70<span>/ session</span></div>
+          <ul>
+            <li>One full hour, 1-on-1</li>
+            <li>Hitting, pitching or fielding focus</li>
+            <li>Personalized feedback &amp; drills</li>
+            <li>Perfect for a first session</li>
+          </ul>
+          <a class="btn btn--ghost" href="https://www.apacademybsb.com" target="_blank" rel="noopener">Book a Lesson</a>
+        </div>
+
+        <div class="price-card price-card--featured reveal">
+          <div class="price-card__tag">Most Popular</div>
+          <h3>Membership</h3>
+          <div class="price-card__price">$240<span>/ month</span></div>
+          <ul>
+            <li>4 one-hour sessions every month</li>
+            <li>You choose your 4 days — total flexibility</li>
+            <li>Save $40 vs. booking single lessons</li>
+            <li>Season-long development plan</li>
+          </ul>
+          <a class="btn btn--primary" href="https://www.apacademybsb.com" target="_blank" rel="noopener">Become a Member</a>
+        </div>
+
+        <div class="price-card reveal">
+          <h3>Group Session</h3>
+          <div class="price-card__price">$50<span>/ player</span></div>
+          <ul>
+            <li>Bring a teammate, sibling or friend</li>
+            <li>Full one-hour session</li>
+            <li>Discounted rate — save $20 each</li>
+            <li>Competitive, game-like reps</li>
+          </ul>
+          <a class="btn btn--ghost" href="sms:+14058194401">Text to Set It Up</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RESULTS / TESTIMONIALS ================= -->
+  <section class="section section--alt" id="results">
+    <div class="container">
+      <p class="eyebrow center reveal">Results</p>
+      <h2 class="center reveal">What Parents &amp; Players Say</h2>
+      <p class="section__sub center reveal">Don't take our word for it — here's what families say after training with us.</p>
+      <!-- IMPORTANT: these are sample quotes so you can see the layout.
+           Send me 2-3 real quotes from parents you've trained and I'll swap
+           them in before the site goes live. -->
+      <div class="grid grid--3">
+        <figure class="quote reveal">
+          <div class="quote__stars">★★★★★</div>
+          <blockquote>“My son's swing completely changed in a month. He went from getting beat by fastballs to driving the ball into the gaps — and now he asks to go to practice.”</blockquote>
+          <figcaption>— Sample review (yours goes here)</figcaption>
+        </figure>
+        <figure class="quote reveal">
+          <div class="quote__stars">★★★★★</div>
+          <blockquote>“Coach doesn't just throw balls — every session has a plan, and he explains everything so my daughter actually understands what she's fixing and why.”</blockquote>
+          <figcaption>— Sample review (yours goes here)</figcaption>
+        </figure>
+        <figure class="quote reveal">
+          <div class="quote__stars">★★★★★</div>
+          <blockquote>“Booking online takes a minute, lessons start on time, and the progress is real. He made his travel team this spring after a winter of training here.”</blockquote>
+          <figcaption>— Sample review (yours goes here)</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FAQ ================= -->
+  <section class="section" id="faq">
+    <div class="container container--narrow">
+      <p class="eyebrow center reveal">FAQ</p>
+      <h2 class="center reveal">Common Questions</h2>
+
+      <!-- Tell me how you actually run lessons and I'll adjust these answers -->
+      <div class="faq reveal">
+        <details>
+          <summary>What ages do you train?</summary>
+          <p>Players from age 7 through high school. Every session is adjusted to your player's age, skill level, and goals — a 8U beginner and a varsity starter get very different lessons.</p>
+        </details>
+        <details>
+          <summary>Where are lessons held?</summary>
+          <p>Lessons are held in Oklahoma City, Oklahoma. You'll receive the exact address and directions in your booking confirmation. Questions before you book? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
+        </details>
+        <details>
+          <summary>How long is a session?</summary>
+          <p>Every session — private or group — is a full hour of focused work. No rushed 30-minute cage rentals.</p>
+        </details>
+        <details>
+          <summary>What should my player bring?</summary>
+          <p>Glove, bat, helmet, cleats or turf shoes, and a water bottle. If you're missing anything, let me know before the session — I've got extras.</p>
+        </details>
+        <details>
+          <summary>How does booking and payment work?</summary>
+          <p>Pick an open time on the booking page, enter your player's name, and pay securely through Stripe. Your card is never stored by us. The spot is yours as soon as payment goes through.</p>
+        </details>
+        <details>
+          <summary>What's your cancellation policy?</summary>
+          <p>Life happens — reschedule free of charge with at least 24 hours notice. Same-day cancellations may forfeit the session fee.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FINAL CTA ================= -->
+  <section class="cta-band">
+    <div class="container cta-band__inner">
+      <h2 class="reveal">Ready to level up your game?</h2>
+      <p class="reveal">Open times fill fast. Grab your spot and let's get to work.</p>
+      <a class="btn btn--primary btn--lg reveal" href="https://www.apacademybsb.com" target="_blank" rel="noopener">Book Your Lesson — $70</a>
+    </div>
+  </section>
+
+  <!-- ================= CONTACT / FOOTER ================= -->
+  <footer class="footer" id="contact">
+    <div class="container footer__grid">
+      <div>
+        <a class="nav__brand" href="#top">
+          <span class="nav__logo">
+            <svg viewBox="3 1 18 22" aria-hidden="true">
+              <path fill="#f5f5f5" d="M12 2C9 7 4 9 4 14c0 2.5 2 4.5 4.5 4.5 1 0 1.9-.3 2.6-.9-.3 1.4-1 2.6-2.1 3.4h6c-1.1-.8-1.8-2-2.1-3.4.7.6 1.6.9 2.6.9C18 18.5 20 16.5 20 14c0-5-5-7-8-12z"/>
+              <text x="12" y="16.4" text-anchor="middle" font-family="'Bebas Neue',sans-serif" font-size="8.6" letter-spacing="0.2" fill="#0b0e13">AP</text>
+            </svg>
+          </span>
+          <span class="nav__name">AP&nbsp;Academy<small>Ace Performance</small></span>
+        </a>
+        <p class="footer__blurb">Private baseball training and player development in Oklahoma City with Elijah Alexander. Every session has a plan. Every player leaves better.</p>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul class="footer__list">
+          <li><a href="tel:+14058194401">(405) 819-4401</a></li>
+          <li><a href="mailto:Apacademybsb@gmail.com">Apacademybsb@gmail.com</a></li>
+          <li>Oklahoma City, Oklahoma</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Follow</h4>
+        <ul class="footer__list">
+          <li><a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a></li>
+          <li><a href="https://instagram.com/elijahalexanderrrr" target="_blank" rel="noopener">@elijahalexanderrrr</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Train</h4>
+        <ul class="footer__list">
+          <li><a href="#programs">Programs &amp; Pricing</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href="https://www.apacademybsb.com" target="_blank" rel="noopener">Book a Lesson</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year"></span> AP Academy · Ace Performance. All rights reserved.</p>
+      <p>🔒 Secure payment by Stripe — your card is never stored by us.</p>
+    </div>
+  </footer>
+
+  <script>
+// Signal that JS is running (enables the scroll-reveal animation)
+document.documentElement.classList.add("js");
+
+// Mobile menu toggle
+const burger = document.getElementById("navBurger");
+const links = document.getElementById("navLinks");
+
+burger.addEventListener("click", () => {
+  const open = links.classList.toggle("is-open");
+  burger.setAttribute("aria-expanded", open);
+});
+
+// Close the mobile menu after tapping a link
+links.querySelectorAll("a").forEach((a) =>
+  a.addEventListener("click", () => links.classList.remove("is-open"))
+);
+
+// Fade-in sections as they scroll into view
+const observer = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      }
+    });
+  },
+  { threshold: 0.12 }
+);
+document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
+
+// Current year in the footer
+document.getElementById("year").textContent = new Date().getFullYear();
+
+</script>
+</body>
+</html>
