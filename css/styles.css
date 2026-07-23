@@ -246,14 +246,13 @@ h3 { font-size: 1.6rem; }
 }
 .photo-placeholder svg { width: 72px; height: 72px; opacity: 0.5; }
 .photo-placeholder small { font-weight: 400; opacity: 0.7; }
-.coach__card { padding: 0 1.5rem; }
-.coach__card svg {
+.coach__photo img {
+  border-radius: var(--radius);
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
   width: 100%;
-  height: auto;
-  display: block;
-  filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 30px rgba(245, 245, 245, 0.08));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
-.coach__photo img { border-radius: var(--radius); aspect-ratio: 4 / 5; object-fit: cover; }
 .coach__badge {
   position: absolute;
   bottom: -14px;
