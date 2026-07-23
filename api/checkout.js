@@ -69,7 +69,9 @@ export default async function handler(req, res) {
   }
 
   const origin = `https://${req.headers.host}`;
-  const sessionLabel = sessions.map((s) => `${s.date} at ${s.time}`).join(", ") + ` — ${player}`;
+  const ADDRESS = "3701 S Bryant Ave, Del City, OK 73115";
+  const sessionLabel =
+    sessions.map((s) => `${s.date} at ${s.time}`).join(", ") + ` — ${player} · Location: ${ADDRESS}`;
 
   const params = new URLSearchParams();
   params.append("mode", session.mode);
@@ -83,6 +85,8 @@ export default async function handler(req, res) {
   if (session.mode === "subscription") {
     params.append("line_items[0][price_data][recurring][interval]", "month");
   }
+  // Show the training location right on the Stripe checkout page
+  params.append("custom_text[submit][message]", `Training location: ${ADDRESS}. See you there!`);
 
   // Metadata on the payment/subscription itself, so /api/slots can find
   // paid bookings via Stripe Search and block those times.

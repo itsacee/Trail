@@ -262,7 +262,8 @@ if (form) {
 
   // Success message after returning from Stripe
   if (new URLSearchParams(window.location.search).get("booked") === "1") {
-    statusEl.textContent = "✅ You're booked! Check your email for the Stripe receipt. See you at training!";
+    statusEl.innerHTML =
+      '✅ You\'re booked! Training is at <a href="https://maps.google.com/?q=3701+S+Bryant+Ave,+Del+City,+OK+73115" target="_blank" rel="noopener">3701 S Bryant Ave, Del City, OK 73115</a>. Check your email for your receipt — see you there!';
     statusEl.classList.add("booking__status--ok");
     document.getElementById("book").scrollIntoView();
   }
