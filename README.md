@@ -10,19 +10,15 @@ Open `index.html` in your browser, or in Cursor right-click it and choose
 
 ## Make it yours
 
-The site is fully written and ready to view — just tell the Cursor agent what
-to change and it will update the code for you. Info still needed from you:
+The site is fully written with Elijah's real info (Connors State stats,
+pricing, contact, Instagram). Just tell the Cursor agent what to change and
+it will update the code for you. Still needed:
 
-1. **Your real name** (currently "Coach Ace") and any bio details you want
-   (where you played, how long you've coached).
-2. **A photo of you** for the "Meet the Coach" section.
-3. **Real testimonials** — the three quotes on the site are samples. Text a
+1. **A photo of Elijah** for the "Meet the Coach" section — save it as
+   `img/coach.jpg` in this project, then ask the agent to swap it in.
+2. **Real testimonials** — the three quotes on the site are samples. Text a
    few parents you've trained and ask for one sentence each. Replace before
    going live.
-4. **Real membership price** (currently shown as $240/month for 4 lessons)
-   and small group price ($45/player) — confirm or correct.
-5. **Contact info** — phone, email, city, and Instagram/social handles.
-6. **Hero stats** — years coaching and players trained (currently 10+/200+).
 
 Want different colors? Change `--accent` at the top of `css/styles.css`.
 
