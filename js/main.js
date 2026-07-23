@@ -43,7 +43,7 @@ const OPEN_HOURS = {
 
 const PRICES = {
   single: { label: () => "Pay $70 — Book Lesson" },
-  group: { label: (n) => `Pay $${50 * n} — Book Group (${n} players)` },
+  group: { label: (n) => `Pay $${40 * n} — Book Group (${n} players)` },
   membership: { label: () => "Start Membership — $240/mo" },
 };
 

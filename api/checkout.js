@@ -4,7 +4,7 @@
 
 const SESSION_TYPES = {
   single: { amount: 7000, label: "Private Lesson (1 hour)", mode: "payment" },
-  group: { amount: 5000, label: "Group Session (1 hour, per player)", mode: "payment" },
+  group: { amount: 4000, label: "Group Session (1 hour, per player)", mode: "payment" },
   membership: { amount: 24000, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
 };
 
