@@ -87,6 +87,8 @@ export default async function handler(req, res) {
   // Metadata on the payment/subscription itself, so /api/slots can find
   // paid bookings via Stripe Search and block those times.
   const metaTarget = session.mode === "subscription" ? "subscription_data" : "payment_intent_data";
+  // Readable description so Stripe emails/dashboard show the booking at a glance
+  params.append(`${metaTarget}[description]`, `${session.label}: ${sessionLabel}${phone ? ` (${phone})` : ""}`);
   const meta = [
     ["player", player],
     ["parent", parent || ""],

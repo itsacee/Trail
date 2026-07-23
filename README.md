@@ -45,6 +45,19 @@ already paid for are grayed out automatically — `api/slots.js` reads paid
 bookings straight from Stripe, and `api/checkout.js` re-checks the slot right
 before payment so two families can't book the same time.
 
+## Coach schedule page
+
+`/coach.html` is a private page showing all upcoming lessons (player, parent,
+phone, time) plus a lessons-this-week counter. It reads bookings straight
+from Stripe via `api/schedule.js`. Setup:
+
+1. In Vercel: Settings → Environment Variables → add `COACH_PASS` with a
+   passcode you make up, then redeploy
+2. Open `apacademybsb.com/coach.html`, enter the passcode once — it's
+   remembered on that device
+
+The page is not linked from the public site and is marked noindex.
+
 ## Put it online (free)
 
 Easiest path with this repo: **GitHub Pages**

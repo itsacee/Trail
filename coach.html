@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Coach Schedule | AP Academy</title>
+  <link rel="icon" type="image/png" href="img/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #050505; --surface: #111114; --line: #26262b;
+      --text: #f5f6f8; --dim: #a8adb6; --btn: #8fd6ff; --on-btn: #06121c;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.6; -webkit-font-smoothing: antialiased;
+      padding: 2rem 1rem 4rem;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 2rem; }
+    header img { height: 46px; border-radius: 8px; }
+    header h1 { font-family: "Bebas Neue", sans-serif; font-weight: 400; font-size: 1.9rem; letter-spacing: 0.04em; }
+    header small { display: block; color: var(--dim); font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.6rem; margin-bottom: 1.2rem; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
+    .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.2rem; text-align: center; }
+    .stat b { display: block; font-family: "Bebas Neue", sans-serif; font-size: 2.4rem; color: var(--btn); line-height: 1.1; }
+    .stat span { color: var(--dim); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
+    .day-head { font-family: "Bebas Neue", sans-serif; font-size: 1.35rem; letter-spacing: 0.04em; margin: 1.6rem 0 0.6rem; }
+    .day-head.today { color: var(--btn); }
+    .lesson { display: flex; align-items: center; gap: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem 1.1rem; margin-bottom: 0.5rem; }
+    .lesson time { font-weight: 800; min-width: 76px; }
+    .lesson .who { flex: 1; min-width: 0; }
+    .lesson .who b { display: block; }
+    .lesson .who small { color: var(--dim); }
+    .tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
+    .tag.membership { border-color: var(--btn); color: var(--btn); }
+    .lesson a { color: var(--btn); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
+    input {
+      width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+      color: var(--text); padding: 0.9rem 1rem; font-size: 1rem; font-family: inherit; margin-bottom: 0.9rem;
+    }
+    input:focus { outline: none; border-color: var(--btn); }
+    button {
+      width: 100%; background: var(--btn); color: var(--on-btn); border: none; border-radius: 999px;
+      padding: 0.9rem; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer;
+    }
+    .muted { color: var(--dim); font-size: 0.9rem; }
+    .error { color: #ff8d7e; font-weight: 600; margin-top: 0.6rem; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+    .topbar a { color: var(--dim); font-size: 0.85rem; cursor: pointer; text-decoration: underline; }
+    .empty { text-align: center; color: var(--dim); padding: 2rem 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <img src="img/logo-mark.png" alt="AP Academy" />
+      <h1>Coach Schedule<small>AP Academy</small></h1>
+    </header>
+
+    <div id="login" class="card" hidden>
+      <p class="muted" style="margin-bottom:0.9rem">Enter your coach passcode to see your schedule.</p>
+      <input type="password" id="passInput" placeholder="Passcode" autocomplete="current-password" />
+      <button id="passBtn">View My Schedule</button>
+      <p class="error" id="loginError"></p>
+    </div>
+
+    <div id="app" hidden>
+      <div class="topbar">
+        <span class="muted" id="updated"></span>
+        <span><a id="refresh">Refresh</a> &nbsp;·&nbsp; <a id="logout">Log out</a></span>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="weekCount">–</b><span>Lessons this week</span></div>
+        <div class="stat"><b id="upcomingCount">–</b><span>Upcoming total</span></div>
+      </div>
+      <div id="schedule"></div>
+    </div>
+  </div>
+
+  <script>
+    const login = document.getElementById("login");
+    const app = document.getElementById("app");
+    const loginError = document.getElementById("loginError");
+
+    const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const TYPE_LABEL = { single: "Private", group: "Group ×2", membership: "Membership" };
+
+    function toMinutes(t) {
+      const m = /(\d{1,2}):(\d{2}) (AM|PM)/.exec(t);
+      if (!m) return 0;
+      let h = parseInt(m[1], 10) % 12;
+      if (m[3] === "PM") h += 12;
+      return h * 60 + parseInt(m[2], 10);
+    }
+
+    function todayISO() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    // Monday–Sunday week containing today
+    function weekRange() {
+      const d = new Date();
+      const day = (d.getDay() + 6) % 7; // 0 = Monday
+      const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+      const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+      const iso = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+      return [iso(mon), iso(sun)];
+    }
+
+    async function load(pass) {
+      loginError.textContent = "";
+      const res = await fetch(`/api/schedule?key=${encodeURIComponent(pass)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        localStorage.removeItem("coachPass");
+        login.hidden = false;
+        app.hidden = true;
+        loginError.textContent = data.error || "Couldn't load the schedule.";
+        return;
+      }
+      localStorage.setItem("coachPass", pass);
+      login.hidden = true;
+      app.hidden = false;
+      render(data.sessions || []);
+    }
+
+    function render(sessions) {
+      const today = todayISO();
+      const upcoming = sessions
+        .filter((s) => s.date >= today)
+        .sort((a, b) => (a.date === b.date ? toMinutes(a.time) - toMinutes(b.time) : a.date < b.date ? -1 : 1));
+
+      const [mon, sun] = weekRange();
+      const weekCount = sessions.filter((s) => s.date >= mon && s.date <= sun).length;
+      document.getElementById("weekCount").textContent = weekCount;
+      document.getElementById("upcomingCount").textContent = upcoming.length;
+      document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+      const wrap = document.getElementById("schedule");
+      wrap.innerHTML = "";
+      if (!upcoming.length) {
+        wrap.innerHTML = '<p class="empty">No upcoming lessons booked yet. They\'ll show up here the moment a parent pays.</p>';
+        return;
+      }
+
+      let currentDay = "";
+      upcoming.forEach((s) => {
+        if (s.date !== currentDay) {
+          currentDay = s.date;
+          const d = new Date(s.date + "T12:00:00");
+          const h = document.createElement("h2");
+          h.className = "day-head" + (s.date === today ? " today" : "");
+          h.textContent = (s.date === today ? "Today — " : "") + `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+          wrap.appendChild(h);
+        }
+        const row = document.createElement("div");
+        row.className = "lesson";
+        const phone = s.phone ? `<a href="tel:${s.phone.replace(/[^\d+]/g, "")}">${s.phone}</a>` : "";
+        row.innerHTML = `
+          <time>${s.time}</time>
+          <div class="who"><b>${s.player || "—"}</b><small>${s.parent ? "Parent: " + s.parent : ""}</small></div>
+          ${phone}
+          <span class="tag ${s.type}">${TYPE_LABEL[s.type] || s.type || ""}</span>`;
+        wrap.appendChild(row);
+      });
+    }
+
+    document.getElementById("passBtn").addEventListener("click", () => {
+      const v = document.getElementById("passInput").value.trim();
+      if (v) load(v);
+    });
+    document.getElementById("passInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("passBtn").click();
+    });
+    document.getElementById("refresh").addEventListener("click", () => {
+      const p = localStorage.getItem("coachPass");
+      if (p) load(p);
+    });
+    document.getElementById("logout").addEventListener("click", () => {
+      localStorage.removeItem("coachPass");
+      app.hidden = true;
+      login.hidden = false;
+    });
+
+    const saved = localStorage.getItem("coachPass");
+    if (saved) load(saved);
+    else login.hidden = false;
+  </script>
+</body>
+</html>
