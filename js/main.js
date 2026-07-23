@@ -34,12 +34,11 @@ document.getElementById("year").textContent = new Date().getFullYear();
 
 /* ---------- Booking widget ---------- */
 
-// Open training hours. Adjust to your real availability:
-// weekday = Monday–Friday, weekend = Saturday–Sunday. 24h format.
-const OPEN_HOURS = {
-  weekday: ["16:00", "17:00", "18:00", "19:00", "20:00"],
-  weekend: ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"],
-};
+// Availability. Days: 1=Monday ... 4=Thursday. Times are session START
+// times in 24h format — last start is 4 PM so lessons end by 5 PM.
+const OPEN_DAYS = [1, 2, 3, 4];
+const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
+const DAYS_AHEAD = 28; // how many days out parents can book
 
 const PRICES = {
   single: { label: () => "Pay $70 — Book Lesson" },
@@ -48,31 +47,81 @@ const PRICES = {
 };
 
 const form = document.getElementById("bookingForm");
-const dateInput = document.getElementById("bkDate");
-const timeSelect = document.getElementById("bkTime");
+const dayChips = document.getElementById("dayChips");
+const timeChips = document.getElementById("timeChips");
 const playersField = document.getElementById("playersField");
 const playersSelect = document.getElementById("bkPlayers");
 const submitBtn = document.getElementById("bookingSubmit");
 const statusEl = document.getElementById("bookingStatus");
 
-function fmt(t) {
+let selectedDate = "";
+let selectedTime = "";
+
+function fmtTime(t) {
   const [h, m] = t.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
   const hr = h % 12 === 0 ? 12 : h % 12;
   return `${hr}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-function refreshTimes() {
-  const v = dateInput.value;
-  timeSelect.innerHTML = "";
-  if (!v) {
-    timeSelect.append(new Option("Pick a date first", ""));
-    return;
+function isoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function chip(label, sub) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "booking__chip";
+  b.innerHTML = sub ? `<strong>${label}</strong><span>${sub}</span>` : `<strong>${label}</strong>`;
+  return b;
+}
+
+function renderDays() {
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const now = new Date();
+  for (let i = 1; i <= DAYS_AHEAD; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    if (!OPEN_DAYS.includes(d.getDay())) continue;
+    const value = isoDate(d);
+    const c = chip(dayNames[d.getDay()], `${monthNames[d.getMonth()]} ${d.getDate()}`);
+    c.addEventListener("click", () => {
+      selectedDate = value;
+      selectedTime = "";
+      dayChips.querySelectorAll(".booking__chip").forEach((x) => x.classList.remove("is-selected"));
+      c.classList.add("is-selected");
+      loadTimes(value);
+    });
+    dayChips.appendChild(c);
   }
-  const day = new Date(v + "T12:00:00").getDay();
-  const slots = day === 0 || day === 6 ? OPEN_HOURS.weekend : OPEN_HOURS.weekday;
-  timeSelect.append(new Option("Choose a time", ""));
-  slots.forEach((t) => timeSelect.append(new Option(fmt(t), fmt(t))));
+}
+
+async function loadTimes(date) {
+  timeChips.innerHTML = '<p class="booking__hint">Checking open times…</p>';
+  let booked = [];
+  try {
+    const res = await fetch(`/api/slots?date=${date}`);
+    if (res.ok) booked = (await res.json()).booked || [];
+  } catch {
+    // Static preview or offline — show all times as open
+  }
+  timeChips.innerHTML = "";
+  START_TIMES.forEach((t) => {
+    const label = fmtTime(t);
+    const c = chip(label);
+    if (booked.includes(label)) {
+      c.classList.add("is-booked");
+      c.disabled = true;
+      c.innerHTML = `<strong>${label}</strong><span>Booked</span>`;
+    } else {
+      c.addEventListener("click", () => {
+        selectedTime = label;
+        timeChips.querySelectorAll(".booking__chip").forEach((x) => x.classList.remove("is-selected"));
+        c.classList.add("is-selected");
+      });
+    }
+    timeChips.appendChild(c);
+  });
 }
 
 function refreshSubmit() {
@@ -83,24 +132,17 @@ function refreshSubmit() {
 }
 
 if (form) {
-  // Bookable window: today through 60 days out
-  const today = new Date();
-  const max = new Date(today.getTime() + 60 * 86400000);
-  const iso = (d) => d.toISOString().slice(0, 10);
-  dateInput.min = iso(today);
-  dateInput.max = iso(max);
-
-  dateInput.addEventListener("change", refreshTimes);
+  renderDays();
   playersSelect.addEventListener("change", refreshSubmit);
   form.querySelectorAll('input[name="type"]').forEach((r) => r.addEventListener("change", refreshSubmit));
-  refreshTimes();
   refreshSubmit();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     statusEl.textContent = "";
-    if (!dateInput.value || !timeSelect.value || !form.elements.player.value.trim()) {
-      statusEl.textContent = "Please pick a date, a time, and enter the player's name.";
+    statusEl.classList.remove("booking__status--ok");
+    if (!selectedDate || !selectedTime || !form.elements.player.value.trim()) {
+      statusEl.textContent = "Please pick a day, a time, and enter the player's name.";
       return;
     }
     submitBtn.disabled = true;
@@ -111,8 +153,8 @@ if (form) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: form.elements.type.value,
-          date: dateInput.value,
-          time: timeSelect.value,
+          date: selectedDate,
+          time: selectedTime,
           player: form.elements.player.value.trim(),
           parent: form.elements.parent.value.trim(),
           phone: form.elements.phone.value.trim(),
@@ -125,6 +167,7 @@ if (form) {
         return;
       }
       statusEl.textContent = data.error || "Online booking isn't live yet — call or text (405) 819-4401 to book.";
+      if (res.status === 409) loadTimes(selectedDate); // slot just taken — refresh times
     } catch {
       statusEl.textContent = "Online booking isn't live yet — call or text (405) 819-4401 to book.";
     }

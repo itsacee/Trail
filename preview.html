@@ -419,41 +419,103 @@ h3 { font-size: 1.6rem; }
 
 /* ---------- booking ---------- */
 .booking {
-  margin-top: 2.6rem;
+  margin-top: 2.8rem;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 2rem 1.8rem;
+  padding: 2.6rem 2.4rem;
+}
+.booking__step { margin-bottom: 2.6rem; }
+.booking__step-title {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  font-weight: 800;
+  margin-bottom: 1.1rem;
+}
+.booking__step-num {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  display: grid;
+  place-items: center;
+  font-size: 0.95rem;
+}
+.booking__step-hint {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin-left: auto;
 }
 .booking__types {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.8rem;
-  margin-bottom: 1.6rem;
+  gap: 1rem;
 }
 .booking__type input { position: absolute; opacity: 0; }
 .booking__type-card {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.9rem 1rem;
+  gap: 0.3rem;
+  padding: 1.2rem 1.1rem;
   border: 2px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
   height: 100%;
 }
-.booking__type-card strong { font-size: 0.95rem; }
-.booking__type-card em { font-style: normal; color: var(--text-dim); font-size: 0.82rem; }
+.booking__type-card strong { font-size: 1rem; }
+.booking__type-card em { font-style: normal; color: var(--accent); font-size: 0.88rem; font-weight: 700; }
+.booking__type-card small { color: var(--text-dim); font-size: 0.8rem; }
 .booking__type input:checked + .booking__type-card {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
+.booking__type input:focus-visible + .booking__type-card { outline: 2px solid var(--accent); outline-offset: 2px; }
+.booking__field--players { margin-top: 1.1rem; max-width: 260px; }
+.booking__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+.booking__chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 86px;
+  padding: 0.7rem 1rem;
+  background: var(--bg-alt);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.booking__chip:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.booking__chip strong { font-weight: 700; }
+.booking__chip span { font-size: 0.75rem; color: var(--text-dim); }
+.booking__chip.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.booking__chip.is-booked {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.booking__chip.is-booked strong { text-decoration: line-through; }
+.booking__hint { color: var(--text-dim); font-size: 0.92rem; }
 .booking__grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1rem 1.2rem;
-  margin-bottom: 1.6rem;
+  gap: 1.2rem 1.4rem;
 }
 .booking__field { display: flex; flex-direction: column; gap: 0.35rem; }
 .booking__field label {
@@ -469,9 +531,9 @@ h3 { font-size: 1.6rem; }
   border: 1px solid var(--line);
   border-radius: 10px;
   color: var(--text);
-  padding: 0.75rem 0.9rem;
+  padding: 0.9rem 1rem;
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: 1rem;
   color-scheme: dark;
 }
 .booking__field input:focus,
@@ -608,6 +670,10 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
   .grid--4 { grid-template-columns: 1fr; }
   .footer__grid { grid-template-columns: 1fr; gap: 2rem; }
   .section { padding: 4rem 0; }
+  .booking { padding: 1.8rem 1.2rem; }
+  .booking__types { grid-template-columns: 1fr; }
+  .booking__grid { grid-template-columns: 1fr; }
+  .booking__chip { min-width: 74px; padding: 0.6rem 0.8rem; }
 }
 
 </style>
@@ -815,60 +881,71 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
       <p class="section__sub center reveal">Choose your session, pick an open day and time, and pay — the spot is yours.</p>
 
       <form class="booking reveal" id="bookingForm">
-        <div class="booking__types" role="radiogroup" aria-label="Session type">
-          <label class="booking__type">
-            <input type="radio" name="type" value="single" checked />
-            <span class="booking__type-card">
-              <strong>Single Lesson</strong>
-              <em>$70 · 1 hour</em>
-            </span>
-          </label>
-          <label class="booking__type">
-            <input type="radio" name="type" value="group" />
-            <span class="booking__type-card">
-              <strong>Group Session</strong>
-              <em>$40 / player · 1 hour</em>
-            </span>
-          </label>
-          <label class="booking__type">
-            <input type="radio" name="type" value="membership" />
-            <span class="booking__type-card">
-              <strong>Membership</strong>
-              <em>$240 / month · 4 lessons</em>
-            </span>
-          </label>
-        </div>
-
-        <div class="booking__grid">
-          <div class="booking__field">
-            <label for="bkDate">Choose a date</label>
-            <input type="date" id="bkDate" name="date" required />
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Choose your session</h3>
+          <div class="booking__types" role="radiogroup" aria-label="Session type">
+            <label class="booking__type">
+              <input type="radio" name="type" value="single" checked />
+              <span class="booking__type-card">
+                <strong>Single Lesson</strong>
+                <em>$70 &middot; 1 hour</em>
+                <small>One-on-one private training</small>
+              </span>
+            </label>
+            <label class="booking__type">
+              <input type="radio" name="type" value="group" />
+              <span class="booking__type-card">
+                <strong>Group Session</strong>
+                <em>$40 / player &middot; 1 hour</em>
+                <small>Bring a teammate or friend</small>
+              </span>
+            </label>
+            <label class="booking__type">
+              <input type="radio" name="type" value="membership" />
+              <span class="booking__type-card">
+                <strong>Membership</strong>
+                <em>$240 / month &middot; 4 lessons</em>
+                <small>Best value &mdash; you pick your days</small>
+              </span>
+            </label>
           </div>
-          <div class="booking__field">
-            <label for="bkTime">Choose a time</label>
-            <select id="bkTime" name="time" required>
-              <option value="">Pick a date first</option>
-            </select>
-          </div>
-          <div class="booking__field" id="playersField" hidden>
-            <label for="bkPlayers">Number of players</label>
+          <div class="booking__field booking__field--players" id="playersField" hidden>
+            <label for="bkPlayers">How many players?</label>
             <select id="bkPlayers" name="players">
               <option value="2">2 players</option>
               <option value="3">3 players</option>
               <option value="4">4 players</option>
             </select>
           </div>
-          <div class="booking__field">
-            <label for="bkPlayer">Player's name *</label>
-            <input type="text" id="bkPlayer" name="player" placeholder="Player's name" required />
+        </div>
+
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Pick a day <span class="booking__step-hint">Monday&ndash;Thursday</span></h3>
+          <div class="booking__chips" id="dayChips"></div>
+        </div>
+
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">3</span> Pick a time <span class="booking__step-hint">9 AM &ndash; 5 PM</span></h3>
+          <div class="booking__chips" id="timeChips">
+            <p class="booking__hint">Pick a day first and open times will show up here.</p>
           </div>
-          <div class="booking__field">
-            <label for="bkParent">Parent name</label>
-            <input type="text" id="bkParent" name="parent" placeholder="Parent name" />
-          </div>
-          <div class="booking__field">
-            <label for="bkPhone">Phone</label>
-            <input type="tel" id="bkPhone" name="phone" placeholder="(405) 555-0123" />
+        </div>
+
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">4</span> Who's training?</h3>
+          <div class="booking__grid">
+            <div class="booking__field">
+              <label for="bkPlayer">Player's name *</label>
+              <input type="text" id="bkPlayer" name="player" placeholder="Player's name" required />
+            </div>
+            <div class="booking__field">
+              <label for="bkParent">Parent name</label>
+              <input type="text" id="bkParent" name="parent" placeholder="Parent name" />
+            </div>
+            <div class="booking__field">
+              <label for="bkPhone">Phone</label>
+              <input type="tel" id="bkPhone" name="phone" placeholder="(405) 555-0123" />
+            </div>
           </div>
         </div>
 
@@ -1032,12 +1109,11 @@ document.getElementById("year").textContent = new Date().getFullYear();
 
 /* ---------- Booking widget ---------- */
 
-// Open training hours. Adjust to your real availability:
-// weekday = Monday–Friday, weekend = Saturday–Sunday. 24h format.
-const OPEN_HOURS = {
-  weekday: ["16:00", "17:00", "18:00", "19:00", "20:00"],
-  weekend: ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"],
-};
+// Availability. Days: 1=Monday ... 4=Thursday. Times are session START
+// times in 24h format — last start is 4 PM so lessons end by 5 PM.
+const OPEN_DAYS = [1, 2, 3, 4];
+const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
+const DAYS_AHEAD = 28; // how many days out parents can book
 
 const PRICES = {
   single: { label: () => "Pay $70 — Book Lesson" },
@@ -1046,31 +1122,81 @@ const PRICES = {
 };
 
 const form = document.getElementById("bookingForm");
-const dateInput = document.getElementById("bkDate");
-const timeSelect = document.getElementById("bkTime");
+const dayChips = document.getElementById("dayChips");
+const timeChips = document.getElementById("timeChips");
 const playersField = document.getElementById("playersField");
 const playersSelect = document.getElementById("bkPlayers");
 const submitBtn = document.getElementById("bookingSubmit");
 const statusEl = document.getElementById("bookingStatus");
 
-function fmt(t) {
+let selectedDate = "";
+let selectedTime = "";
+
+function fmtTime(t) {
   const [h, m] = t.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
   const hr = h % 12 === 0 ? 12 : h % 12;
   return `${hr}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-function refreshTimes() {
-  const v = dateInput.value;
-  timeSelect.innerHTML = "";
-  if (!v) {
-    timeSelect.append(new Option("Pick a date first", ""));
-    return;
+function isoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function chip(label, sub) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "booking__chip";
+  b.innerHTML = sub ? `<strong>${label}</strong><span>${sub}</span>` : `<strong>${label}</strong>`;
+  return b;
+}
+
+function renderDays() {
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const now = new Date();
+  for (let i = 1; i <= DAYS_AHEAD; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    if (!OPEN_DAYS.includes(d.getDay())) continue;
+    const value = isoDate(d);
+    const c = chip(dayNames[d.getDay()], `${monthNames[d.getMonth()]} ${d.getDate()}`);
+    c.addEventListener("click", () => {
+      selectedDate = value;
+      selectedTime = "";
+      dayChips.querySelectorAll(".booking__chip").forEach((x) => x.classList.remove("is-selected"));
+      c.classList.add("is-selected");
+      loadTimes(value);
+    });
+    dayChips.appendChild(c);
   }
-  const day = new Date(v + "T12:00:00").getDay();
-  const slots = day === 0 || day === 6 ? OPEN_HOURS.weekend : OPEN_HOURS.weekday;
-  timeSelect.append(new Option("Choose a time", ""));
-  slots.forEach((t) => timeSelect.append(new Option(fmt(t), fmt(t))));
+}
+
+async function loadTimes(date) {
+  timeChips.innerHTML = '<p class="booking__hint">Checking open times…</p>';
+  let booked = [];
+  try {
+    const res = await fetch(`/api/slots?date=${date}`);
+    if (res.ok) booked = (await res.json()).booked || [];
+  } catch {
+    // Static preview or offline — show all times as open
+  }
+  timeChips.innerHTML = "";
+  START_TIMES.forEach((t) => {
+    const label = fmtTime(t);
+    const c = chip(label);
+    if (booked.includes(label)) {
+      c.classList.add("is-booked");
+      c.disabled = true;
+      c.innerHTML = `<strong>${label}</strong><span>Booked</span>`;
+    } else {
+      c.addEventListener("click", () => {
+        selectedTime = label;
+        timeChips.querySelectorAll(".booking__chip").forEach((x) => x.classList.remove("is-selected"));
+        c.classList.add("is-selected");
+      });
+    }
+    timeChips.appendChild(c);
+  });
 }
 
 function refreshSubmit() {
@@ -1081,24 +1207,17 @@ function refreshSubmit() {
 }
 
 if (form) {
-  // Bookable window: today through 60 days out
-  const today = new Date();
-  const max = new Date(today.getTime() + 60 * 86400000);
-  const iso = (d) => d.toISOString().slice(0, 10);
-  dateInput.min = iso(today);
-  dateInput.max = iso(max);
-
-  dateInput.addEventListener("change", refreshTimes);
+  renderDays();
   playersSelect.addEventListener("change", refreshSubmit);
   form.querySelectorAll('input[name="type"]').forEach((r) => r.addEventListener("change", refreshSubmit));
-  refreshTimes();
   refreshSubmit();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     statusEl.textContent = "";
-    if (!dateInput.value || !timeSelect.value || !form.elements.player.value.trim()) {
-      statusEl.textContent = "Please pick a date, a time, and enter the player's name.";
+    statusEl.classList.remove("booking__status--ok");
+    if (!selectedDate || !selectedTime || !form.elements.player.value.trim()) {
+      statusEl.textContent = "Please pick a day, a time, and enter the player's name.";
       return;
     }
     submitBtn.disabled = true;
@@ -1109,8 +1228,8 @@ if (form) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: form.elements.type.value,
-          date: dateInput.value,
-          time: timeSelect.value,
+          date: selectedDate,
+          time: selectedTime,
           player: form.elements.player.value.trim(),
           parent: form.elements.parent.value.trim(),
           phone: form.elements.phone.value.trim(),
@@ -1123,6 +1242,7 @@ if (form) {
         return;
       }
       statusEl.textContent = data.error || "Online booking isn't live yet — call or text (405) 819-4401 to book.";
+      if (res.status === 409) loadTimes(selectedDate); // slot just taken — refresh times
     } catch {
       statusEl.textContent = "Online booking isn't live yet — call or text (405) 819-4401 to book.";
     }

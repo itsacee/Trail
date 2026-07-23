@@ -2,6 +2,8 @@
 // Runs as a Vercel serverless function. Requires the STRIPE_SECRET_KEY
 // environment variable to be set in the Vercel project settings.
 
+import { bookedTimes } from "./slots.js";
+
 const SESSION_TYPES = {
   single: { amount: 7000, label: "Private Lesson (1 hour)", mode: "payment" },
   group: { amount: 4000, label: "Group Session (1 hour, per player)", mode: "payment" },
@@ -27,6 +29,18 @@ export default async function handler(req, res) {
     return;
   }
 
+  // Last line of defense against double-booking: re-check the slot
+  // right before creating the payment.
+  try {
+    const taken = await bookedTimes(key, date);
+    if (taken.includes(time)) {
+      res.status(409).json({ error: "Sorry — that time was just booked. Please pick another time." });
+      return;
+    }
+  } catch {
+    // If the check fails, continue; the owner reconciles via Stripe dashboard.
+  }
+
   const quantity = type === "group" ? Math.min(Math.max(parseInt(players, 10) || 2, 2), 4) : 1;
   const origin = `https://${req.headers.host}`;
   const sessionLabel = `${date} at ${time} — ${player}`;
@@ -43,12 +57,20 @@ export default async function handler(req, res) {
   if (session.mode === "subscription") {
     params.append("line_items[0][price_data][recurring][interval]", "month");
   }
-  params.append("metadata[player]", player);
-  params.append("metadata[parent]", parent || "");
-  params.append("metadata[phone]", phone || "");
-  params.append("metadata[date]", date);
-  params.append("metadata[time]", time);
-  params.append("metadata[type]", type);
+  // Metadata on the payment/subscription itself, so /api/slots can find
+  // paid bookings via Stripe Search and block those times.
+  const metaTarget = session.mode === "subscription" ? "subscription_data" : "payment_intent_data";
+  for (const [k, v] of [
+    ["player", player],
+    ["parent", parent || ""],
+    ["phone", phone || ""],
+    ["date", date],
+    ["time", time],
+    ["type", type],
+  ]) {
+    params.append(`metadata[${k}]`, v);
+    params.append(`${metaTarget}[metadata][${k}]`, v);
+  }
 
   const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",

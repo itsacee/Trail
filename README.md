@@ -39,9 +39,11 @@ automatically when this repo is deployed on Vercel. **One-time setup:**
 Until that key is set (and on non-Vercel previews), the booking form shows a
 friendly "call or text to book" message instead of failing silently.
 
-Training hours shown in the time picker are set at the top of `js/main.js`
-(`OPEN_HOURS`) — weekdays 4–8pm, weekends 9am–5pm by default. Adjust to your
-real availability.
+Availability is set at the top of `js/main.js`: `OPEN_DAYS` (Monday–Thursday)
+and `START_TIMES` (9am–4pm starts, so lessons end by 5pm). Times that are
+already paid for are grayed out automatically — `api/slots.js` reads paid
+bookings straight from Stripe, and `api/checkout.js` re-checks the slot right
+before payment so two families can't book the same time.
 
 ## Put it online (free)
 
