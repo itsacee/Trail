@@ -491,6 +491,39 @@ h3 { font-size: 1.6rem; }
 }
 .booking__chip.is-booked strong { text-decoration: line-through; }
 .booking__hint { color: var(--text-dim); font-size: 0.92rem; }
+.booking__chip.is-marked { border-color: var(--btn); }
+.booking__picked {
+  margin-top: 1.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.booking__picked-title {
+  width: 100%;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.booking__picked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  background: var(--accent-soft);
+  border: 2px solid var(--btn);
+  border-radius: 999px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.booking__picked-chip span { color: var(--btn); font-weight: 800; }
+.booking__picked-chip:hover { border-color: #ff8d7e; }
+.booking__picked-chip:hover span { color: #ff8d7e; }
 .booking__grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -521,6 +554,12 @@ h3 { font-size: 1.6rem; }
   border-color: var(--accent);
 }
 .booking__submit { width: 100%; }
+.booking__submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 .booking__note {
   text-align: center;
   color: var(--text-dim);

@@ -41,26 +41,35 @@ const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:0
 const DAYS_AHEAD = 28; // how many days out parents can book
 
 const SESSIONS = {
-  single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson" },
-  group: { name: "Group Session", price: "$35 / player · 2 players · 1 hour", label: "Pay $70 — Book Group (2 players)" },
-  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo" },
+  single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1 },
+  group: { name: "Group Session", price: "$35 / player · 2 players · 1 hour", label: "Pay $70 — Book Group (2 players)", picks: 1 },
+  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo", picks: 4 },
 };
 
 const form = document.getElementById("bookingForm");
 const dayChips = document.getElementById("dayChips");
 const timeChips = document.getElementById("timeChips");
+const pickedList = document.getElementById("pickedList");
 const submitBtn = document.getElementById("bookingSubmit");
 const statusEl = document.getElementById("bookingStatus");
 
 let selectedType = "single";
 let selectedDate = "";
-let selectedTime = "";
+let picked = []; // chosen sessions: [{ date: "2026-07-27", time: "9:00 AM" }]
+
+function maxPicks() {
+  return SESSIONS[selectedType].picks;
+}
 
 function setType(type) {
-  if (!SESSIONS[type]) return;
+  if (!SESSIONS[type] || type === selectedType) return;
   selectedType = type;
+  picked = [];
   document.getElementById("selName").textContent = SESSIONS[type].name;
   document.getElementById("selPrice").textContent = SESSIONS[type].price;
+  updateTimeChipStates();
+  updateDayChipMarks();
+  renderPicked();
   refreshSubmit();
 }
 
@@ -83,24 +92,88 @@ function chip(label, sub) {
   return b;
 }
 
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function prettyDate(iso) {
+  const d = new Date(iso + "T12:00:00");
+  return `${DAY_NAMES[d.getDay()]}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
+}
+
 function renderDays() {
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const now = new Date();
   for (let i = 1; i <= DAYS_AHEAD; i++) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
     if (!OPEN_DAYS.includes(d.getDay())) continue;
     const value = isoDate(d);
-    const c = chip(dayNames[d.getDay()], `${monthNames[d.getMonth()]} ${d.getDate()}`);
+    const c = chip(DAY_NAMES[d.getDay()], `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`);
+    c.dataset.date = value;
     c.addEventListener("click", () => {
       selectedDate = value;
-      selectedTime = "";
       dayChips.querySelectorAll(".booking__chip").forEach((x) => x.classList.remove("is-selected"));
       c.classList.add("is-selected");
       loadTimes(value);
     });
     dayChips.appendChild(c);
   }
+}
+
+function updateDayChipMarks() {
+  dayChips.querySelectorAll(".booking__chip").forEach((c) => {
+    c.classList.toggle("is-marked", picked.some((p) => p.date === c.dataset.date));
+  });
+}
+
+function updateTimeChipStates() {
+  timeChips.querySelectorAll(".booking__chip").forEach((c) => {
+    if (c.disabled) return;
+    const time = c.dataset.time;
+    c.classList.toggle("is-selected", picked.some((p) => p.date === selectedDate && p.time === time));
+  });
+}
+
+function renderPicked() {
+  if (maxPicks() === 1) {
+    pickedList.hidden = true;
+    pickedList.innerHTML = "";
+    return;
+  }
+  pickedList.hidden = false;
+  pickedList.innerHTML = `<p class="booking__picked-title">Your lessons — ${picked.length} of ${maxPicks()} picked${picked.length < maxPicks() ? " · keep picking days &amp; times" : " ✓"}</p>`;
+  picked.forEach((p, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "booking__picked-chip";
+    b.innerHTML = `${prettyDate(p.date)} · ${p.time} <span aria-hidden="true">✕</span>`;
+    b.title = "Remove this lesson";
+    b.addEventListener("click", () => {
+      picked.splice(i, 1);
+      updateTimeChipStates();
+      updateDayChipMarks();
+      renderPicked();
+      refreshSubmit();
+    });
+    pickedList.appendChild(b);
+  });
+}
+
+function toggleTime(time) {
+  statusEl.textContent = "";
+  const idx = picked.findIndex((p) => p.date === selectedDate && p.time === time);
+  if (idx >= 0) {
+    picked.splice(idx, 1);
+  } else if (maxPicks() === 1) {
+    picked = [{ date: selectedDate, time }];
+  } else if (picked.length >= maxPicks()) {
+    statusEl.textContent = `You've already picked ${maxPicks()} lessons — remove one from the list below to change it.`;
+    return;
+  } else {
+    picked.push({ date: selectedDate, time });
+  }
+  updateTimeChipStates();
+  updateDayChipMarks();
+  renderPicked();
+  refreshSubmit();
 }
 
 async function loadTimes(date) {
@@ -116,23 +189,28 @@ async function loadTimes(date) {
   START_TIMES.forEach((t) => {
     const label = fmtTime(t);
     const c = chip(label);
+    c.dataset.time = label;
     if (booked.includes(label)) {
       c.classList.add("is-booked");
       c.disabled = true;
       c.innerHTML = `<strong>${label}</strong><span>Booked</span>`;
     } else {
-      c.addEventListener("click", () => {
-        selectedTime = label;
-        timeChips.querySelectorAll(".booking__chip").forEach((x) => x.classList.remove("is-selected"));
-        c.classList.add("is-selected");
-      });
+      c.addEventListener("click", () => toggleTime(label));
     }
     timeChips.appendChild(c);
   });
+  updateTimeChipStates();
 }
 
 function refreshSubmit() {
-  submitBtn.textContent = SESSIONS[selectedType].label;
+  const need = maxPicks() - picked.length;
+  if (selectedType === "membership" && need > 0) {
+    submitBtn.textContent = `Pick ${need} more lesson${need === 1 ? "" : "s"} to continue`;
+    submitBtn.disabled = true;
+  } else {
+    submitBtn.textContent = SESSIONS[selectedType].label;
+    submitBtn.disabled = false;
+  }
 }
 
 if (form) {
@@ -147,8 +225,11 @@ if (form) {
     e.preventDefault();
     statusEl.textContent = "";
     statusEl.classList.remove("booking__status--ok");
-    if (!selectedDate || !selectedTime || !form.elements.player.value.trim()) {
-      statusEl.textContent = "Please pick a day, a time, and enter the player's name.";
+    if (picked.length < maxPicks() || !form.elements.player.value.trim()) {
+      statusEl.textContent =
+        selectedType === "membership"
+          ? "Please pick your 4 lesson days & times and enter the player's name."
+          : "Please pick a day, a time, and enter the player's name.";
       return;
     }
     submitBtn.disabled = true;
@@ -159,8 +240,7 @@ if (form) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: selectedType,
-          date: selectedDate,
-          time: selectedTime,
+          sessions: picked,
           player: form.elements.player.value.trim(),
           parent: form.elements.parent.value.trim(),
           phone: form.elements.phone.value.trim(),
@@ -172,7 +252,7 @@ if (form) {
         return;
       }
       statusEl.textContent = data.error || "Online booking isn't live yet — call or text (405) 819-4401 to book.";
-      if (res.status === 409) loadTimes(selectedDate); // slot just taken — refresh times
+      if (res.status === 409 && selectedDate) loadTimes(selectedDate); // slot just taken — refresh times
     } catch {
       statusEl.textContent = "Online booking isn't live yet — call or text (405) 819-4401 to book.";
     }
