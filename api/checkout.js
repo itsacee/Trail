@@ -70,8 +70,8 @@ export default async function handler(req, res) {
 
   const origin = `https://${req.headers.host}`;
   const ADDRESS = "3701 S Bryant Ave, Del City, OK 73115";
-  const sessionLabel =
-    sessions.map((s) => `${s.date} at ${s.time}`).join(", ") + ` — ${player} · Location: ${ADDRESS}`;
+  // Shown on the checkout page order summary — no address here
+  const sessionLabel = sessions.map((s) => `${s.date} at ${s.time}`).join(", ") + ` — ${player}`;
 
   const params = new URLSearchParams();
   params.append("mode", session.mode);
@@ -85,14 +85,16 @@ export default async function handler(req, res) {
   if (session.mode === "subscription") {
     params.append("line_items[0][price_data][recurring][interval]", "month");
   }
-  // Show the training location right on the Stripe checkout page
-  params.append("custom_text[submit][message]", `Training location: ${ADDRESS}. See you there!`);
 
   // Metadata on the payment/subscription itself, so /api/slots can find
   // paid bookings via Stripe Search and block those times.
   const metaTarget = session.mode === "subscription" ? "subscription_data" : "payment_intent_data";
-  // Readable description so Stripe emails/dashboard show the booking at a glance
-  params.append(`${metaTarget}[description]`, `${session.label}: ${sessionLabel}${phone ? ` (${phone})` : ""}`);
+  // Readable description for the receipt email and Stripe dashboard —
+  // this is where the buyer gets the training address (not shown pre-payment)
+  params.append(
+    `${metaTarget}[description]`,
+    `${session.label}: ${sessionLabel}${phone ? ` (${phone})` : ""} · Location: ${ADDRESS}`
+  );
   const meta = [
     ["player", player],
     ["parent", parent || ""],
