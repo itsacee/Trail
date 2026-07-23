@@ -1,3 +1,6 @@
+// Signal that JS is running (enables the scroll-reveal animation)
+document.documentElement.classList.add("js");
+
 // Mobile menu toggle
 const burger = document.getElementById("navBurger");
 const links = document.getElementById("navLinks");

@@ -110,16 +110,11 @@ h3 { font-size: 1.6rem; }
   margin-right: auto;
 }
 .nav__logo {
-  font-family: var(--font-display);
-  font-size: 1.3rem;
-  background: var(--accent);
-  color: #fff;
-  width: 42px;
-  height: 42px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  height: 44px;
 }
+.nav__logo svg { height: 44px; width: auto; display: block; }
 .nav__name {
   font-family: var(--font-display);
   font-size: 1.25rem;
@@ -250,26 +245,12 @@ h3 { font-size: 1.6rem; }
 }
 .photo-placeholder svg { width: 72px; height: 72px; opacity: 0.5; }
 .photo-placeholder small { font-weight: 400; opacity: 0.7; }
-.photo-placeholder--brand {
-  border-style: solid;
-  border-color: var(--line);
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 110%, rgba(232, 69, 46, 0.18), transparent),
-    var(--surface);
-  gap: 0.4rem;
-}
-.photo-placeholder--brand svg { color: var(--accent); opacity: 0.9; width: 88px; height: 88px; margin-bottom: 0.6rem; }
-.photo-placeholder__brand {
-  font-family: var(--font-display);
-  font-size: 2.2rem;
-  letter-spacing: 0.08em;
-  color: var(--text);
-}
-.photo-placeholder--brand small {
-  text-transform: uppercase;
-  letter-spacing: 0.35em;
-  font-size: 0.7rem;
-  color: var(--text-dim);
+.coach__card { padding: 0 1.5rem; }
+.coach__card svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 30px rgba(245, 245, 245, 0.08));
 }
 .coach__photo img { border-radius: var(--radius); aspect-ratio: 4 / 5; object-fit: cover; }
 .coach__badge {
@@ -487,13 +468,15 @@ h3 { font-size: 1.6rem; }
   font-size: 0.82rem;
 }
 
-/* ---------- scroll reveal ---------- */
-.reveal {
+/* ---------- scroll reveal ----------
+   Only hides elements when JS is confirmed running (html.js),
+   so content is always visible even if scripts fail to load. */
+html.js .reveal {
   opacity: 0;
   transform: translateY(22px);
   transition: opacity 0.6s ease, transform 0.6s ease;
 }
-.reveal.is-visible { opacity: 1; transform: none; }
+html.js .reveal.is-visible { opacity: 1; transform: none; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
