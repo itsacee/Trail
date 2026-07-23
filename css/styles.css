@@ -250,6 +250,7 @@ h3 { font-size: 1.6rem; }
   border-radius: var(--radius);
   aspect-ratio: 4 / 5;
   object-fit: cover;
+  object-position: 50% 12%; /* keep the head in frame on the tall photo */
   width: 100%;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
