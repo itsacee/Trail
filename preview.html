@@ -22,15 +22,17 @@
    ========================================================================== */
 
 :root {
-  --bg: #06080b;              /* near black with a cold tint */
-  --bg-alt: #0b0e13;
-  --surface: #11151c;
-  --line: #262d38;            /* dark silver */
-  --text: #f4f7fa;            /* white */
-  --text-dim: #aab6c4;        /* silver */
-  --accent: #8fd6ff;          /* ice blue */
-  --accent-soft: rgba(143, 214, 255, 0.12);
-  --on-accent: #06121c;       /* dark text used on ice-blue buttons */
+  --bg: #050505;              /* black */
+  --bg-alt: #0b0b0d;
+  --surface: #111114;
+  --line: #26262b;            /* dark silver */
+  --text: #f5f6f8;            /* white */
+  --text-dim: #a8adb6;        /* silver */
+  --accent: #ffffff;          /* white accent (labels, highlights, borders) */
+  --accent-soft: rgba(255, 255, 255, 0.09);
+  --btn: #8fd6ff;             /* ice blue — clickable buttons only */
+  --on-btn: #06121c;          /* dark text on ice-blue buttons */
+  --on-accent: #0a0a0c;       /* dark text on white accents */
   --radius: 16px;
   --font-display: "Bebas Neue", sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
@@ -95,8 +97,8 @@ h3 { font-size: 1.6rem; }
 }
 .btn--lg { padding: 1rem 2.2rem; font-size: 1.05rem; }
 .btn--primary {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: var(--btn);
+  color: var(--on-btn);
   box-shadow: 0 8px 24px rgba(143, 214, 255, 0.3);
 }
 .btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(143, 214, 255, 0.4); }
@@ -104,14 +106,14 @@ h3 { font-size: 1.6rem; }
   border-color: var(--line);
   color: var(--text);
 }
-.btn--ghost:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+.btn--ghost:hover { border-color: var(--btn); color: var(--btn); transform: translateY(-2px); }
 
 /* ---------- navbar ---------- */
 .nav {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(12, 15, 20, 0.85);
+  background: rgba(5, 5, 5, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
 }
@@ -184,14 +186,14 @@ h3 { font-size: 1.6rem; }
   padding: clamp(5rem, 12vh, 9rem) 0 4.5rem;
   text-align: center;
   background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(143, 214, 255, 0.14), transparent),
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255, 255, 255, 0.08), transparent),
     repeating-linear-gradient(115deg, transparent 0 46px, rgba(255,255,255,0.015) 46px 48px);
 }
 .hero__glow {
   position: absolute;
   inset: auto -20% -60% -20%;
   height: 70%;
-  background: radial-gradient(ellipse at center, rgba(143, 214, 255, 0.07), transparent 65%);
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.05), transparent 65%);
   pointer-events: none;
 }
 .hero__title {
@@ -354,7 +356,7 @@ h3 { font-size: 1.6rem; }
 .price-card:hover { transform: translateY(-4px); }
 .price-card--featured {
   border-color: var(--accent);
-  box-shadow: 0 12px 48px rgba(143, 214, 255, 0.15);
+  box-shadow: 0 12px 48px rgba(255, 255, 255, 0.1);
 }
 .price-card__tag {
   position: absolute;
@@ -466,7 +468,7 @@ h3 { font-size: 1.6rem; }
 .booking__selected span { color: var(--text-dim); font-size: 0.9rem; }
 .booking__change {
   margin-left: auto;
-  color: var(--accent);
+  color: var(--btn);
   font-weight: 700;
   font-size: 0.88rem;
   text-decoration: none;
@@ -586,7 +588,7 @@ h3 { font-size: 1.6rem; }
 /* ---------- CTA band ---------- */
 .cta-band {
   background:
-    radial-gradient(ellipse 70% 100% at 50% 120%, rgba(143, 214, 255, 0.18), transparent),
+    radial-gradient(ellipse 70% 100% at 50% 120%, rgba(255, 255, 255, 0.08), transparent),
     var(--bg-alt);
   border-block: 1px solid var(--line);
   padding: 5rem 0;
