@@ -34,16 +34,16 @@ document.getElementById("year").textContent = new Date().getFullYear();
 
 /* ---------- Booking widget ---------- */
 
-// Availability. Days: 1=Monday ... 4=Thursday. Times are session START
-// times in 24h format — last start is 4 PM so lessons end by 5 PM.
-const OPEN_DAYS = [1, 2, 3, 4];
+// Availability. Days: 0=Sunday ... 6=Saturday (open every day). Times are
+// session START times in 24h format — last start is 4 PM so lessons end by 5 PM.
+const OPEN_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const START_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"];
 const DAYS_AHEAD = 28; // how many days out parents can book
 
 const SESSIONS = {
-  single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1 },
-  group: { name: "Group Session", price: "$35 / player · 2 players · 1 hour", label: "Pay $70 — Book Group (2 players)", picks: 1 },
-  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo", picks: 4 },
+  single: { name: "Single Lesson", price: "$60 · 1 hour", label: "Pay $60 — Book Lesson", picks: 1 },
+  group: { name: "Group Session", price: "$30 / player · 2 players · 30 min each", label: "Pay $60 — Book Group (2 players)", picks: 1 },
+  membership: { name: "Membership", price: "$200 / month · 4 lessons", label: "Start Membership — $200/mo", picks: 4 },
 };
 
 const form = document.getElementById("bookingForm");

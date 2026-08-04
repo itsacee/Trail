@@ -25,7 +25,7 @@ Want different colors? Change `--accent` at the top of `css/styles.css`.
 ## Booking (built into this site)
 
 The site has its own booking section (`#book`): parents pick a session type
-(single $70 / group $50 per player / membership $240 per month), a date, a
+(single $60 / group $30 per player / membership $200 per month), a date, a
 time, enter the player's name, and pay through Stripe Checkout.
 
 The payment is created by `api/checkout.js`, a serverless function that runs
@@ -39,7 +39,7 @@ automatically when this repo is deployed on Vercel. **One-time setup:**
 Until that key is set (and on non-Vercel previews), the booking form shows a
 friendly "call or text to book" message instead of failing silently.
 
-Availability is set at the top of `js/main.js`: `OPEN_DAYS` (Monday–Thursday)
+Availability is set at the top of `js/main.js`: `OPEN_DAYS` (every day)
 and `START_TIMES` (9am–4pm starts, so lessons end by 5pm). Times that are
 already paid for are grayed out automatically — `api/slots.js` reads paid
 bookings straight from Stripe, and `api/checkout.js` re-checks the slot right
