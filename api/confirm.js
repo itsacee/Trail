@@ -11,7 +11,10 @@
 
 const ADDRESS = "3701 S Bryant Ave, Del City, OK 73115";
 const MAP_URL = "https://maps.google.com/?q=3701+S+Bryant+Ave,+Del+City,+OK+73115";
+const COACH = "Elijah Alexander";
 const PHONE = "(405) 819-4401";
+const PHONE_TEL = "+14058194401";
+// Replies land in Elijah's Gmail, and he gets a copy of every confirmation
 const REPLY_TO = "Apacademybsb@gmail.com";
 
 const TYPE_NAMES = {
@@ -66,10 +69,10 @@ function emailHtml(meta, sessions) {
     </td></tr>
 
     <tr><td style="padding-top:22px;">
-      <div style="font-size:21px;color:#ffffff;font-weight:bold;">You're booked!</div>
+      <div style="font-size:21px;color:#ffffff;font-weight:bold;">Thank you for choosing AP Academy!</div>
       <p style="color:#a8adb6;font-size:15px;line-height:1.6;margin:10px 0 0;">
-        Thanks${meta.parent ? ` ${meta.parent}` : ""} — ${meta.player}'s ${plural} confirmed.
-        Here's everything you need.
+        ${meta.parent ? `Hi ${meta.parent} — t` : "T"}hanks for booking with us. ${meta.player}'s ${plural}
+        confirmed, and I'm looking forward to getting to work. Here's everything you need to know.
       </p>
     </td></tr>
 
@@ -84,11 +87,14 @@ function emailHtml(meta, sessions) {
     <tr><td style="padding-top:26px;">
       <div style="background:#050505;border:2px solid #8fd6ff;border-radius:12px;padding:20px;">
         <div style="font-size:11px;color:#8fd6ff;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">
-          Training Location
+          Where to Go
         </div>
         <div style="font-size:17px;color:#ffffff;font-weight:bold;padding-top:8px;line-height:1.5;">
           ${ADDRESS}
         </div>
+        <p style="color:#a8adb6;font-size:13px;line-height:1.6;margin:8px 0 0;">
+          Our facility in Del City, just off I-40. Plan to arrive about 5 minutes early.
+        </p>
         <a href="${MAP_URL}" style="display:inline-block;margin-top:14px;background:#8fd6ff;color:#06121c;
            text-decoration:none;font-weight:bold;font-size:14px;padding:11px 22px;border-radius:99px;">
           Get Directions
@@ -103,18 +109,28 @@ function emailHtml(meta, sessions) {
       <p style="color:#f5f6f8;font-size:15px;margin:0;">Bat, glove, turfs, and a water bottle.</p>
     </td></tr>
 
-    <tr><td style="padding-top:22px;">
-      <p style="color:#a8adb6;font-size:13px;line-height:1.7;margin:0;">
+    <tr><td style="padding-top:26px;">
+      <div style="font-size:11px;color:#a8adb6;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:8px;">
+        Questions?
+      </div>
+      <p style="color:#f5f6f8;font-size:15px;line-height:1.7;margin:0;">
+        Just hit reply to this email and it comes straight to me — or call or text
+        <a href="tel:${PHONE_TEL}" style="color:#8fd6ff;text-decoration:none;font-weight:bold;">${PHONE}</a>.
+        Happy to answer anything before the first session.
+      </p>
+      <p style="color:#a8adb6;font-size:13px;line-height:1.7;margin:12px 0 0;">
         Need to cancel or reschedule? Please give at least 12 hours notice — later than that
-        is subject to a cancellation fee. Call or text <strong style="color:#f5f6f8;">${PHONE}</strong>.
+        is subject to a cancellation fee.
       </p>
     </td></tr>
 
     <tr><td style="padding-top:26px;border-top:1px solid #26262b;">
-      <p style="color:#a8adb6;font-size:13px;line-height:1.7;margin:14px 0 0;">
+      <p style="color:#a8adb6;font-size:14px;line-height:1.8;margin:16px 0 0;">
         See you at training,<br />
-        <strong style="color:#f5f6f8;">Coach Elijah Alexander</strong><br />
-        AP Academy · ${PHONE}<br />
+        <strong style="color:#ffffff;font-size:16px;">${COACH}</strong><br />
+        <span style="color:#a8adb6;">Founder &amp; Head Trainer, AP Academy</span><br />
+        <a href="tel:${PHONE_TEL}" style="color:#8fd6ff;text-decoration:none;">${PHONE}</a><br />
+        <a href="mailto:${REPLY_TO}" style="color:#8fd6ff;text-decoration:none;">${REPLY_TO}</a><br />
         <a href="https://www.apacademybsb.com" style="color:#8fd6ff;text-decoration:none;">apacademybsb.com</a>
       </p>
     </td></tr>
@@ -126,26 +142,37 @@ function emailHtml(meta, sessions) {
 
 function emailText(meta, sessions) {
   const lines = sessions.map((s) => `  ${prettyDate(s.date)} at ${s.time}`).join("\n");
-  return `AP ACADEMY — You're booked!
+  return `AP ACADEMY — Thank you for choosing us!
 
-Thanks${meta.parent ? ` ${meta.parent}` : ""} — ${meta.player}'s lesson is confirmed.
+${meta.parent ? `Hi ${meta.parent} — t` : "T"}hanks for booking with us. ${meta.player}'s ${
+    sessions.length > 1 ? "lessons are" : "lesson is"
+  } confirmed,
+and I'm looking forward to getting to work.
 
+${sessions.length > 1 ? "YOUR LESSONS" : "YOUR LESSON"}
 ${TYPE_NAMES[meta.type] || ""}
 ${lines}
 
-TRAINING LOCATION
+WHERE TO GO
 ${ADDRESS}
+Our facility in Del City, just off I-40. Plan to arrive about 5 minutes early.
 Directions: ${MAP_URL}
 
 WHAT TO BRING
 Bat, glove, turfs, and a water bottle.
 
+QUESTIONS?
+Just reply to this email and it comes straight to me — or call or text ${PHONE}.
+Happy to answer anything before the first session.
+
 Need to cancel or reschedule? Please give at least 12 hours notice —
-later than that is subject to a cancellation fee. Call or text ${PHONE}.
+later than that is subject to a cancellation fee.
 
 See you at training,
-Coach Elijah Alexander
-AP Academy · ${PHONE}
+${COACH}
+Founder & Head Trainer, AP Academy
+${PHONE}
+${REPLY_TO}
 apacademybsb.com`;
 }
 
@@ -216,7 +243,7 @@ export default async function handler(req, res) {
         to: [to],
         bcc: [REPLY_TO],
         reply_to: REPLY_TO,
-        subject: `You're booked — ${prettyDate(sessions[0].date)} at ${sessions[0].time} | AP Academy`,
+        subject: `Thank you for booking with AP Academy — ${prettyDate(sessions[0].date)} at ${sessions[0].time}`,
         html: emailHtml(meta, sessions),
         text: emailText(meta, sessions),
       }),
