@@ -235,6 +235,11 @@ if (form) {
           : "Please pick a day, a time, and enter the player's name.";
       return;
     }
+    if (!form.elements.email.checkValidity()) {
+      statusEl.textContent = "Please enter a valid email — that's where your confirmation and the training address are sent.";
+      form.elements.email.focus();
+      return;
+    }
     submitBtn.disabled = true;
     submitBtn.textContent = "Setting up secure checkout…";
     try {
@@ -247,6 +252,7 @@ if (form) {
           player: form.elements.player.value.trim(),
           parent: form.elements.parent.value.trim(),
           phone: form.elements.phone.value.trim(),
+          email: form.elements.email.value.trim(),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -270,11 +276,38 @@ if (form) {
     refreshSubmit();
   });
 
-  // Success message after returning from Stripe
-  if (new URLSearchParams(window.location.search).get("booked") === "1") {
-    statusEl.innerHTML =
-      '✅ You\'re booked! Training is at <a href="https://maps.google.com/?q=3701+S+Bryant+Ave,+Del+City,+OK+73115" target="_blank" rel="noopener">3701 S Bryant Ave, Del City, OK 73115</a>. Check your email for your receipt — see you there!';
+  // Back from Stripe: confirm the payment, send the confirmation email,
+  // and show the training address on screen.
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("booked") === "1") {
     statusEl.classList.add("booking__status--ok");
+    statusEl.textContent = "✅ You're booked! Getting your details…";
     document.getElementById("book").scrollIntoView();
+
+    const finish = (d = {}) => {
+      const map = "https://maps.google.com/?q=3701+S+Bryant+Ave,+Del+City,+OK+73115";
+      const when = (d.sessions || [])
+        .map((s) => `${prettyDate(s.date)} · ${s.time}`)
+        .join("<br />");
+      statusEl.innerHTML =
+        `<strong>✅ You're booked!</strong>` +
+        (when ? `<br />${when}` : "") +
+        `<br />Training is at <a href="${map}" target="_blank" rel="noopener">3701 S Bryant Ave, Del City, OK 73115</a>.` +
+        (d.sent
+          ? `<br />A confirmation with directions is on its way to ${d.email || "your inbox"}.`
+          : `<br />Save this address — questions? Call or text (405) 819-4401.`);
+      // Clean the URL so a refresh doesn't re-run this
+      history.replaceState({}, "", window.location.pathname + "#book");
+    };
+
+    const sid = params.get("session_id");
+    if (sid) {
+      fetch(`/api/confirm?session_id=${encodeURIComponent(sid)}`)
+        .then((r) => r.json())
+        .then(finish)
+        .catch(() => finish());
+    } else {
+      finish();
+    }
   }
 }

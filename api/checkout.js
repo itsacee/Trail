@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { type, player, parent, phone } = req.body || {};
+  const { type, player, parent, phone, email } = req.body || {};
   const session = SESSION_TYPES[type];
   let sessions = Array.isArray(req.body?.sessions) ? req.body.sessions : [];
   // Backwards compatibility with single date/time payloads
@@ -75,7 +75,10 @@ export default async function handler(req, res) {
 
   const params = new URLSearchParams();
   params.append("mode", session.mode);
-  params.append("success_url", `${origin}/?booked=1`);
+  params.append("success_url", `${origin}/?booked=1&session_id={CHECKOUT_SESSION_ID}`);
+  if (email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    params.append("customer_email", email);
+  }
   params.append("cancel_url", `${origin}/#book`);
   params.append("line_items[0][quantity]", String(session.quantity));
   params.append("line_items[0][price_data][currency]", "usd");
@@ -99,6 +102,7 @@ export default async function handler(req, res) {
     ["player", player],
     ["parent", parent || ""],
     ["phone", phone || ""],
+    ["email", email || ""],
     ["type", type],
     ["date", sessions[0].date],
     ["time", sessions[0].time],

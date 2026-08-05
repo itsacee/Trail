@@ -41,6 +41,7 @@
     .tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
     .tag.membership { border-color: var(--btn); color: var(--btn); }
     .lesson a { color: var(--btn); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
+    .contact { text-align: right; line-height: 1.5; word-break: break-all; max-width: 190px; }
     input {
       width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
       color: var(--text); padding: 0.9rem 1rem; font-size: 1rem; font-family: inherit; margin-bottom: 0.9rem;
@@ -164,11 +165,14 @@
         }
         const row = document.createElement("div");
         row.className = "lesson";
-        const phone = s.phone ? `<a href="tel:${s.phone.replace(/[^\d+]/g, "")}">${s.phone}</a>` : "";
+        const contact = [
+          s.phone ? `<a href="tel:${s.phone.replace(/[^\d+]/g, "")}">${s.phone}</a>` : "",
+          s.email ? `<a href="mailto:${s.email}">${s.email}</a>` : "",
+        ].filter(Boolean).join("<br />");
         row.innerHTML = `
           <time>${s.time}</time>
           <div class="who"><b>${s.player || "—"}</b><small>${s.parent ? "Parent: " + s.parent : ""}</small></div>
-          ${phone}
+          <div class="contact">${contact}</div>
           <span class="tag ${s.type}">${TYPE_LABEL[s.type] || s.type || ""}</span>`;
         wrap.appendChild(row);
       });

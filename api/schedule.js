@@ -50,6 +50,7 @@ export default async function handler(req, res) {
       player: m.player || "",
       parent: m.parent || "",
       phone: m.phone || "",
+      email: m.email || "",
       type: m.type || fallbackType,
     };
     let found = false;

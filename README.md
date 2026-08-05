@@ -45,6 +45,30 @@ already paid for are grayed out automatically — `api/slots.js` reads paid
 bookings straight from Stripe, and `api/checkout.js` re-checks the slot right
 before payment so two families can't book the same time.
 
+## Confirmation emails
+
+After a payment succeeds, `api/confirm.js` verifies the payment with Stripe and
+emails the parent a branded confirmation containing the lesson date(s)/time(s),
+the training address with a map link, what to bring, and the cancellation
+policy. A copy is BCC'd to Apacademybsb@gmail.com. The address appears only
+here and on the post-payment screen — never on the public site or the Stripe
+checkout page.
+
+Setup (one time, in Vercel → Settings → Environment Variables):
+
+1. `RESEND_API_KEY` — create a free account at resend.com, verify the
+   apacademybsb.com domain (Resend gives DNS records; add them in
+   Vercel → Domains → apacademybsb.com → DNS), then create an API key
+2. `FROM_EMAIL` — optional, defaults to `AP Academy <bookings@apacademybsb.com>`.
+   Must be on the verified domain.
+3. Redeploy
+
+Until `RESEND_API_KEY` is set, bookings still work — parents just see the
+address on the confirmation screen instead of also getting the email.
+
+Sending is idempotent: the booking is flagged `confirmation_sent` in Stripe,
+so refreshing the success page won't send a second email.
+
 ## Coach schedule page
 
 `/coach.html` is a private page showing all upcoming lessons (player, parent,
