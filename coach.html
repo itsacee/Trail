@@ -56,6 +56,10 @@
     .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
     .topbar a { color: var(--dim); font-size: 0.85rem; cursor: pointer; text-decoration: underline; }
     .empty { text-align: center; color: var(--dim); padding: 2rem 0; }
+    .status { display: flex; gap: 1.4rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--dim); margin-bottom: 0.4rem; }
+    .status b { font-weight: 600; }
+    .status .ok { color: #9fe8b9; }
+    .status .off { color: #ff8d7e; }
   </style>
 </head>
 <body>
@@ -81,6 +85,7 @@
         <div class="stat"><b id="weekCount">–</b><span>Lessons this week</span></div>
         <div class="stat"><b id="upcomingCount">–</b><span>Upcoming total</span></div>
       </div>
+      <div class="status" id="status"></div>
       <div id="schedule"></div>
     </div>
   </div>
@@ -131,7 +136,15 @@
       localStorage.setItem("coachPass", pass);
       login.hidden = true;
       app.hidden = false;
+      renderStatus(data.status || {});
       render(data.sessions || []);
+    }
+
+    function renderStatus(s) {
+      const dot = (on, label) =>
+        `<span><b class="${on ? "ok" : "off"}">${on ? "●" : "○"}</b> ${label} ${on ? "connected" : "not set up"}</span>`;
+      document.getElementById("status").innerHTML =
+        dot(s.payments, "Payments") + dot(s.email, "Confirmation emails");
     }
 
     function render(sessions) {

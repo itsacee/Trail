@@ -73,5 +73,11 @@ export default async function handler(req, res) {
     .filter((s) => ["active", "trialing", "past_due"].includes(s.status))
     .forEach((s) => collect(s.metadata, "membership"));
 
-  res.status(200).json({ sessions });
+  // Whether each integration is configured — booleans only, never the values
+  const status = {
+    payments: Boolean(process.env.STRIPE_SECRET_KEY),
+    email: Boolean(process.env.RESEND_API_KEY),
+  };
+
+  res.status(200).json({ sessions, status });
 }
