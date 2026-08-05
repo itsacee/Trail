@@ -40,7 +40,7 @@ Until that key is set (and on non-Vercel previews), the booking form shows a
 friendly "call or text to book" message instead of failing silently.
 
 Availability is set at the top of `js/main.js`: `OPEN_DAYS` (every day)
-and `START_TIMES` (9am–4pm starts, so lessons end by 5pm). Times that are
+and `START_TIMES` (9am–7pm starts, so lessons end by 8pm). Times that are
 already paid for are grayed out automatically — `api/slots.js` reads paid
 bookings straight from Stripe, and `api/checkout.js` re-checks the slot right
 before payment so two families can't book the same time.

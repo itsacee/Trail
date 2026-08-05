@@ -9,7 +9,7 @@
        up on Google. Include your city so local parents find you!
        ============================================================ -->
   <title>AP Academy | Private Baseball Training in Oklahoma City</title>
-  <meta name="description" content="One-on-one baseball training in Oklahoma City with Elijah Alexander — former Oklahoma State Cowboy and .434 JUCO hitter. Hitting, fielding, and speed &amp; conditioning lessons for youth players. Book online 7 days a week for $60." />
+  <meta name="description" content="One-on-one baseball training in Oklahoma City with Elijah Alexander — former Oklahoma State Cowboy and .434 JUCO hitter. Hitting, fielding, and speed &amp; conditioning lessons for youth players. Based in Del City. Book online 7 days a week, 9am–8pm, for $60." />
 
   <link rel="icon" type="image/png" href="img/logo-mark.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -229,20 +229,26 @@
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Pick a day <span class="booking__step-hint">Open 7 days a week</span></h3>
-          <div class="booking__chips" id="dayChips"></div>
-        </div>
-
-        <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Pick a time <span class="booking__step-hint">9 AM &ndash; 5 PM</span></h3>
-          <div class="booking__chips" id="timeChips">
-            <p class="booking__hint">Pick a day first and open times will show up here.</p>
+          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Pick a day &amp; time <span class="booking__step-hint">7 days a week &middot; 9 AM &ndash; 8 PM</span></h3>
+          <div class="booking__grid">
+            <div class="booking__field">
+              <label for="bkDate">Day</label>
+              <select id="bkDate" name="date">
+                <option value="">Choose a day</option>
+              </select>
+            </div>
+            <div class="booking__field">
+              <label for="bkTime">Time</label>
+              <select id="bkTime" name="time" disabled>
+                <option value="">Pick a day first</option>
+              </select>
+            </div>
           </div>
           <div class="booking__picked" id="pickedList" hidden></div>
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">3</span> Who's training?</h3>
+          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Who's training?</h3>
           <div class="booking__grid">
             <div class="booking__field">
               <label for="bkPlayer">Player's name *</label>
@@ -301,8 +307,8 @@
       <!-- Tell me how you actually run lessons and I'll adjust these answers -->
       <div class="faq reveal">
         <details>
-          <summary>What days can we book?</summary>
-          <p>Every day of the week, 9 AM to 5 PM — including weekends. Open times show up on the booking calendar above; anything already taken is grayed out.</p>
+          <summary>What days and times can we book?</summary>
+          <p>Every day of the week, 9 AM to 8 PM — including weekends and evenings. Pick a day in the booking form above and the open times for that day will show up; anything already taken is marked as booked.</p>
         </details>
         <details>
           <summary>What ages do you train?</summary>
@@ -310,7 +316,7 @@
         </details>
         <details>
           <summary>Where are lessons held?</summary>
-          <p>In the Oklahoma City metro — you'll receive the exact address and directions with your booking confirmation right after you book. Questions before you book? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
+          <p>We train indoors in <strong>Del City</strong>, just off I-40 on the southeast side of the OKC metro — roughly 10 minutes from downtown and easy to reach from Midwest City, Moore, and south OKC. The exact address and directions are sent the moment you book. Need to know before booking? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
         </details>
         <details>
           <summary>How long is a session?</summary>
@@ -358,7 +364,8 @@
         <ul class="footer__list">
           <li><a href="tel:+14058194401">(405) 819-4401</a></li>
           <li><a href="mailto:Apacademybsb@gmail.com">Apacademybsb@gmail.com</a></li>
-          <li>Oklahoma City metro</li>
+          <li>Del City, OK &middot; serving the OKC metro</li>
+          <li>Open 7 days &middot; 9 AM&ndash;8 PM</li>
         </ul>
       </div>
       <div>
