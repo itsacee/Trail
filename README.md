@@ -69,6 +69,19 @@ address on the confirmation screen instead of also getting the email.
 Sending is idempotent: the booking is flagged `confirmation_sent` in Stripe,
 so refreshing the success page won't send a second email.
 
+## Phone calendar feed
+
+`api/calendar.js` publishes booked lessons as an iCalendar feed so they show
+up automatically in iPhone Calendar, Google Calendar, or Outlook:
+
+    webcal://www.apacademybsb.com/api/calendar?key=COACH_PASS
+
+Events use the `America/Chicago` timezone (DST-safe), run one hour, include
+the player, parent, phone and email in the notes, carry the training address
+as the location, and have a one-hour-before alert. Subscribers are asked to
+refresh every 15 minutes. The coach page has a one-tap subscribe button that
+fills in the passcode automatically.
+
 ## Coach schedule page
 
 `/coach.html` is a private page showing all upcoming lessons (player, parent,

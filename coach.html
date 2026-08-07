@@ -60,6 +60,15 @@
     .status b { font-weight: 600; }
     .status .ok { color: #9fe8b9; }
     .status .off { color: #ff8d7e; }
+    .subscribe {
+      display: flex; align-items: center; gap: 0.9rem;
+      background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+      padding: 1rem 1.2rem; margin-bottom: 1.2rem; text-decoration: none; color: var(--text);
+    }
+    .subscribe:hover { border-color: var(--btn); }
+    .subscribe span:first-child { font-size: 1.4rem; }
+    .subscribe b { display: block; font-size: 0.95rem; }
+    .subscribe small { color: var(--dim); font-size: 0.82rem; }
   </style>
 </head>
 <body>
@@ -86,6 +95,10 @@
         <div class="stat"><b id="upcomingCount">–</b><span>Upcoming total</span></div>
       </div>
       <div class="status" id="status"></div>
+      <a class="subscribe" id="subscribe" href="#">
+        <span>📅</span>
+        <span><b>Add lessons to your phone calendar</b><small>Bookings appear automatically — set this up once</small></span>
+      </a>
       <div id="schedule"></div>
     </div>
   </div>
@@ -134,6 +147,9 @@
         return;
       }
       localStorage.setItem("coachPass", pass);
+      // webcal:// makes iPhone/Mac offer to subscribe instead of downloading once
+      document.getElementById("subscribe").href =
+        `webcal://${window.location.host}/api/calendar?key=${encodeURIComponent(pass)}`;
       login.hidden = true;
       app.hidden = false;
       renderStatus(data.status || {});
