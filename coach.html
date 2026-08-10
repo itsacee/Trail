@@ -40,6 +40,7 @@
     .lesson .who small { color: var(--dim); }
     .tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
     .tag.membership { border-color: var(--btn); color: var(--btn); }
+    .tag.place { border-color: #6b6b73; color: #e2e4e8; }
     .lesson a { color: var(--btn); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
     .contact { text-align: right; line-height: 1.5; word-break: break-all; max-width: 190px; }
     input {
@@ -111,6 +112,7 @@
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const TYPE_LABEL = { single: "Private", group: "Group ×2", membership: "Membership" };
+    const PLACE_LABEL = { delcity: "Del City", mustang: "Mustang", mojo: "Mojo Yard" };
 
     function toMinutes(t) {
       const m = /(\d{1,2}):(\d{2}) (AM|PM)/.exec(t);
@@ -198,10 +200,12 @@
           s.phone ? `<a href="tel:${s.phone.replace(/[^\d+]/g, "")}">${s.phone}</a>` : "",
           s.email ? `<a href="mailto:${s.email}">${s.email}</a>` : "",
         ].filter(Boolean).join("<br />");
+        const place = PLACE_LABEL[s.loc] || "";
         row.innerHTML = `
           <time>${s.time}</time>
           <div class="who"><b>${s.player || "—"}</b><small>${s.parent ? "Parent: " + s.parent : ""}</small></div>
           <div class="contact">${contact}</div>
+          ${place ? `<span class="tag place">${place}</span>` : ""}
           <span class="tag ${s.type}">${TYPE_LABEL[s.type] || s.type || ""}</span>`;
         wrap.appendChild(row);
       });

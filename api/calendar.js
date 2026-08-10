@@ -6,8 +6,8 @@
 // Calendar apps can't send headers, so the passcode travels in the URL.
 
 import { fetchBookings } from "../lib/bookings.js";
+import { LOCATIONS, locationKeyFor } from "../lib/schedule.js";
 
-const ADDRESS = "3701 S Bryant Ave, Del City, OK 73115";
 const TYPE_LABEL = { single: "Private", group: "Group", membership: "Membership" };
 
 // US Central, so times stay correct across daylight saving changes.
@@ -119,11 +119,14 @@ export default async function handler(req, res) {
 
     const who = b.player || "Lesson";
     const kind = TYPE_LABEL[b.type] || "Lesson";
+    const place = LOCATIONS[b.loc || locationKeyFor(b.date)] || null;
+    const where = place ? place.address || place.name : "";
     const details = [
       b.parent ? `Parent: ${b.parent}` : "",
       b.phone ? `Phone: ${b.phone}` : "",
       b.email ? `Email: ${b.email}` : "",
       `Session: ${kind}`,
+      place ? `Location: ${place.name}` : "",
     ]
       .filter(Boolean)
       .join("\n");
@@ -134,8 +137,8 @@ export default async function handler(req, res) {
       `DTSTAMP:${now}`,
       `DTSTART;TZID=America/Chicago:${start}`,
       `DTEND;TZID=America/Chicago:${end}`,
-      fold(`SUMMARY:${esc(`${who} — ${kind} Lesson`)}`),
-      fold(`LOCATION:${esc(ADDRESS)}`),
+      fold(`SUMMARY:${esc(`${who} — ${kind}${place ? ` @ ${place.name}` : ""}`)}`),
+      fold(`LOCATION:${esc(where)}`),
       fold(`DESCRIPTION:${esc(details)}`),
       "STATUS:CONFIRMED",
       "BEGIN:VALARM",

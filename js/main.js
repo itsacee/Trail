@@ -34,13 +34,32 @@ document.getElementById("year").textContent = new Date().getFullYear();
 
 /* ---------- Booking widget ---------- */
 
-// Availability. Days: 0=Sunday ... 6=Saturday (open every day). Times are
-// session START times in 24h format — last start is 7 PM so lessons end by 8 PM.
-const OPEN_DAYS = [0, 1, 2, 3, 4, 5, 6];
-const START_TIMES = [
-  "09:00", "10:00", "11:00", "12:00", "13:00", "14:00",
-  "15:00", "16:00", "17:00", "18:00", "19:00",
-];
+// Availability — MIRRORS lib/schedule.js on the server. Change both together.
+// Session START times, 24h. Lessons run one hour.
+const WEEKEND_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+const WEEKDAY_TIMES = ["17:00", "18:00", "19:00", "20:00"];
+
+// 0 = Sunday ... 6 = Saturday
+const DAY_PLAN = {
+  0: { times: WEEKEND_TIMES, place: "Del City" },
+  1: { times: WEEKDAY_TIMES, place: "Mustang" },
+  2: { times: WEEKDAY_TIMES, place: "Mustang" },
+  3: { times: WEEKDAY_TIMES, place: "Mustang" },
+  4: { times: WEEKDAY_TIMES, place: "Mustang" },
+  5: { times: WEEKDAY_TIMES, place: "Mustang" },
+  6: { times: WEEKEND_TIMES, place: "Del City" },
+};
+
+const PLACE_BLURB = {
+  "Del City": "Weekend lessons train in <strong>Del City</strong> — just off I-40, southeast OKC metro.",
+  Mustang: "Weeknight lessons train in <strong>Mustang</strong>, on the west side of the metro.",
+};
+
+function planFor(iso) {
+  const d = new Date(`${iso}T12:00:00`);
+  return isNaN(d) ? null : DAY_PLAN[d.getDay()] || null;
+}
+
 const DAYS_AHEAD = 28; // how many days out parents can book
 
 const SESSIONS = {
@@ -98,9 +117,23 @@ function renderDays() {
   const now = new Date();
   for (let i = 1; i <= DAYS_AHEAD; i++) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-    if (!OPEN_DAYS.includes(d.getDay())) continue;
-    dateSelect.append(new Option(prettyDate(isoDate(d)), isoDate(d)));
+    const plan = DAY_PLAN[d.getDay()];
+    if (!plan) continue;
+    const iso = isoDate(d);
+    dateSelect.append(new Option(`${prettyDate(iso)} · ${plan.place}`, iso));
   }
+}
+
+function renderWhere() {
+  const el = document.getElementById("bookingWhere");
+  if (!el) return;
+  const plan = planFor(dateSelect.value);
+  if (!plan) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = `📍 ${PLACE_BLURB[plan.place] || ""} You'll get the exact address and directions in your confirmation email.`;
 }
 
 function renderPicked() {
@@ -133,16 +166,18 @@ function renderPicked() {
 function renderTimeOptions() {
   const date = dateSelect.value;
   timeSelect.innerHTML = "";
+  renderWhere();
   if (!date) {
     timeSelect.append(new Option("Pick a day first", ""));
     timeSelect.disabled = true;
     return;
   }
+  const plan = planFor(date);
   const booked = bookedCache[date] || [];
   timeSelect.disabled = false;
   timeSelect.append(new Option("Choose a time", ""));
   let open = 0;
-  START_TIMES.forEach((t) => {
+  (plan ? plan.times : []).forEach((t) => {
     const label = fmtTime(t);
     const isBooked = booked.includes(label);
     const isMine = picked.some((p) => p.date === date && p.time === label);
@@ -285,17 +320,23 @@ if (form) {
     document.getElementById("book").scrollIntoView();
 
     const finish = (d = {}) => {
-      const map = "https://maps.google.com/?q=3701+S+Bryant+Ave,+Del+City,+OK+73115";
       const when = (d.sessions || [])
         .map((s) => `${prettyDate(s.date)} · ${s.time}`)
+        .join("<br />");
+      const where = (d.places || [])
+        .map((p) =>
+          p.mapUrl
+            ? `<a href="${p.mapUrl}" target="_blank" rel="noopener">${p.address}</a>`
+            : `${p.name} — we'll send you the exact address shortly`
+        )
         .join("<br />");
       statusEl.innerHTML =
         `<strong>✅ You're booked!</strong>` +
         (when ? `<br />${when}` : "") +
-        `<br />Training is at <a href="${map}" target="_blank" rel="noopener">3701 S Bryant Ave, Del City, OK 73115</a>.` +
+        (where ? `<br />Training location: ${where}` : "") +
         (d.sent
           ? `<br />A confirmation with directions is on its way to ${d.email || "your inbox"}.`
-          : `<br />Save this address — questions? Call or text (405) 819-4401.`);
+          : `<br />Questions? Call or text (405) 819-4401.`);
       // Clean the URL so a refresh doesn't re-run this
       history.replaceState({}, "", window.location.pathname + "#book");
     };

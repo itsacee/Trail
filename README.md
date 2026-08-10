@@ -39,11 +39,25 @@ automatically when this repo is deployed on Vercel. **One-time setup:**
 Until that key is set (and on non-Vercel previews), the booking form shows a
 friendly "call or text to book" message instead of failing silently.
 
-Availability is set at the top of `js/main.js`: `OPEN_DAYS` (every day)
-and `START_TIMES` (9am–7pm starts, so lessons end by 8pm). Times that are
-already paid for are grayed out automatically — `api/slots.js` reads paid
-bookings straight from Stripe, and `api/checkout.js` re-checks the slot right
-before payment so two families can't book the same time.
+## Hours and locations
+
+Defined in `lib/schedule.js` (server) and mirrored in `js/main.js` (booking
+form) — **change both together**:
+
+| Days | Hours | Location |
+| --- | --- | --- |
+| Mon–Fri | 5–9 PM (last start 8 PM) | Mustang |
+| Sat–Sun | 9 AM–7 PM (last start 6 PM) | Del City |
+
+Each booking records which location it belongs to, so the confirmation email,
+calendar feed, and coach page all show the right place. A location with no
+`address` filled in degrades gracefully — the email says the address will be
+texted instead of printing a placeholder. `LOCATIONS.mustang.address` and
+`LOCATIONS.mojo.address` still need real values.
+
+Times already paid for are marked booked automatically — `api/slots.js` reads
+paid bookings straight from Stripe, and `api/checkout.js` both re-checks the
+slot and validates the time against that day's schedule before payment.
 
 ## Confirmation emails
 

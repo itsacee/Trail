@@ -3,6 +3,7 @@
 // environment variable to be set in the Vercel project settings.
 
 import { bookedTimes } from "./slots.js";
+import { allowedTimes, locationKeyFor } from "../lib/schedule.js";
 
 const SESSION_TYPES = {
   single: { amount: 6000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
@@ -40,6 +41,15 @@ export default async function handler(req, res) {
     sessions.every((s) => DATE_RE.test(String(s?.date || "")) && TIME_RE.test(String(s?.time || "")));
   if (!valid) {
     res.status(400).json({ error: "Please pick your lesson day(s), time(s) and enter the player's name." });
+    return;
+  }
+
+  // The time has to be one we actually offer on that day of the week
+  const offSchedule = sessions.find((s) => !allowedTimes(s.date).includes(s.time));
+  if (offSchedule) {
+    res.status(400).json({
+      error: `We're not open ${offSchedule.date} at ${offSchedule.time}. Weeknights run 5–9 PM and weekends 9 AM–7 PM.`,
+    });
     return;
   }
 
@@ -108,7 +118,7 @@ export default async function handler(req, res) {
     ["time", sessions[0].time],
   ];
   sessions.forEach((s, i) => {
-    meta.push([`date${i + 1}`, s.date], [`time${i + 1}`, s.time]);
+    meta.push([`date${i + 1}`, s.date], [`time${i + 1}`, s.time], [`loc${i + 1}`, locationKeyFor(s.date)]);
   });
   for (const [k, v] of meta) {
     params.append(`metadata[${k}]`, v);

@@ -9,8 +9,8 @@
 //   RESEND_API_KEY     — from resend.com (free tier covers this easily)
 //   FROM_EMAIL         — optional, defaults to bookings@apacademybsb.com
 
-const ADDRESS = "3701 S Bryant Ave, Del City, OK 73115";
-const MAP_URL = "https://maps.google.com/?q=3701+S+Bryant+Ave,+Del+City,+OK+73115";
+import { LOCATIONS, locationKeyFor } from "../lib/schedule.js";
+
 const COACH = "Elijah Alexander";
 const PHONE = "(405) 819-4401";
 const PHONE_TEL = "+14058194401";
@@ -36,24 +36,74 @@ function prettyDate(iso) {
 function sessionsFrom(meta) {
   const out = [];
   for (let i = 1; i <= 4; i++) {
-    if (meta[`date${i}`] && meta[`time${i}`]) out.push({ date: meta[`date${i}`], time: meta[`time${i}`] });
+    if (meta[`date${i}`] && meta[`time${i}`]) {
+      out.push({
+        date: meta[`date${i}`],
+        time: meta[`time${i}`],
+        loc: meta[`loc${i}`] || locationKeyFor(meta[`date${i}`]),
+      });
+    }
   }
-  if (!out.length && meta.date && meta.time) out.push({ date: meta.date, time: meta.time });
+  if (!out.length && meta.date && meta.time) {
+    out.push({ date: meta.date, time: meta.time, loc: meta.loc || locationKeyFor(meta.date) });
+  }
   return out;
 }
 
+function mapUrl(address) {
+  return `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+}
+
+// The distinct places this booking sends them to
+function placesFor(sessions) {
+  const keys = [...new Set(sessions.map((s) => s.loc).filter(Boolean))];
+  return keys.map((k) => ({ key: k, ...(LOCATIONS[k] || {}) })).filter((p) => p.name);
+}
+
 function emailHtml(meta, sessions) {
+  const places = placesFor(sessions);
+  const showPlace = places.length > 1;
+
   const rows = sessions
     .map(
       (s) => `<tr>
         <td style="padding:10px 0;border-bottom:1px solid #26262b;color:#f5f6f8;font-size:15px;">
-          <strong>${prettyDate(s.date)}</strong>
+          <strong>${prettyDate(s.date)}</strong>${
+        showPlace ? `<br /><span style="color:#a8adb6;font-size:13px;">${LOCATIONS[s.loc]?.name || ""}</span>` : ""
+      }
         </td>
         <td style="padding:10px 0;border-bottom:1px solid #26262b;color:#8fd6ff;font-size:15px;text-align:right;font-weight:bold;">
           ${s.time}
         </td>
       </tr>`
     )
+    .join("");
+
+  const placeBlocks = places
+    .map((p) => {
+      const hasAddress = Boolean(p.address);
+      return `<div style="background:#050505;border:2px solid #8fd6ff;border-radius:12px;padding:20px;margin-top:12px;">
+        <div style="font-size:11px;color:#8fd6ff;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">
+          ${places.length > 1 ? `${p.name} Lessons` : "Where to Go"}
+        </div>
+        <div style="font-size:17px;color:#ffffff;font-weight:bold;padding-top:8px;line-height:1.5;">
+          ${hasAddress ? p.address : p.name}
+        </div>
+        <p style="color:#a8adb6;font-size:13px;line-height:1.6;margin:8px 0 0;">
+          ${
+            hasAddress
+              ? "Plan to arrive about 5 minutes early."
+              : `I'll text you the exact address and directions before your first session — or call me at ${PHONE} anytime.`
+          }
+        </p>
+        ${
+          hasAddress
+            ? `<a href="${mapUrl(p.address)}" style="display:inline-block;margin-top:14px;background:#8fd6ff;color:#06121c;
+               text-decoration:none;font-weight:bold;font-size:14px;padding:11px 22px;border-radius:99px;">Get Directions</a>`
+            : ""
+        }
+      </div>`;
+    })
     .join("");
 
   const plural = sessions.length > 1 ? "lessons are" : "lesson is";
@@ -84,22 +134,8 @@ function emailHtml(meta, sessions) {
       <p style="color:#a8adb6;font-size:14px;margin:12px 0 0;">${TYPE_NAMES[meta.type] || ""}</p>
     </td></tr>
 
-    <tr><td style="padding-top:26px;">
-      <div style="background:#050505;border:2px solid #8fd6ff;border-radius:12px;padding:20px;">
-        <div style="font-size:11px;color:#8fd6ff;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">
-          Where to Go
-        </div>
-        <div style="font-size:17px;color:#ffffff;font-weight:bold;padding-top:8px;line-height:1.5;">
-          ${ADDRESS}
-        </div>
-        <p style="color:#a8adb6;font-size:13px;line-height:1.6;margin:8px 0 0;">
-          Our facility in Del City, just off I-40. Plan to arrive about 5 minutes early.
-        </p>
-        <a href="${MAP_URL}" style="display:inline-block;margin-top:14px;background:#8fd6ff;color:#06121c;
-           text-decoration:none;font-weight:bold;font-size:14px;padding:11px 22px;border-radius:99px;">
-          Get Directions
-        </a>
-      </div>
+    <tr><td style="padding-top:22px;">
+      ${placeBlocks}
     </td></tr>
 
     <tr><td style="padding-top:26px;">
@@ -141,7 +177,21 @@ function emailHtml(meta, sessions) {
 }
 
 function emailText(meta, sessions) {
-  const lines = sessions.map((s) => `  ${prettyDate(s.date)} at ${s.time}`).join("\n");
+  const places = placesFor(sessions);
+  const showPlace = places.length > 1;
+  const lines = sessions
+    .map(
+      (s) =>
+        `  ${prettyDate(s.date)} at ${s.time}${showPlace ? ` (${LOCATIONS[s.loc]?.name || ""})` : ""}`
+    )
+    .join("\n");
+  const where = places
+    .map((p) =>
+      p.address
+        ? `${places.length > 1 ? p.name + ": " : ""}${p.address}\nDirections: ${mapUrl(p.address)}`
+        : `${p.name} — I'll text you the exact address before your first session, or call ${PHONE}.`
+    )
+    .join("\n\n");
   return `AP ACADEMY — Thank you for choosing us!
 
 ${meta.parent ? `Hi ${meta.parent} — t` : "T"}hanks for booking with us. ${meta.player}'s ${
@@ -154,9 +204,8 @@ ${TYPE_NAMES[meta.type] || ""}
 ${lines}
 
 WHERE TO GO
-${ADDRESS}
-Our facility in Del City, just off I-40. Plan to arrive about 5 minutes early.
-Directions: ${MAP_URL}
+${where}
+Plan to arrive about 5 minutes early.
 
 WHAT TO BRING
 Bat, glove, turfs, and a water bottle.
@@ -209,7 +258,12 @@ export default async function handler(req, res) {
     const meta = session.metadata || {};
     const sessions = sessionsFrom(meta);
     const to = session.customer_details?.email || meta.email || "";
-    const summary = { player: meta.player || "", sessions, email: to, address: ADDRESS, mapUrl: MAP_URL };
+    const places = placesFor(sessions).map((p) => ({
+      name: p.name,
+      address: p.address || "",
+      mapUrl: p.address ? mapUrl(p.address) : "",
+    }));
+    const summary = { player: meta.player || "", sessions, email: to, places };
 
     // 2. Don't send twice if they refresh the success page
     const target = session.subscription
