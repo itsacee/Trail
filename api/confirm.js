@@ -92,7 +92,7 @@ function emailHtml(meta, sessions) {
         <p style="color:#a8adb6;font-size:13px;line-height:1.6;margin:8px 0 0;">
           ${
             hasAddress
-              ? "Plan to arrive about 5 minutes early."
+              ? p.note || "Plan to arrive about 5 minutes early."
               : `I'll text you the exact address and directions before your first session — or call me at ${PHONE} anytime.`
           }
         </p>
@@ -188,7 +188,9 @@ function emailText(meta, sessions) {
   const where = places
     .map((p) =>
       p.address
-        ? `${places.length > 1 ? p.name + ": " : ""}${p.address}\nDirections: ${mapUrl(p.address)}`
+        ? `${places.length > 1 ? p.name + ": " : ""}${p.address}\n${
+            p.note ? p.note + "\n" : ""
+          }Directions: ${mapUrl(p.address)}`
         : `${p.name} — I'll text you the exact address before your first session, or call ${PHONE}.`
     )
     .join("\n\n");
@@ -205,7 +207,6 @@ ${lines}
 
 WHERE TO GO
 ${where}
-Plan to arrive about 5 minutes early.
 
 WHAT TO BRING
 Bat, glove, turfs, and a water bottle.
