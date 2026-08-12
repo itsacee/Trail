@@ -46,14 +46,13 @@ form) — **change both together**:
 
 | Days | Hours | Location |
 | --- | --- | --- |
-| Mon–Fri | 5–9 PM (last start 8 PM) | Mustang |
+| Mon–Fri | 5–9 PM (last start 8 PM) | Del City |
 | Sat–Sun | 9 AM–7 PM (last start 6 PM) | Del City |
 
 Each booking records which location it belongs to, so the confirmation email,
 calendar feed, and coach page all show the right place. A location with no
 `address` filled in degrades gracefully — the email says the address will be
-texted instead of printing a placeholder. `LOCATIONS.mustang.address` and
-`LOCATIONS.mojo.address` still need real values.
+texted instead of printing a placeholder.
 
 Times already paid for are marked booked automatically — `api/slots.js` reads
 paid bookings straight from Stripe, and `api/checkout.js` both re-checks the

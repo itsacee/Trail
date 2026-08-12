@@ -42,17 +42,16 @@ const WEEKDAY_TIMES = ["17:00", "18:00", "19:00", "20:00"];
 // 0 = Sunday ... 6 = Saturday
 const DAY_PLAN = {
   0: { times: WEEKEND_TIMES, place: "Del City" },
-  1: { times: WEEKDAY_TIMES, place: "Mustang" },
-  2: { times: WEEKDAY_TIMES, place: "Mustang" },
-  3: { times: WEEKDAY_TIMES, place: "Mustang" },
-  4: { times: WEEKDAY_TIMES, place: "Mustang" },
-  5: { times: WEEKDAY_TIMES, place: "Mustang" },
+  1: { times: WEEKDAY_TIMES, place: "Del City" },
+  2: { times: WEEKDAY_TIMES, place: "Del City" },
+  3: { times: WEEKDAY_TIMES, place: "Del City" },
+  4: { times: WEEKDAY_TIMES, place: "Del City" },
+  5: { times: WEEKDAY_TIMES, place: "Del City" },
   6: { times: WEEKEND_TIMES, place: "Del City" },
 };
 
 const PLACE_BLURB = {
-  "Del City": "Weekend lessons train in <strong>Del City</strong> — just off I-40, southeast OKC metro.",
-  Mustang: "Weeknight lessons train in <strong>Mustang</strong>, on the west side of the metro.",
+  "Del City": "Lessons train in <strong>Del City</strong> — just off I-40, southeast OKC metro.",
 };
 
 function planFor(iso) {
@@ -120,7 +119,7 @@ function renderDays() {
     const plan = DAY_PLAN[d.getDay()];
     if (!plan) continue;
     const iso = isoDate(d);
-    dateSelect.append(new Option(`${prettyDate(iso)} · ${plan.place}`, iso));
+    dateSelect.append(new Option(prettyDate(iso), iso));
   }
 }
 

@@ -9,7 +9,7 @@
        up on Google. Include your city so local parents find you!
        ============================================================ -->
   <title>AP Academy | Private Baseball Training in Oklahoma City</title>
-  <meta name="description" content="One-on-one baseball training in Oklahoma City with Elijah Alexander — former Oklahoma State Cowboy and .434 JUCO hitter. Hitting, fielding, and speed &amp; conditioning lessons for youth players. Locations in Mustang and Del City. Book online 7 days a week for $60." />
+  <meta name="description" content="One-on-one baseball training in Oklahoma City with Elijah Alexander — former Oklahoma State Cowboy and .434 JUCO hitter. Hitting, fielding, and speed &amp; conditioning lessons for youth players. In Del City, just off I-40. Book online 7 days a week for $60." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1010,10 +1010,8 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
         </details>
         <details>
           <summary>Where are lessons held?</summary>
-          <p>We train at two locations, and the day you pick decides which one:</p>
-          <p><strong>Weeknights (Mon–Fri)</strong> are in <strong>Mustang</strong>, on the west side of the metro.<br />
-          <strong>Weekends (Sat–Sun)</strong> are in <strong>Del City</strong>, just off I-40 on the southeast side.</p>
-          <p>The booking form tells you which location before you pay, and the exact address with directions is emailed to you the moment you book. Questions first? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
+          <p>All lessons are in <strong>Del City</strong>, just off I-40 on the southeast side of the OKC metro.</p>
+          <p>The exact address with directions is emailed to you the moment you book. Questions first? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
         </details>
         <details>
           <summary>How long is a session?</summary>
@@ -1061,7 +1059,7 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
         <ul class="footer__list">
           <li><a href="tel:+14058194401">(405) 819-4401</a></li>
           <li><a href="mailto:Apacademybsb@gmail.com">Apacademybsb@gmail.com</a></li>
-          <li>Mustang &amp; Del City, OK</li>
+          <li>Del City, OK</li>
           <li>Weeknights 5&ndash;9 PM &middot; Weekends 9 AM&ndash;7 PM</li>
         </ul>
       </div>
@@ -1132,17 +1130,16 @@ const WEEKDAY_TIMES = ["17:00", "18:00", "19:00", "20:00"];
 // 0 = Sunday ... 6 = Saturday
 const DAY_PLAN = {
   0: { times: WEEKEND_TIMES, place: "Del City" },
-  1: { times: WEEKDAY_TIMES, place: "Mustang" },
-  2: { times: WEEKDAY_TIMES, place: "Mustang" },
-  3: { times: WEEKDAY_TIMES, place: "Mustang" },
-  4: { times: WEEKDAY_TIMES, place: "Mustang" },
-  5: { times: WEEKDAY_TIMES, place: "Mustang" },
+  1: { times: WEEKDAY_TIMES, place: "Del City" },
+  2: { times: WEEKDAY_TIMES, place: "Del City" },
+  3: { times: WEEKDAY_TIMES, place: "Del City" },
+  4: { times: WEEKDAY_TIMES, place: "Del City" },
+  5: { times: WEEKDAY_TIMES, place: "Del City" },
   6: { times: WEEKEND_TIMES, place: "Del City" },
 };
 
 const PLACE_BLURB = {
-  "Del City": "Weekend lessons train in <strong>Del City</strong> — just off I-40, southeast OKC metro.",
-  Mustang: "Weeknight lessons train in <strong>Mustang</strong>, on the west side of the metro.",
+  "Del City": "Lessons train in <strong>Del City</strong> — just off I-40, southeast OKC metro.",
 };
 
 function planFor(iso) {
@@ -1210,7 +1207,7 @@ function renderDays() {
     const plan = DAY_PLAN[d.getDay()];
     if (!plan) continue;
     const iso = isoDate(d);
-    dateSelect.append(new Option(`${prettyDate(iso)} · ${plan.place}`, iso));
+    dateSelect.append(new Option(prettyDate(iso), iso));
   }
 }
 
