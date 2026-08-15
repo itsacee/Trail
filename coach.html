@@ -85,6 +85,20 @@
     .avail-actions button, #saveAvail { width: auto; }
     #saveAvail { padding: 0.8rem 1.4rem; margin-top: 1.1rem; }
     .ok-msg { color: #9fe8b9; font-weight: 600; margin-top: 0.6rem; }
+    .cal { border: 1px solid var(--line); border-radius: 14px; padding: 0.9rem; background: var(--bg); }
+    .cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
+    .cal__label { font-weight: 700; font-size: 1rem; }
+    .cal__nav { width: auto; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0.3rem 0.9rem; font-size: 1.15rem; line-height: 1; }
+    .cal__nav:hover { border-color: var(--btn); }
+    .cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .cal__dow { margin-bottom: 5px; }
+    .cal__dow span { text-align: center; font-size: 0.68rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+    .cal__day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: var(--surface); border: 1px solid transparent; cursor: pointer; font-size: 0.92rem; font-weight: 600; user-select: none; transition: background 0.12s, border-color 0.12s; }
+    .cal__day:hover { border-color: var(--dim); }
+    .cal__day.empty { background: none; cursor: default; }
+    .cal__day.past { color: #48484f; cursor: not-allowed; background: none; }
+    .cal__day.off { background: #c6402f; color: #fff; border-color: #c6402f; }
+    .cal__day.off:hover { background: #d84f3d; border-color: #d84f3d; }
   </style>
 </head>
 <body>
@@ -124,12 +138,19 @@
         <div id="availDays"></div>
         <div style="margin-top:1.4rem">
           <b style="display:block;margin-bottom:0.4rem">Days off</b>
-          <p class="muted" style="margin-bottom:0.7rem">Block specific dates — holidays, travel, high-school games. Parents can't book these.</p>
-          <div class="avail-actions">
-            <input type="date" id="blockDate" />
-            <button id="addBlock">Add</button>
+          <p class="muted" style="margin-bottom:0.7rem">Tap any day to mark it off — holidays, travel, high-school games. Tap again to clear it. Off days can't be booked.</p>
+          <div class="cal">
+            <div class="cal__head">
+              <button type="button" id="calPrev" class="cal__nav" aria-label="Previous month">‹</button>
+              <span id="calLabel" class="cal__label"></span>
+              <button type="button" id="calNext" class="cal__nav" aria-label="Next month">›</button>
+            </div>
+            <div class="cal__grid cal__dow">
+              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
+            <div class="cal__grid" id="calDays"></div>
           </div>
-          <div id="blockList"></div>
+          <p class="muted" id="offSummary" style="margin-top:0.7rem"></p>
         </div>
         <button id="saveAvail">Save availability</button>
         <p class="error" id="availMsg"></p>
@@ -311,27 +332,72 @@
       wrap.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
         cb.addEventListener("change", () => cb.closest(".avail-day").classList.toggle("closed", !cb.checked));
       });
-      renderBlocks();
+      ensureCalMonth();
+      renderCal();
+      renderOffSummary();
       document.getElementById("availHint").textContent = availEditable ? "" : "not turned on yet — see setup";
     }
 
-    function renderBlocks() {
-      const list = document.getElementById("blockList");
-      list.innerHTML = "";
-      (availState.blocked || []).forEach((dt) => {
-        const d = new Date(dt + "T12:00:00");
-        const chip = document.createElement("span");
-        chip.className = "block-chip";
-        chip.innerHTML = `${DAYS[d.getDay()].slice(0, 3)}, ${MONTHS[d.getMonth()]} ${d.getDate()} <button data-del="${dt}" title="Remove">✕</button>`;
-        list.appendChild(chip);
-      });
-      list.querySelectorAll("button[data-del]").forEach((b) => {
-        b.addEventListener("click", () => {
-          availState.blocked = (availState.blocked || []).filter((x) => x !== b.dataset.del);
-          renderBlocks();
-        });
-      });
+    // ----- Days-off calendar -----
+    let calMonth = null; // first day of the displayed month
+
+    function isoOf(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
+    function ensureCalMonth() {
+      if (!calMonth) { const n = new Date(); calMonth = new Date(n.getFullYear(), n.getMonth(), 1); }
+    }
+    function renderCal() {
+      ensureCalMonth();
+      document.getElementById("calLabel").textContent =
+        calMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      const grid = document.getElementById("calDays");
+      grid.innerHTML = "";
+      const y = calMonth.getFullYear(), m = calMonth.getMonth();
+      const firstDow = new Date(y, m, 1).getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const todayIso = isoOf(new Date());
+      for (let i = 0; i < firstDow; i++) {
+        const e = document.createElement("div");
+        e.className = "cal__day empty";
+        grid.appendChild(e);
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const iso = isoOf(new Date(y, m, d));
+        const cell = document.createElement("div");
+        cell.className = "cal__day";
+        cell.textContent = d;
+        if (iso < todayIso) {
+          cell.classList.add("past");
+        } else {
+          if ((availState.blocked || []).includes(iso)) cell.classList.add("off");
+          cell.addEventListener("click", () => {
+            availState.blocked = availState.blocked || [];
+            if (availState.blocked.includes(iso)) {
+              availState.blocked = availState.blocked.filter((x) => x !== iso);
+            } else {
+              availState.blocked = [...availState.blocked, iso].sort();
+            }
+            renderCal();
+            renderOffSummary();
+          });
+        }
+        grid.appendChild(cell);
+      }
+    }
+    function renderOffSummary() {
+      const n = (availState.blocked || []).length;
+      document.getElementById("offSummary").textContent =
+        n ? `${n} day${n === 1 ? "" : "s"} marked off` : "No days off marked.";
+    }
+    document.getElementById("calPrev").addEventListener("click", () => {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
+      renderCal();
+    });
+    document.getElementById("calNext").addEventListener("click", () => {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
+      renderCal();
+    });
 
     function collectAvail() {
       const days = {};
@@ -344,14 +410,6 @@
       }
       return { slotMinutes: (availState && availState.slotMinutes) || 60, days, blocked: (availState && availState.blocked) || [] };
     }
-
-    document.getElementById("addBlock").addEventListener("click", () => {
-      const el = document.getElementById("blockDate");
-      if (!el.value || !availState) return;
-      availState.blocked = [...new Set([...(availState.blocked || []), el.value])].sort();
-      el.value = "";
-      renderBlocks();
-    });
 
     document.getElementById("saveAvail").addEventListener("click", async () => {
       const msg = document.getElementById("availMsg");
