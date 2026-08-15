@@ -732,3 +732,16 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
 }
 
 .partners-band { padding-top: 3rem; }
+
+/* Clickable partner tiles */
+.partner { text-decoration: none; color: inherit; cursor: pointer; border-radius: var(--radius); }
+.partner__cta {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.01em;
+  transition: color 0.2s ease;
+}
+.partner:hover .partner__name { color: #fff; }
+.partner:hover .partner__cta { color: var(--btn); }
+.partner:focus-visible { outline: 2px solid var(--btn); outline-offset: 5px; }
