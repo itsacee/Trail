@@ -730,3 +730,5 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
 @media (max-width: 720px) {
   .partners { grid-template-columns: 1fr; max-width: 320px; margin-inline: auto; }
 }
+
+.partners-band { padding-top: 3rem; }
