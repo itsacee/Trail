@@ -72,7 +72,7 @@ function emailHtml(meta, sessions) {
         showPlace ? `<br /><span style="color:#a8adb6;font-size:13px;">${LOCATIONS[s.loc]?.name || ""}</span>` : ""
       }
         </td>
-        <td style="padding:10px 0;border-bottom:1px solid #26262b;color:#8fd6ff;font-size:15px;text-align:right;font-weight:bold;">
+        <td style="padding:10px 0;border-bottom:1px solid #26262b;color:#cfd4da;font-size:15px;text-align:right;font-weight:bold;">
           ${s.time}
         </td>
       </tr>`
@@ -82,8 +82,8 @@ function emailHtml(meta, sessions) {
   const placeBlocks = places
     .map((p) => {
       const hasAddress = Boolean(p.address);
-      return `<div style="background:#050505;border:2px solid #8fd6ff;border-radius:12px;padding:20px;margin-top:12px;">
-        <div style="font-size:11px;color:#8fd6ff;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">
+      return `<div style="background:#050505;border:2px solid #cfd4da;border-radius:12px;padding:20px;margin-top:12px;">
+        <div style="font-size:11px;color:#cfd4da;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">
           ${places.length > 1 ? `${p.name} Lessons` : "Where to Go"}
         </div>
         <div style="font-size:17px;color:#ffffff;font-weight:bold;padding-top:8px;line-height:1.5;">
@@ -98,7 +98,7 @@ function emailHtml(meta, sessions) {
         </p>
         ${
           hasAddress
-            ? `<a href="${mapUrl(p.address)}" style="display:inline-block;margin-top:14px;background:#8fd6ff;color:#06121c;
+            ? `<a href="${mapUrl(p.address)}" style="display:inline-block;margin-top:14px;background:#cfd4da;color:#06121c;
                text-decoration:none;font-weight:bold;font-size:14px;padding:11px 22px;border-radius:99px;">Get Directions</a>`
             : ""
         }
@@ -151,7 +151,7 @@ function emailHtml(meta, sessions) {
       </div>
       <p style="color:#f5f6f8;font-size:15px;line-height:1.7;margin:0;">
         Just hit reply to this email and it comes straight to me — or call or text
-        <a href="tel:${PHONE_TEL}" style="color:#8fd6ff;text-decoration:none;font-weight:bold;">${PHONE}</a>.
+        <a href="tel:${PHONE_TEL}" style="color:#cfd4da;text-decoration:none;font-weight:bold;">${PHONE}</a>.
         Happy to answer anything before the first session.
       </p>
       <p style="color:#a8adb6;font-size:13px;line-height:1.7;margin:12px 0 0;">
@@ -165,9 +165,9 @@ function emailHtml(meta, sessions) {
         See you at training,<br />
         <strong style="color:#ffffff;font-size:16px;">${COACH}</strong><br />
         <span style="color:#a8adb6;">Founder &amp; Head Trainer, AP Academy</span><br />
-        <a href="tel:${PHONE_TEL}" style="color:#8fd6ff;text-decoration:none;">${PHONE}</a><br />
-        <a href="mailto:${REPLY_TO}" style="color:#8fd6ff;text-decoration:none;">${REPLY_TO}</a><br />
-        <a href="https://www.apacademybsb.com" style="color:#8fd6ff;text-decoration:none;">apacademybsb.com</a>
+        <a href="tel:${PHONE_TEL}" style="color:#cfd4da;text-decoration:none;">${PHONE}</a><br />
+        <a href="mailto:${REPLY_TO}" style="color:#cfd4da;text-decoration:none;">${REPLY_TO}</a><br />
+        <a href="https://www.apacademybsb.com" style="color:#cfd4da;text-decoration:none;">apacademybsb.com</a>
       </p>
     </td></tr>
   </table>
