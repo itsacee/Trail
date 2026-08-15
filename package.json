@@ -1,0 +1,15 @@
+{
+  "name": "ap-academy-website",
+  "version": "1.0.0",
+  "description": "AP Academy Baseball Training Website",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static site - no build required'",
+    "lint": "echo 'No linting configured'"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^1.3.1"
+  },
+  "devDependencies": {}
+}
