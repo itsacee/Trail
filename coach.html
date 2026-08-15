@@ -70,6 +70,21 @@
     .subscribe span:first-child { font-size: 1.4rem; }
     .subscribe b { display: block; font-size: 0.95rem; }
     .subscribe small { color: var(--dim); font-size: 0.82rem; }
+    .card-title { font-family: "Bebas Neue", sans-serif; font-size: 1.35rem; letter-spacing: 0.04em; }
+    .avail-day { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.55rem; flex-wrap: wrap; }
+    .avail-day label { display: flex; align-items: center; gap: 0.5rem; min-width: 118px; margin: 0; cursor: pointer; font-weight: 600; }
+    .avail-day input[type="checkbox"] { width: auto; margin: 0; height: 18px; accent-color: var(--btn); }
+    .avail-day select { width: auto; flex: 0 0 auto; margin: 0; padding: 0.5rem 0.55rem; font-size: 0.95rem; }
+    .avail-day.closed select, .avail-day.closed .to { opacity: 0.35; pointer-events: none; }
+    .avail-day .to { color: var(--dim); }
+    .block-chip { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 0.35rem 0.4rem 0.35rem 0.8rem; margin: 0 0.4rem 0.4rem 0; font-size: 0.9rem; }
+    .block-chip button { width: auto; background: none; color: var(--dim); padding: 0 0.2rem; font-size: 1rem; border-radius: 0; line-height: 1; }
+    .block-chip button:hover { color: #ff8d7e; }
+    .avail-actions { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.8rem; }
+    .avail-actions input { margin: 0; flex: 1; }
+    .avail-actions button, #saveAvail { width: auto; }
+    #saveAvail { padding: 0.8rem 1.4rem; margin-top: 1.1rem; }
+    .ok-msg { color: #9fe8b9; font-weight: 600; margin-top: 0.6rem; }
   </style>
 </head>
 <body>
@@ -100,6 +115,25 @@
         <span>📅</span>
         <span><b>Add lessons to your phone calendar</b><small>Bookings appear automatically — set this up once</small></span>
       </a>
+      <div class="card" id="availCard">
+        <div class="topbar">
+          <span class="card-title">My Availability</span>
+          <span class="muted" id="availHint"></span>
+        </div>
+        <p class="muted" style="margin:0.2rem 0 1rem">Set the days and hours parents can book. Uncheck a day to close it.</p>
+        <div id="availDays"></div>
+        <div style="margin-top:1.4rem">
+          <b style="display:block;margin-bottom:0.4rem">Days off</b>
+          <p class="muted" style="margin-bottom:0.7rem">Block specific dates — holidays, travel, high-school games. Parents can't book these.</p>
+          <div class="avail-actions">
+            <input type="date" id="blockDate" />
+            <button id="addBlock">Add</button>
+          </div>
+          <div id="blockList"></div>
+        </div>
+        <button id="saveAvail">Save availability</button>
+        <p class="error" id="availMsg"></p>
+      </div>
       <div id="schedule"></div>
     </div>
   </div>
@@ -156,6 +190,7 @@
       app.hidden = false;
       renderStatus(data.status || {});
       render(data.sessions || []);
+      loadAvail();
     }
 
     function renderStatus(s) {
@@ -226,6 +261,125 @@
       localStorage.removeItem("coachPass");
       app.hidden = true;
       login.hidden = false;
+    });
+
+    /* ---------- Availability editor ---------- */
+    let availState = null;
+    let availEditable = false;
+
+    const TIME_OPTS = (() => {
+      const out = [];
+      for (let m = 6 * 60; m <= 22 * 60; m += 30) {
+        const h = Math.floor(m / 60), mm = m % 60;
+        const v = `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+        const ap = h >= 12 ? "PM" : "AM", hr = h % 12 === 0 ? 12 : h % 12;
+        out.push({ v, label: `${hr}:${String(mm).padStart(2, "0")} ${ap}` });
+      }
+      return out;
+    })();
+    function timeOptionsHtml(sel) {
+      return TIME_OPTS.map((o) => `<option value="${o.v}"${o.v === sel ? " selected" : ""}>${o.label}</option>`).join("");
+    }
+
+    async function loadAvail() {
+      try {
+        const r = await fetch("/api/availability");
+        const d = await r.json();
+        availState = d.availability;
+        availEditable = Boolean(d.editable);
+      } catch {
+        availState = null;
+      }
+      renderAvail();
+    }
+
+    function renderAvail() {
+      if (!availState) return;
+      const wrap = document.getElementById("availDays");
+      wrap.innerHTML = "";
+      for (let i = 0; i < 7; i++) {
+        const c = (availState.days && availState.days[i]) || { open: false, start: "17:00", end: "21:00" };
+        const row = document.createElement("div");
+        row.className = "avail-day" + (c.open ? "" : " closed");
+        row.innerHTML =
+          `<label><input type="checkbox" data-day="${i}"${c.open ? " checked" : ""} /> ${DAYS[i]}</label>` +
+          `<select data-start="${i}">${timeOptionsHtml(c.start)}</select>` +
+          `<span class="to">to</span>` +
+          `<select data-end="${i}">${timeOptionsHtml(c.end)}</select>`;
+        wrap.appendChild(row);
+      }
+      wrap.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+        cb.addEventListener("change", () => cb.closest(".avail-day").classList.toggle("closed", !cb.checked));
+      });
+      renderBlocks();
+      document.getElementById("availHint").textContent = availEditable ? "" : "not turned on yet — see setup";
+    }
+
+    function renderBlocks() {
+      const list = document.getElementById("blockList");
+      list.innerHTML = "";
+      (availState.blocked || []).forEach((dt) => {
+        const d = new Date(dt + "T12:00:00");
+        const chip = document.createElement("span");
+        chip.className = "block-chip";
+        chip.innerHTML = `${DAYS[d.getDay()].slice(0, 3)}, ${MONTHS[d.getMonth()]} ${d.getDate()} <button data-del="${dt}" title="Remove">✕</button>`;
+        list.appendChild(chip);
+      });
+      list.querySelectorAll("button[data-del]").forEach((b) => {
+        b.addEventListener("click", () => {
+          availState.blocked = (availState.blocked || []).filter((x) => x !== b.dataset.del);
+          renderBlocks();
+        });
+      });
+    }
+
+    function collectAvail() {
+      const days = {};
+      for (let i = 0; i < 7; i++) {
+        days[i] = {
+          open: document.querySelector(`input[data-day="${i}"]`).checked,
+          start: document.querySelector(`select[data-start="${i}"]`).value,
+          end: document.querySelector(`select[data-end="${i}"]`).value,
+        };
+      }
+      return { slotMinutes: (availState && availState.slotMinutes) || 60, days, blocked: (availState && availState.blocked) || [] };
+    }
+
+    document.getElementById("addBlock").addEventListener("click", () => {
+      const el = document.getElementById("blockDate");
+      if (!el.value || !availState) return;
+      availState.blocked = [...new Set([...(availState.blocked || []), el.value])].sort();
+      el.value = "";
+      renderBlocks();
+    });
+
+    document.getElementById("saveAvail").addEventListener("click", async () => {
+      const msg = document.getElementById("availMsg");
+      const pass = localStorage.getItem("coachPass");
+      if (!pass) return;
+      msg.className = "muted";
+      msg.textContent = "Saving…";
+      try {
+        const r = await fetch(`/api/availability?key=${encodeURIComponent(pass)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ availability: collectAvail() }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          msg.className = "error";
+          msg.textContent = d.error || "Could not save.";
+          return;
+        }
+        availState = d.availability;
+        availEditable = true;
+        renderAvail();
+        msg.className = "ok-msg";
+        msg.textContent = "Saved ✓ — your booking page is updated.";
+      } catch {
+        msg.className = "error";
+        msg.textContent = "Network error — please try again.";
+      }
     });
 
     const saved = localStorage.getItem("coachPass");

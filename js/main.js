@@ -34,29 +34,65 @@ document.getElementById("year").textContent = new Date().getFullYear();
 
 /* ---------- Booking widget ---------- */
 
-// Availability — MIRRORS lib/schedule.js on the server. Change both together.
-// Session START times, 24h. Lessons run one hour.
-const WEEKEND_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
-const WEEKDAY_TIMES = ["17:00", "18:00", "19:00", "20:00"];
-
-// 0 = Sunday ... 6 = Saturday
-const DAY_PLAN = {
-  0: { times: WEEKEND_TIMES, place: "Del City" },
-  1: { times: WEEKDAY_TIMES, place: "Del City" },
-  2: { times: WEEKDAY_TIMES, place: "Del City" },
-  3: { times: WEEKDAY_TIMES, place: "Del City" },
-  4: { times: WEEKDAY_TIMES, place: "Del City" },
-  5: { times: WEEKDAY_TIMES, place: "Del City" },
-  6: { times: WEEKEND_TIMES, place: "Del City" },
+// Availability defaults — MIRROR lib/schedule.js. The live values are fetched
+// from /api/availability on load (the coach can edit them from the coach page);
+// these defaults are only the fallback if that request fails.
+const DEFAULT_AVAILABILITY = {
+  slotMinutes: 60,
+  days: {
+    0: { open: true, start: "09:00", end: "19:00" }, // Sun
+    1: { open: true, start: "17:00", end: "21:00" }, // Mon
+    2: { open: true, start: "17:00", end: "21:00" }, // Tue
+    3: { open: true, start: "17:00", end: "21:00" }, // Wed
+    4: { open: true, start: "17:00", end: "21:00" }, // Thu
+    5: { open: true, start: "17:00", end: "21:00" }, // Fri
+    6: { open: true, start: "09:00", end: "19:00" }, // Sat
+  },
+  blocked: [],
 };
+let AVAIL = DEFAULT_AVAILABILITY;
 
 const PLACE_BLURB = {
   "Del City": "Lessons train in <strong>Del City</strong> — just off I-40, southeast OKC metro.",
 };
 
-function planFor(iso) {
+function toMinutes(hhmm) {
+  const [h, m] = String(hhmm).split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Slot start times ("HH:mm") for a date, per the current availability.
+function startsForDate(iso) {
   const d = new Date(`${iso}T12:00:00`);
-  return isNaN(d) ? null : DAY_PLAN[d.getDay()] || null;
+  if (isNaN(d)) return [];
+  if ((AVAIL.blocked || []).includes(iso)) return [];
+  const cfg = (AVAIL.days || {})[d.getDay()];
+  if (!cfg || !cfg.open) return [];
+  const start = toMinutes(cfg.start);
+  const end = toMinutes(cfg.end);
+  const step = AVAIL.slotMinutes || 60;
+  const out = [];
+  for (let t = start; t + step <= end; t += step) {
+    out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+function planFor(iso) {
+  const times = startsForDate(iso);
+  return times.length ? { times, place: "Del City" } : null;
+}
+
+async function loadAvailability() {
+  try {
+    const res = await fetch("/api/availability");
+    if (res.ok) {
+      const d = await res.json();
+      if (d && d.availability && d.availability.days) AVAIL = d.availability;
+    }
+  } catch {
+    /* keep defaults — static preview or offline */
+  }
 }
 
 const DAYS_AHEAD = 28; // how many days out parents can book
@@ -113,12 +149,12 @@ function prettyDate(iso) {
 }
 
 function renderDays() {
+  dateSelect.length = 1; // keep the "Choose a day" placeholder, rebuild the rest
   const now = new Date();
   for (let i = 1; i <= DAYS_AHEAD; i++) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-    const plan = DAY_PLAN[d.getDay()];
-    if (!plan) continue;
     const iso = isoDate(d);
+    if (!planFor(iso)) continue; // closed day or a blocked date — skip it
     dateSelect.append(new Option(prettyDate(iso), iso));
   }
 }
@@ -249,7 +285,7 @@ function refreshSubmit() {
 }
 
 if (form) {
-  renderDays();
+  loadAvailability().then(renderDays);
   dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
   timeSelect.addEventListener("change", () => chooseTime(timeSelect.value));
   // "Pick Your Path" buttons carry the chosen session into the booking form
