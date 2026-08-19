@@ -113,9 +113,10 @@ export default async function handler(req, res) {
     if (!t || !/^\d{4}-\d{2}-\d{2}$/.test(b.date)) return;
     const [y, mo, d] = b.date.split("-").map(Number);
     const start = `${y}${pad(mo)}${pad(d)}T${pad(t.h)}${pad(t.min)}00`;
-    const endH = t.h + 1;
-    // Lessons are one hour; nothing starts late enough to roll past midnight
-    const end = `${y}${pad(mo)}${pad(d)}T${pad(endH)}${pad(t.min)}00`;
+    // 30-minute lessons run half an hour; everything else is a full hour.
+    const durationMin = b.type === "thirty" ? 30 : 60;
+    const endMin = t.h * 60 + t.min + durationMin;
+    const end = `${y}${pad(mo)}${pad(d)}T${pad(Math.floor(endMin / 60))}${pad(endMin % 60)}00`;
 
     const who = b.player || "Lesson";
     const kind = TYPE_LABEL[b.type] || "Lesson";
