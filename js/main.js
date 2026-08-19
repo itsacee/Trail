@@ -53,7 +53,7 @@ const DEFAULT_AVAILABILITY = {
 let AVAIL = DEFAULT_AVAILABILITY;
 
 const PLACE_BLURB = {
-  "Del City": "Lessons train in <strong>Del City</strong> — just off I-40, southeast OKC metro.",
+  "Mustang": "Lessons train at <strong>Mustang High School</strong>'s baseball field in Mustang, OK.",
 };
 
 function toMinutes(hhmm) {
@@ -80,7 +80,7 @@ function startsForDate(iso) {
 
 function planFor(iso) {
   const times = startsForDate(iso);
-  return times.length ? { times, place: "Del City" } : null;
+  return times.length ? { times, place: "Mustang" } : null;
 }
 
 async function loadAvailability() {
@@ -98,9 +98,9 @@ async function loadAvailability() {
 const DAYS_AHEAD = 28; // how many days out parents can book
 
 const SESSIONS = {
-  single: { name: "Single Lesson", price: "$60 · 1 hour", label: "Pay $60 — Book Lesson", picks: 1 },
-  group: { name: "Group Session", price: "$30 / player · 2 players · 30 min each", label: "Pay $60 — Book Group (2 players)", picks: 1 },
-  membership: { name: "Membership", price: "$200 / month · 4 lessons", label: "Start Membership — $200/mo", picks: 4 },
+  single: { name: "Single Lesson", price: "$75 · 1 hour", label: "Pay $75 — Book Lesson", picks: 1, focus: "full" },
+  thirty: { name: "30-Minute Lesson", price: "$50 · 30 min", label: "Pay $50 — Book Lesson", picks: 1, focus: "one" },
+  membership: { name: "Membership", price: "$260 / month · 4 lessons", label: "Start Membership — $260/mo", picks: 4, focus: "none" },
 };
 
 const form = document.getElementById("bookingForm");
@@ -109,6 +109,8 @@ const timeSelect = document.getElementById("bkTime");
 const pickedList = document.getElementById("pickedList");
 const submitBtn = document.getElementById("bookingSubmit");
 const statusEl = document.getElementById("bookingStatus");
+const focusField = document.getElementById("focusField");
+const focusSelect = document.getElementById("bkFocus");
 
 let selectedType = "single";
 let picked = []; // chosen sessions: [{ date: "2026-08-06", time: "9:00 AM" }]
@@ -124,9 +126,24 @@ function setType(type) {
   picked = [];
   document.getElementById("selName").textContent = SESSIONS[type].name;
   document.getElementById("selPrice").textContent = SESSIONS[type].price;
+  updateFocusField();
   renderTimeOptions();
   renderPicked();
   refreshSubmit();
+}
+
+// Show the Hitting/Fielding focus picker per session type:
+//   "full" → Hitting, Fielding, or Both (1-hour lessons)
+//   "one"  → Hitting or Fielding only (30-minute lessons)
+//   "none" → hidden (membership)
+function updateFocusField() {
+  if (!focusField) return;
+  const mode = SESSIONS[selectedType].focus;
+  if (mode === "none") { focusField.hidden = true; return; }
+  focusField.hidden = false;
+  const both = focusSelect ? focusSelect.querySelector('option[value="Both"]') : null;
+  if (both) both.hidden = mode === "one";
+  if (mode === "one" && focusSelect && focusSelect.value === "Both") focusSelect.value = "Hitting";
 }
 
 function fmtTime(t) {
@@ -227,7 +244,7 @@ function renderTimeOptions() {
   if (!open) {
     timeSelect.options[0].text = "No open times this day";
   }
-  // For single/group the current pick stays shown in the dropdown
+  // For single & 30-min the current pick stays shown in the dropdown
   if (maxPicks() === 1 && picked.length && picked[0].date === date) {
     timeSelect.value = picked[0].time;
   }
@@ -285,6 +302,7 @@ function refreshSubmit() {
 }
 
 if (form) {
+  updateFocusField();
   loadAvailability().then(renderDays);
   dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
   timeSelect.addEventListener("change", () => chooseTime(timeSelect.value));
@@ -319,6 +337,7 @@ if (form) {
         body: JSON.stringify({
           type: selectedType,
           sessions: picked,
+          focus: focusField && !focusField.hidden && focusSelect ? focusSelect.value : "",
           player: form.elements.player.value.trim(),
           parent: form.elements.parent.value.trim(),
           phone: form.elements.phone.value.trim(),

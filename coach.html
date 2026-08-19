@@ -166,8 +166,8 @@
 
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const TYPE_LABEL = { single: "Private", group: "Group ×2", membership: "Membership" };
-    const PLACE_LABEL = { delcity: "Del City", mojo: "Mojo Yard" };
+    const TYPE_LABEL = { single: "Private", thirty: "30-min", membership: "Membership" };
+    const PLACE_LABEL = { mustang: "Mustang HS", delcity: "Del City", mojo: "Mojo Yard" };
 
     function toMinutes(t) {
       const m = /(\d{1,2}):(\d{2}) (AM|PM)/.exec(t);
@@ -261,6 +261,7 @@
           <time>${s.time}</time>
           <div class="who"><b>${s.player || "—"}</b><small>${s.parent ? "Parent: " + s.parent : ""}</small></div>
           <div class="contact">${contact}</div>
+          ${s.focus ? `<span class="tag">${s.focus}</span>` : ""}
           ${place ? `<span class="tag place">${place}</span>` : ""}
           <span class="tag ${s.type}">${TYPE_LABEL[s.type] || s.type || ""}</span>`;
         wrap.appendChild(row);

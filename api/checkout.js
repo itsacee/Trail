@@ -6,10 +6,12 @@ import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor, getAvailability } from "../lib/schedule.js";
 
 const SESSION_TYPES = {
-  single: { amount: 6000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
-  group: { amount: 3000, quantity: 2, picks: 1, label: "Group Session — 2 players, 30 min each (per player)", mode: "payment" },
-  membership: { amount: 20000, quantity: 1, picks: 4, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
+  single: { amount: 7500, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
+  thirty: { amount: 5000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
+  membership: { amount: 26000, quantity: 1, picks: 4, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
 };
+
+const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -27,6 +29,7 @@ export default async function handler(req, res) {
   }
 
   const { type, player, parent, phone, email } = req.body || {};
+  const focus = FOCUS_LABELS[req.body?.focus] ? String(req.body.focus) : "";
   const session = SESSION_TYPES[type];
   let sessions = Array.isArray(req.body?.sessions) ? req.body.sessions : [];
   // Backwards compatibility with single date/time payloads
@@ -81,7 +84,7 @@ export default async function handler(req, res) {
   }
 
   const origin = `https://${req.headers.host}`;
-  const ADDRESS = "3701 S Bryant Ave, Del City, OK 73115";
+  const ADDRESS = "231 W Juniper Dr, Mustang, OK 73064";
   // Shown on the checkout page order summary — no address here
   const sessionLabel = sessions.map((s) => `${s.date} at ${s.time}`).join(", ") + ` — ${player}`;
 
@@ -108,7 +111,7 @@ export default async function handler(req, res) {
   // this is where the buyer gets the training address (not shown pre-payment)
   params.append(
     `${metaTarget}[description]`,
-    `${session.label}: ${sessionLabel}${phone ? ` (${phone})` : ""} · Location: ${ADDRESS}`
+    `${session.label}: ${sessionLabel}${focus ? ` · Focus: ${FOCUS_LABELS[focus]}` : ""}${phone ? ` (${phone})` : ""} · Location: ${ADDRESS}`
   );
   const meta = [
     ["player", player],
@@ -116,6 +119,7 @@ export default async function handler(req, res) {
     ["phone", phone || ""],
     ["email", email || ""],
     ["type", type],
+    ["focus", focus],
     ["date", sessions[0].date],
     ["time", sessions[0].time],
   ];

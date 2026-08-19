@@ -19,7 +19,7 @@ const REPLY_TO = "Apacademybsb@gmail.com";
 
 const TYPE_NAMES = {
   single: "Private Lesson (1 hour)",
-  group: "Group Session (2 players, 30 minutes each)",
+  thirty: "30-Minute Lesson",
   membership: "Membership — 4 lessons per month",
 };
 

@@ -8,7 +8,7 @@
 import { fetchBookings } from "../lib/bookings.js";
 import { LOCATIONS, locationKeyFor } from "../lib/schedule.js";
 
-const TYPE_LABEL = { single: "Private", group: "Group", membership: "Membership" };
+const TYPE_LABEL = { single: "Private", thirty: "30-min", membership: "Membership" };
 
 // US Central, so times stay correct across daylight saving changes.
 const VTIMEZONE = [
