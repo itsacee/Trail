@@ -9,6 +9,7 @@ import { fetchBookings } from "../lib/bookings.js";
 import { LOCATIONS, locationKeyFor } from "../lib/schedule.js";
 
 const TYPE_LABEL = { single: "Private", thirty: "30-min", membership: "Membership" };
+const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
 
 // US Central, so times stay correct across daylight saving changes.
 const VTIMEZONE = [
@@ -120,9 +121,11 @@ export default async function handler(req, res) {
 
     const who = b.player || "Lesson";
     const kind = TYPE_LABEL[b.type] || "Lesson";
+    const focusText = FOCUS_LABELS[b.focus] || b.focus || "";
     const place = LOCATIONS[b.loc || locationKeyFor(b.date)] || null;
     const where = place ? place.address || place.name : "";
     const details = [
+      focusText ? `Working on: ${focusText}` : "",
       b.parent ? `Parent: ${b.parent}` : "",
       b.phone ? `Phone: ${b.phone}` : "",
       b.email ? `Email: ${b.email}` : "",
@@ -138,7 +141,7 @@ export default async function handler(req, res) {
       `DTSTAMP:${now}`,
       `DTSTART;TZID=America/Chicago:${start}`,
       `DTEND;TZID=America/Chicago:${end}`,
-      fold(`SUMMARY:${esc(`${who} — ${kind}${place ? ` @ ${place.name}` : ""}`)}`),
+      fold(`SUMMARY:${esc(`${who} — ${kind}${focusText ? ` · ${focusText}` : ""}${place ? ` @ ${place.name}` : ""}`)}`),
       fold(`LOCATION:${esc(where)}`),
       fold(`DESCRIPTION:${esc(details)}`),
       "STATUS:CONFIRMED",
