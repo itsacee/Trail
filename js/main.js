@@ -37,8 +37,11 @@ document.getElementById("year").textContent = new Date().getFullYear();
 // Availability defaults — MIRROR lib/schedule.js. The live values are fetched
 // from /api/availability on load (the coach can edit them from the coach page);
 // these defaults are only the fallback if that request fails.
+const STEP_MINUTES = 30; // start times offered every 30 minutes
+const DURATIONS = { single: 60, thirty: 30, membership: 60 };
+function durationFor(type) { return DURATIONS[type] || 60; }
+
 const DEFAULT_AVAILABILITY = {
-  slotMinutes: 60,
   days: {
     0: { open: true, start: "09:00", end: "19:00" }, // Sun
     1: { open: true, start: "17:00", end: "21:00" }, // Mon
@@ -61,8 +64,18 @@ function toMinutes(hhmm) {
   return h * 60 + m;
 }
 
-// Slot start times ("HH:mm") for a date, per the current availability.
-function startsForDate(iso) {
+// "5:00 PM" -> minutes since midnight
+function labelToMin(label) {
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(String(label).trim());
+  if (!m) return null;
+  let h = parseInt(m[1], 10) % 12;
+  if (/PM/i.test(m[3])) h += 12;
+  return h * 60 + parseInt(m[2], 10);
+}
+
+// Slot start times ("HH:mm") for a date — one every 30 min, but only if a
+// lesson of durationMin fits before the day's close time.
+function startsForDate(iso, durationMin) {
   const d = new Date(`${iso}T12:00:00`);
   if (isNaN(d)) return [];
   if ((AVAIL.blocked || []).includes(iso)) return [];
@@ -70,9 +83,9 @@ function startsForDate(iso) {
   if (!cfg || !cfg.open) return [];
   const start = toMinutes(cfg.start);
   const end = toMinutes(cfg.end);
-  const step = AVAIL.slotMinutes || 60;
+  const dur = durationMin || STEP_MINUTES;
   const out = [];
-  for (let t = start; t + step <= end; t += step) {
+  for (let t = start; t + dur <= end; t += STEP_MINUTES) {
     out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
   }
   return out;
@@ -224,20 +237,33 @@ function renderTimeOptions() {
     timeSelect.disabled = true;
     return;
   }
-  const plan = planFor(date);
-  const booked = bookedCache[date] || [];
+  const dur = durationFor(selectedType);
+  const starts = startsForDate(date, dur); // start times where this lesson fits
+  const booked = bookedCache[date] || []; // [{ time, mins }]
+  const bookedRanges = booked
+    .map((b) => { const s = labelToMin(b.time); return s === null ? null : [s, s + (b.mins || 60)]; })
+    .filter(Boolean);
+  // Slots already added to THIS order block overlapping picks too
+  const mineRanges = picked
+    .filter((p) => p.date === date)
+    .map((p) => { const s = labelToMin(p.time); return s === null ? null : [s, s + dur]; })
+    .filter(Boolean);
+  const overlaps = (ranges, s, e) => ranges.some(([bs, be]) => s < be && bs < e);
   timeSelect.disabled = false;
   timeSelect.append(new Option("Choose a time", ""));
   let open = 0;
-  (plan ? plan.times : []).forEach((t) => {
+  starts.forEach((t) => {
     const label = fmtTime(t);
-    const isBooked = booked.includes(label);
-    const isMine = picked.some((p) => p.date === date && p.time === label);
+    const s = toMinutes(t);
+    const e = s + dur;
+    const thisPick = picked.some((p) => p.date === date && p.time === label);
+    const isBooked = overlaps(bookedRanges, s, e);
+    const mineHit = !thisPick && overlaps(mineRanges, s, e);
     const opt = new Option(
-      isBooked ? `${label} — booked` : isMine ? `${label} — added` : label,
+      isBooked ? `${label} — booked` : thisPick ? `${label} — added` : mineHit ? `${label} — overlaps a pick` : label,
       label
     );
-    opt.disabled = isBooked || isMine;
+    opt.disabled = isBooked || thisPick || mineHit;
     if (!opt.disabled) open++;
     timeSelect.append(opt);
   });

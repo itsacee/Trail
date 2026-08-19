@@ -6,34 +6,45 @@
 // (memberships have four). Stripe Search doesn't support OR, so each
 // dateN key is queried separately, in parallel.
 
+import { durationFor } from "../lib/schedule.js";
+
+// Returns [{ time: "5:00 PM", mins: 60 }] — each taken slot with how long it
+// runs, so callers can block overlapping start times (a 1-hour lesson blocks
+// both the hour and the half-hour that follow it).
 export async function bookedTimes(key, date) {
-  const times = new Set();
+  const byTime = new Map(); // time label -> longest duration seen at that start
+  const add = (time, mins) => {
+    if (!time) return;
+    byTime.set(time, Math.max(byTime.get(time) || 0, mins));
+  };
 
   const search = async (resource, query, pick) => {
     const url = `https://api.stripe.com/v1/${resource}/search?query=${encodeURIComponent(query)}&limit=100`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
     if (!res.ok) return;
     ((await res.json()).data || []).forEach((item) => {
-      const t = pick(item.metadata || {});
-      if (t) times.add(t);
+      const m = item.metadata || {};
+      const { time, mins } = pick(m);
+      add(time, mins);
     });
   };
 
+  const dur = (m) => durationFor(m.type);
   const queries = [];
   for (let i = 1; i <= 4; i++) {
     queries.push(
-      search("payment_intents", `status:'succeeded' AND metadata['date${i}']:'${date}'`, (m) => m[`time${i}`]),
-      search("subscriptions", `metadata['date${i}']:'${date}'`, (m) => m[`time${i}`])
+      search("payment_intents", `status:'succeeded' AND metadata['date${i}']:'${date}'`, (m) => ({ time: m[`time${i}`], mins: dur(m) })),
+      search("subscriptions", `metadata['date${i}']:'${date}'`, (m) => ({ time: m[`time${i}`], mins: dur(m) }))
     );
   }
   // Older bookings (before multi-slot support) stored a single date/time pair
   queries.push(
-    search("payment_intents", `status:'succeeded' AND metadata['date']:'${date}'`, (m) => m.time),
-    search("subscriptions", `metadata['date']:'${date}'`, (m) => m.time)
+    search("payment_intents", `status:'succeeded' AND metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) })),
+    search("subscriptions", `metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) }))
   );
 
   await Promise.all(queries);
-  return [...times];
+  return [...byTime.entries()].map(([time, mins]) => ({ time, mins }));
 }
 
 export default async function handler(req, res) {

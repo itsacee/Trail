@@ -3,7 +3,7 @@
 // environment variable to be set in the Vercel project settings.
 
 import { bookedTimes } from "./slots.js";
-import { allowedTimes, locationKeyFor, getAvailability } from "../lib/schedule.js";
+import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
 
 const SESSION_TYPES = {
   single: { amount: 7500, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
@@ -48,9 +48,10 @@ export default async function handler(req, res) {
   }
 
   // The time has to be one we actually offer on that day, per the coach's
-  // current availability.
+  // current availability — and a lesson of this length must fit before close.
   const availability = await getAvailability();
-  const offSchedule = sessions.find((s) => !allowedTimes(s.date, availability).includes(s.time));
+  const lessonMins = durationFor(type);
+  const offSchedule = sessions.find((s) => !allowedTimes(s.date, availability, lessonMins).includes(s.time));
   if (offSchedule) {
     res.status(400).json({
       error: `We're not open ${offSchedule.date} at ${offSchedule.time}. Please pick a time shown on the booking form.`,
@@ -72,7 +73,16 @@ export default async function handler(req, res) {
     const takenByDate = Object.fromEntries(
       await Promise.all(dates.map(async (d) => [d, await bookedTimes(key, d)]))
     );
-    const conflict = sessions.find((s) => takenByDate[s.date]?.includes(s.time));
+    // A slot conflicts if this lesson's time range overlaps any booked range.
+    const conflict = sessions.find((s) => {
+      const start = labelToMin(s.time);
+      if (start === null) return false;
+      const endMin = start + lessonMins;
+      return (takenByDate[s.date] || []).some((b) => {
+        const bStart = labelToMin(b.time);
+        return bStart !== null && start < bStart + b.mins && bStart < endMin;
+      });
+    });
     if (conflict) {
       res.status(409).json({
         error: `Sorry — ${conflict.date} at ${conflict.time} was just booked. Please pick another time for that lesson.`,
