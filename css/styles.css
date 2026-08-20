@@ -836,9 +836,9 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 /* ---------- instagram reels ---------- */
 .reels {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.4rem;
-  max-width: 720px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.2rem;
+  max-width: 1080px;
   margin: 2.6rem auto 0;
 }
 .reel {
@@ -846,17 +846,17 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
-  min-height: 680px;
+  min-height: 560px;
 }
 .reel iframe {
   display: block;
   width: 100%;
-  height: 720px;
+  height: 600px;
   border: 0;
   background: #0d0d10;
 }
 .reels__more { margin-top: 1.8rem; }
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .reels { grid-template-columns: 1fr; max-width: 360px; }
   .reel { min-height: 620px; }
   .reel iframe { height: 640px; }
