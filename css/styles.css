@@ -610,13 +610,35 @@ a.price-card .btn { text-align: center; }
   background: var(--accent-soft);
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 1rem 1.15rem;
+  padding: 1.15rem 1.2rem 1.05rem;
   color: var(--text-dim);
-  font-size: 0.92rem;
-  line-height: 1.55;
+  font-size: 0.9rem;
+  line-height: 1.5;
   margin-bottom: 1.8rem;
 }
+.booking__member-note > strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.95rem;
+  margin-bottom: 0.65rem;
+}
+.booking__member-note ul {
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+}
+.booking__member-note li {
+  padding-left: 1.15rem;
+  position: relative;
+}
+.booking__member-note li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--text);
+}
 .booking__member-note strong { color: var(--text); }
+.booking__member-note a { color: var(--btn); font-weight: 700; }
 
 .acct__top {
   display: flex;
