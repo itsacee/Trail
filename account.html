@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <title>Member Login | AP Academy</title>
+  <meta name="description" content="AP Academy members: sign in to pick this week's lesson." />
+  <link rel="icon" type="image/png" href="img/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="page-book">
+
+  <header class="nav" id="top">
+    <div class="nav__inner container">
+      <a class="nav__brand" href="index.html">
+        <span class="nav__logo">
+          <img src="img/logo-mark.png" alt="AP Academy logo" />
+        </span>
+        <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+      </a>
+      <nav class="nav__links" id="navLinks">
+        <a href="index.html#programs">Pricing</a>
+        <a href="book.html">Book</a>
+        <a href="account.html" aria-current="page">Members</a>
+        <a href="index.html#contact">Contact</a>
+      </nav>
+      <a class="btn btn--primary nav__cta" href="book.html">Book Training</a>
+      <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <section class="section book-page" id="account">
+    <div class="container container--narrow">
+      <p class="eyebrow center">Members</p>
+      <h1 class="center" id="acctTitle">Pick This Week's Lesson</h1>
+      <p class="section__sub center" id="acctLead">Sign in with the email on your membership. We'll send a link — no password to remember.</p>
+
+      <div class="booking" id="loginCard">
+        <form id="loginForm" novalidate>
+          <div class="booking__field">
+            <label for="loginEmail">Email on your membership</label>
+            <input type="email" id="loginEmail" name="email" placeholder="you@email.com" autocomplete="email" inputmode="email" required />
+          </div>
+          <button type="submit" class="btn btn--primary btn--lg booking__submit" id="loginSubmit">Email me a sign-in link</button>
+          <p class="booking__note">Already a member? Use the same email you paid with.</p>
+          <p class="booking__status" id="loginStatus" role="status"></p>
+        </form>
+      </div>
+
+      <div class="booking" id="dashCard" hidden>
+        <div class="acct__top">
+          <div>
+            <strong id="acctPlayer">Member</strong>
+            <span id="acctCredits"></span>
+          </div>
+          <button type="button" class="booking__change" id="signOut">Sign out</button>
+        </div>
+
+        <p class="booking__where" id="acctWhere" hidden></p>
+
+        <div class="acct__lessons" id="acctLessons"></div>
+
+        <form id="weekForm" hidden>
+          <h3 class="booking__step-title"><span class="booking__step-num">+</span> Book a lesson this week</h3>
+          <div class="booking__field" style="margin-bottom:1.1rem">
+            <label for="memFocus">What should we work on?</label>
+            <select id="memFocus">
+              <option value="Both">Hitting &amp; Fielding</option>
+              <option value="Hitting">Hitting</option>
+              <option value="Fielding">Fielding</option>
+            </select>
+          </div>
+          <div class="booking__grid">
+            <div class="booking__field">
+              <label for="memDate">Day</label>
+              <select id="memDate">
+                <option value="">Choose a day</option>
+              </select>
+            </div>
+            <div class="booking__field">
+              <label for="memTime">Time</label>
+              <select id="memTime" disabled>
+                <option value="">Pick a day first</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn--primary btn--lg booking__submit" id="weekSubmit">Lock in this lesson</button>
+          <p class="booking__note">One lesson per week · 4 per month · unused lessons don't roll over</p>
+          <p class="booking__status" id="weekStatus" role="status"></p>
+        </form>
+
+        <p class="booking__status booking__status--ok" id="acctMsg" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year"></span> AP Academy · Ace Performance</p>
+      <p><a href="tel:+14058194401">(405) 819-4401</a></p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script src="js/account.js"></script>
+</body>
+</html>

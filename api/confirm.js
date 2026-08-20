@@ -10,6 +10,7 @@
 //   FROM_EMAIL         — optional, defaults to bookings@apacademybsb.com
 
 import { LOCATIONS, locationKeyFor } from "../lib/schedule.js";
+import { signMemberToken } from "../lib/memberAuth.js";
 
 const COACH = "Elijah Alexander";
 const PHONE = "(405) 819-4401";
@@ -226,6 +227,63 @@ ${REPLY_TO}
 apacademybsb.com`;
 }
 
+function memberEmailHtml(meta, origin) {
+  const link = `${origin}/account.html`;
+  return `<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:#050505;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:28px 12px;">
+<tr><td align="center">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#111114;border:1px solid #26262b;border-radius:16px;padding:32px;font-family:Helvetica,Arial,sans-serif;">
+    <tr><td>
+      <div style="font-size:26px;font-weight:bold;color:#ffffff;letter-spacing:1px;">AP ACADEMY</div>
+      <div style="font-size:11px;color:#a8adb6;letter-spacing:3px;text-transform:uppercase;">Ace Performance</div>
+    </td></tr>
+    <tr><td style="padding-top:22px;">
+      <div style="font-size:21px;color:#ffffff;font-weight:bold;">You're in — 4 lessons this month</div>
+      <p style="color:#a8adb6;font-size:15px;line-height:1.6;margin:10px 0 0;">
+        ${meta.parent ? `Hi ${meta.parent} — ` : ""}${meta.player || "Your player"}'s membership is active.
+        Book <strong style="color:#ffffff;">one lesson each week</strong> when you know you can make it.
+        Unused lessons don't roll over.
+      </p>
+    </td></tr>
+    <tr><td style="padding-top:22px;">
+      <a href="${link}" style="display:inline-block;background:#cfd4da;color:#06121c;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 22px;border-radius:99px;">Pick this week's lesson</a>
+    </td></tr>
+    <tr><td style="padding-top:22px;">
+      <p style="color:#a8adb6;font-size:14px;line-height:1.7;margin:0;">
+        Sign in with this email. We'll send the training address after you book a day.
+        Questions? Call or text <a href="tel:${PHONE_TEL}" style="color:#cfd4da;text-decoration:none;font-weight:bold;">${PHONE}</a>.
+      </p>
+    </td></tr>
+    <tr><td style="padding-top:26px;border-top:1px solid #26262b;">
+      <p style="color:#a8adb6;font-size:14px;line-height:1.8;margin:16px 0 0;">
+        See you at training,<br />
+        <strong style="color:#ffffff;font-size:16px;">${COACH}</strong>
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body></html>`;
+}
+
+function memberEmailText(meta, origin) {
+  return `AP ACADEMY — You're in
+
+${meta.parent ? `Hi ${meta.parent} — ` : ""}${meta.player || "Your player"}'s membership is active.
+Book one lesson each week when you know you can make it. Unused lessons don't roll over.
+
+Pick this week's lesson:
+${origin}/account.html
+
+Sign in with this email. We'll send the training address after you book a day.
+
+Questions? Call or text ${PHONE}.
+
+See you at training,
+${COACH}`;
+}
+
 export default async function handler(req, res) {
   const key = process.env.STRIPE_SECRET_KEY;
   const resendKey = process.env.RESEND_API_KEY;
@@ -264,7 +322,10 @@ export default async function handler(req, res) {
       address: p.address || "",
       mapUrl: p.address ? mapUrl(p.address) : "",
     }));
-    const summary = { player: meta.player || "", sessions, email: to, places };
+    const isMember = meta.type === "membership" || Boolean(session.subscription);
+    const memberToken = isMember && to ? signMemberToken(to) : "";
+    const origin = `https://${req.headers.host || "www.apacademybsb.com"}`;
+    const summary = { player: meta.player || "", sessions, email: to, places, member: isMember, memberToken };
 
     // 2. Don't send twice if they refresh the success page
     const target = session.subscription
@@ -284,12 +345,25 @@ export default async function handler(req, res) {
       }
     }
 
-    if (!resendKey || !to || !sessions.length) {
+    const canEmail = Boolean(resendKey && to && (sessions.length || isMember));
+    if (!canEmail) {
       res.status(200).json({ sent: false, ...summary });
       return;
     }
 
     // 3. Send it
+    const mailBody = isMember && !sessions.length
+      ? {
+          subject: "You're in — pick this week's lesson | AP Academy",
+          html: memberEmailHtml(meta, origin),
+          text: memberEmailText(meta, origin),
+        }
+      : {
+          subject: `Thank you for booking with AP Academy — ${prettyDate(sessions[0].date)} at ${sessions[0].time}`,
+          html: emailHtml(meta, sessions),
+          text: emailText(meta, sessions),
+        };
+
     const mail = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -298,9 +372,7 @@ export default async function handler(req, res) {
         to: [to],
         bcc: [REPLY_TO],
         reply_to: REPLY_TO,
-        subject: `Thank you for booking with AP Academy — ${prettyDate(sessions[0].date)} at ${sessions[0].time}`,
-        html: emailHtml(meta, sessions),
-        text: emailText(meta, sessions),
+        ...mailBody,
       }),
     });
 

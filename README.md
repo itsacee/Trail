@@ -24,9 +24,18 @@ Want different colors? Change `--accent` at the top of `css/styles.css`.
 
 ## Booking (built into this site)
 
-Parents pick a lesson type on the homepage (single $70 / 30-min $50 /
-membership $240 per month), then land on `book.html` to choose a date,
-time, enter the player's name, and pay through Stripe Checkout.
+Parents pick a lesson type on the homepage, then land on `book.html`.
+
+- **Single / 30-min:** pick a day and time, pay through Stripe Checkout.
+- **Membership ($240/mo):** pay first, then sign in at `account.html` with
+  the email they paid with (a sign-in *link*, not a password). They book
+  **one lesson per week**, up to 4 per billing month. Unused lessons do
+  not roll over. They can only schedule about 10 days out, so they never
+  have to guess three weeks ahead.
+
+Member lesson times are stored in Vercel Blob (`lessons.json`) and show up
+on the coach schedule and calendar feed. Single-lesson payments still live
+on Stripe metadata.
 
 The payment is created by `api/checkout.js`, a serverless function that runs
 automatically when this repo is deployed on Vercel. **One-time setup:**

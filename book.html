@@ -32,7 +32,7 @@
         <a href="index.html#coach">Coach</a>
         <a href="index.html#programs">Pricing</a>
         <a href="index.html#faq">FAQ</a>
-        <a href="index.html#contact">Contact</a>
+        <a href="account.html">Members</a>
       </nav>
       <a class="btn btn--primary nav__cta" href="book.html" aria-current="page">Book Training</a>
       <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
@@ -44,8 +44,8 @@
   <section class="section book-page" id="book">
     <div class="container container--narrow">
       <p class="eyebrow center reveal">Book Now</p>
-      <h1 class="center reveal">Pick a Day. Grab Your Spot.</h1>
-      <p class="section__sub center reveal">Choose your lesson type, then lock in a time. We'll email the training address after you pay.</p>
+      <h1 class="center reveal" id="bookTitle">Pick a Day. Grab Your Spot.</h1>
+      <p class="section__sub center reveal" id="bookLead">Choose your lesson type, then lock in a time. We'll email the training address after you pay.</p>
 
       <form class="booking reveal" id="bookingForm" novalidate>
         <div class="booking__types" role="tablist" aria-label="Lesson type">
@@ -63,6 +63,12 @@
           </button>
         </div>
 
+        <p class="booking__member-note" id="memberNote" hidden>
+          Membership is 4 lessons a month, <strong>one each week</strong>. You don't pick all four days today —
+          after you pay, you'll sign in and grab a time when you know you can make it.
+          Unused lessons don't roll over.
+        </p>
+
         <div class="booking__step" id="focusField">
           <div class="booking__field">
             <label for="bkFocus">What should we work on?</label>
@@ -74,7 +80,7 @@
           </div>
         </div>
 
-        <div class="booking__step">
+        <div class="booking__step" id="slotStep">
           <h3 class="booking__step-title"><span class="booking__step-num">1</span> Pick a day &amp; time <span class="booking__step-hint">Weeknights 5&ndash;9 PM &middot; Weekends 9 AM&ndash;7 PM</span></h3>
           <div class="booking__grid">
             <div class="booking__field">
@@ -95,7 +101,7 @@
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Who's training?</h3>
+          <h3 class="booking__step-title"><span class="booking__step-num" id="whoStepNum">2</span> Who's training?</h3>
           <div class="booking__grid">
             <div class="booking__field">
               <label for="bkPlayer">Player's name *</label>
@@ -156,6 +162,7 @@
           <li><a href="index.html#work">See the work</a></li>
           <li><a href="index.html#programs">Pricing</a></li>
           <li><a href="index.html#faq">FAQ</a></li>
+          <li><a href="account.html">Member login</a></li>
           <li><a href="book.html">Book a Lesson</a></li>
         </ul>
       </div>

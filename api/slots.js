@@ -7,6 +7,7 @@
 // dateN key is queried separately, in parallel.
 
 import { durationFor } from "../lib/schedule.js";
+import { loadLessons, lessonsOnDate } from "../lib/lessons.js";
 
 // Returns [{ time: "5:00 PM", mins: 60 }] — each taken slot with how long it
 // runs, so callers can block overlapping start times (a 1-hour lesson blocks
@@ -44,6 +45,14 @@ export async function bookedTimes(key, date) {
   );
 
   await Promise.all(queries);
+
+  try {
+    const stored = await loadLessons();
+    lessonsOnDate(stored, date).forEach((l) => add(l.time, durationFor(l.type || "membership")));
+  } catch {
+    /* blob optional */
+  }
+
   return [...byTime.entries()].map(([time, mins]) => ({ time, mins }));
 }
 

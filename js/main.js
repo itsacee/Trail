@@ -201,7 +201,7 @@ const DAYS_AHEAD = 28; // how many days out parents can book
 const SESSIONS = {
   single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1, focus: "full" },
   thirty: { name: "30-Minute Lesson", price: "$50 · 30 min", label: "Pay $50 — Book Lesson", picks: 1, focus: "one" },
-  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo", picks: 4, focus: "none" },
+  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo", picks: 0, focus: "none" },
 };
 
 const form = document.getElementById("bookingForm");
@@ -229,6 +229,26 @@ function syncTypeTabs() {
   });
 }
 
+function updateMemberCheckout() {
+  const isMem = selectedType === "membership";
+  const slotStep = document.getElementById("slotStep");
+  const memberNote = document.getElementById("memberNote");
+  const bookTitle = document.getElementById("bookTitle");
+  const bookLead = document.getElementById("bookLead");
+  if (slotStep) slotStep.hidden = isMem;
+  if (memberNote) memberNote.hidden = !isMem;
+  const whoNum = document.getElementById("whoStepNum");
+  if (whoNum) whoNum.textContent = isMem ? "1" : "2";
+  if (bookTitle) {
+    bookTitle.textContent = isMem ? "Join. Then Pick Your Weeks." : "Pick a Day. Grab Your Spot.";
+  }
+  if (bookLead) {
+    bookLead.textContent = isMem
+      ? "Pay today. After that you'll sign in and book one lesson each week — when you know you can make it."
+      : "Choose your lesson type, then lock in a time. We'll email the training address after you pay.";
+  }
+}
+
 function setType(type, { syncUrl = true } = {}) {
   if (!SESSIONS[type]) return;
   if (type !== selectedType) {
@@ -241,6 +261,7 @@ function setType(type, { syncUrl = true } = {}) {
   if (selPrice) selPrice.textContent = SESSIONS[type].price;
   syncTypeTabs();
   updateFocusField();
+  updateMemberCheckout();
   renderTimeOptions();
   renderPicked();
   refreshSubmit();
@@ -425,14 +446,8 @@ function chooseTime(time) {
 }
 
 function refreshSubmit() {
-  const need = maxPicks() - picked.length;
-  if (selectedType === "membership" && need > 0) {
-    submitBtn.textContent = `Pick ${need} more lesson${need === 1 ? "" : "s"} to continue`;
-    submitBtn.disabled = true;
-  } else {
-    submitBtn.textContent = SESSIONS[selectedType].label;
-    submitBtn.disabled = false;
-  }
+  submitBtn.textContent = SESSIONS[selectedType].label;
+  submitBtn.disabled = false;
 }
 
 if (form) {
@@ -441,6 +456,7 @@ if (form) {
   if (SESSIONS[typeFromUrl]) selectedType = typeFromUrl;
 
   updateFocusField();
+  updateMemberCheckout();
   syncTypeTabs();
   loadAvailability().then(renderDays);
   dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
@@ -460,7 +476,7 @@ if (form) {
     if (picked.length < maxPicks() || !form.elements.player.value.trim()) {
       statusEl.textContent =
         selectedType === "membership"
-          ? "Please pick your 4 lesson days & times and enter the player's name."
+          ? "Please enter the player's name and your email."
           : "Please pick a day, a time, and enter the player's name.";
       return;
     }
