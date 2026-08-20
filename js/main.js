@@ -37,27 +37,59 @@ document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
 // Current year in the footer
 document.getElementById("year").textContent = new Date().getFullYear();
 
-const clips = [...document.querySelectorAll(".film video")];
-if (clips.length) {
-  const watch = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        const v = entry.target;
-        if (entry.isIntersecting) v.play().catch(() => {});
-        else {
-          v.pause();
-          v.muted = true;
-          v.classList.remove("is-live");
-        }
-      });
-    },
-    { threshold: 0.4 }
-  );
-  clips.forEach((v) => {
-    watch.observe(v);
+const FILM_PAIRS = [
+  [
+    { src: "img/work/DcH1f6csW4H.mp4", poster: "img/work/DcH1f6csW4H.jpg" },
+    { src: "img/work/DcMGqr2ua5P.mp4", poster: "img/work/DcMGqr2ua5P.jpg" },
+  ],
+  [
+    { src: "img/work/DbgWOhvuin5.mp4", poster: "img/work/DbgWOhvuin5.jpg" },
+    { src: "img/work/DbqzZQuKHbs.mp4", poster: "img/work/DbqzZQuKHbs.jpg" },
+  ],
+];
+const filmPlayers = [...document.querySelectorAll(".film video")];
+if (filmPlayers.length === 2) {
+  let pair = 0;
+  let finished = 0;
+  let onScreen = false;
+
+  const loadPair = (index) => {
+    let ready = 0;
+    FILM_PAIRS[index].forEach((clip, i) => {
+      const v = filmPlayers[i];
+      const onReady = () => {
+        v.removeEventListener("loadeddata", onReady);
+        ready += 1;
+        if (ready === 2) playPair();
+      };
+      v.addEventListener("loadeddata", onReady);
+      v.poster = clip.poster;
+      v.src = clip.src;
+      v.muted = true;
+      v.classList.remove("is-live");
+      v.load();
+    });
+  };
+
+  const playPair = () => {
+    if (!onScreen) return;
+    filmPlayers.forEach((v) => v.play().catch(() => {}));
+  };
+
+  const nextPair = () => {
+    finished = 0;
+    pair = 1 - pair;
+    loadPair(pair);
+  };
+
+  filmPlayers.forEach((v) => {
+    v.addEventListener("ended", () => {
+      finished += 1;
+      if (finished >= 2) nextPair();
+    });
     v.addEventListener("click", () => {
       const live = !v.classList.contains("is-live");
-      clips.forEach((other) => {
+      filmPlayers.forEach((other) => {
         other.muted = true;
         other.classList.remove("is-live");
       });
@@ -68,6 +100,21 @@ if (clips.length) {
       }
     });
   });
+
+  new IntersectionObserver(
+    (entries) => {
+      onScreen = entries.some((e) => e.isIntersecting);
+      if (onScreen) playPair();
+      else {
+        filmPlayers.forEach((v) => {
+          v.pause();
+          v.muted = true;
+          v.classList.remove("is-live");
+        });
+      }
+    },
+    { threshold: 0.35 }
+  ).observe(document.querySelector(".film"));
 }
 
 /* ---------- Booking widget ---------- */

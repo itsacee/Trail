@@ -778,23 +778,19 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
   .stat__label { font-size: 0.62rem; letter-spacing: 0.08em; }
 
   .film {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scroll-padding-inline: 5%;
-    gap: 0.5rem;
-    margin-top: 1.8rem;
-    padding: 0 5% 0.4rem;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+    width: min(720px, 92%);
+    margin: 1.8rem auto 0;
+    padding: 0;
+    overflow: visible;
   }
-  .film::-webkit-scrollbar { display: none; }
   .film video {
-    flex: 0 0 58vw;
-    max-width: 280px;
-    height: auto;
+    width: 100%;
+    max-width: none;
+    flex: none;
     aspect-ratio: 9 / 16;
-    scroll-snap-align: start;
   }
 
   .nav__inner {
@@ -895,9 +891,9 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 /* ---------- training clips ---------- */
 .film {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.45rem;
-  width: min(1120px, 92%);
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  width: min(720px, 92%);
   margin: 2.2rem auto 0;
 }
 .film video {
