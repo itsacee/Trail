@@ -833,33 +833,63 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 
 .partners-band { padding-top: 3.4rem; padding-bottom: 4rem; }
 
-/* ---------- instagram reels ---------- */
+/* ---------- training clips ---------- */
 .reels {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.2rem;
-  max-width: 760px;
+  max-width: 720px;
   margin: 2.6rem auto 0;
 }
 .reel {
+  position: relative;
+  margin: 0;
+  aspect-ratio: 9 / 16;
   background: #0d0d10;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
-  min-height: 560px;
 }
-.reel iframe {
+.reel video {
   display: block;
   width: 100%;
-  height: 600px;
-  border: 0;
+  height: 100%;
+  object-fit: cover;
   background: #0d0d10;
+}
+.reel__play {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: linear-gradient(180deg, rgba(5,5,5,0.05), rgba(5,5,5,0.35));
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.reel__play svg {
+  width: 64px;
+  height: 64px;
+  fill: #0a0a0c;
+  background: linear-gradient(180deg, #f2f4f7 0%, #d3d9e0 55%, #b9c1ca 100%);
+  border-radius: 50%;
+  padding: 18px 16px 18px 22px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease;
+}
+.reel:hover .reel__play svg { transform: scale(1.06); }
+.reel.is-playing .reel__play {
+  opacity: 0;
+  pointer-events: none;
 }
 .reels__more { margin-top: 1.8rem; }
 @media (max-width: 900px) {
-  .reels { grid-template-columns: 1fr; max-width: 360px; }
-  .reel { min-height: 620px; }
-  .reel iframe { height: 640px; }
+  .reels { grid-template-columns: 1fr 1fr; max-width: 520px; }
+  .reel__play svg { width: 52px; height: 52px; padding: 14px 12px 14px 18px; }
+}
+@media (max-width: 560px) {
+  .reels { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 }
 
 /* Clickable partner tiles */

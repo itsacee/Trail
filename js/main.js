@@ -37,6 +37,34 @@ document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
 // Current year in the footer
 document.getElementById("year").textContent = new Date().getFullYear();
 
+document.querySelectorAll(".reel").forEach((card) => {
+  const video = card.querySelector("video");
+  const play = card.querySelector(".reel__play");
+  if (!video || !play) return;
+
+  const start = () => {
+    document.querySelectorAll(".reel").forEach((other) => {
+      if (other === card) return;
+      const v = other.querySelector("video");
+      if (v) {
+        v.pause();
+        v.controls = false;
+      }
+      other.classList.remove("is-playing");
+    });
+    card.classList.add("is-playing");
+    video.controls = true;
+    video.play();
+  };
+
+  play.addEventListener("click", start);
+  video.addEventListener("ended", () => {
+    card.classList.remove("is-playing");
+    video.controls = false;
+    video.currentTime = 0;
+  });
+});
+
 /* ---------- Booking widget ---------- */
 
 // Availability defaults — MIRROR lib/schedule.js. The live values are fetched
