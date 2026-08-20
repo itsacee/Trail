@@ -312,39 +312,6 @@ h3 { font-size: 1.6rem; }
 /* ---------- sections ---------- */
 .section { padding: 4.5rem 0; }
 .section--alt { background: var(--bg-alt); border-block: 1px solid var(--line); }
-#work { padding-bottom: 2.2rem; }
-
-.still {
-  position: relative;
-  margin: 0;
-  height: min(68vh, 620px);
-  overflow: hidden;
-  background: #050505;
-}
-.still img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 52% 28%;
-}
-.still::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(5,5,5,0.35) 0%, transparent 28%, rgba(5,5,5,0.55) 100%);
-  pointer-events: none;
-}
-.still figcaption {
-  position: absolute;
-  z-index: 1;
-  left: max(6%, env(safe-area-inset-left));
-  bottom: 1.3rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(245, 246, 248, 0.78);
-}
 
 /* ---------- coach ---------- */
 .coach {
@@ -804,8 +771,6 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
   .hero__inner { align-items: flex-end; padding: 6.5rem 0 1.4rem; }
   .hero__copy { max-width: 100%; }
   .hero__title { font-size: clamp(2.5rem, 11vw, 4.1rem); }
-  .still { height: min(54vh, 460px); }
-  .still img { object-position: 48% 22%; }
   .hero__actions { width: 100%; }
   .hero__actions .btn { width: 100%; }
   .stat { text-align: center; padding: 1rem 0.25rem; }
