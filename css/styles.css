@@ -198,7 +198,7 @@ h3 { font-size: 1.6rem; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 68% 10%;
+  object-position: 58% 42%;
   transform: scale(1.08);
   animation: heroKen 14s ease-out forwards;
 }
@@ -341,7 +341,7 @@ h3 { font-size: 1.6rem; }
   border-radius: var(--radius);
   aspect-ratio: 4 / 5;
   object-fit: cover;
-  object-position: 50% 12%; /* keep the head in frame on the tall photo */
+  object-position: 50% 20%;
   width: 100%;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
@@ -762,7 +762,7 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
   .footer__grid { grid-template-columns: 1fr 1fr; }
 
   .hero { min-height: 100dvh; }
-  .hero__media img { object-position: 54% 8%; }
+  .hero__media img { object-position: 62% 38%; }
   .hero__shade {
     background:
       linear-gradient(180deg, rgba(5, 5, 5, 0.55) 0%, rgba(5, 5, 5, 0.22) 28%, rgba(5, 5, 5, 0.94) 100%),
