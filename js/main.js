@@ -10,6 +10,11 @@ burger.addEventListener("click", () => {
   burger.setAttribute("aria-expanded", open);
 });
 
+const nav = document.querySelector(".nav");
+const onScroll = () => nav.classList.toggle("is-scrolled", window.scrollY > 20);
+onScroll();
+window.addEventListener("scroll", onScroll, { passive: true });
+
 // Close the mobile menu after tapping a link
 links.querySelectorAll("a").forEach((a) =>
   a.addEventListener("click", () => links.classList.remove("is-open"))
