@@ -116,37 +116,16 @@
     <div class="container">
       <p class="eyebrow center reveal">From the field</p>
       <h2 class="center reveal">See the work</h2>
-      <p class="section__sub center reveal">Tap a clip. Watch a real lesson.</p>
-      <div class="reels reveal">
-        <figure class="reel">
-          <img src="img/work/DcH1f6csW4H.jpg" alt="Hitting work at AP Academy" loading="lazy" />
-          <button type="button" class="reel__play" data-src="img/work/DcH1f6csW4H.mp4" aria-label="Play training clip">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-          </button>
-        </figure>
-        <figure class="reel">
-          <img src="img/work/DcMGqr2ua5P.jpg" alt="Fielding work at AP Academy" loading="lazy" />
-          <button type="button" class="reel__play" data-src="img/work/DcMGqr2ua5P.mp4" aria-label="Play training clip">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-          </button>
-        </figure>
-        <figure class="reel">
-          <img src="img/work/DbgWOhvuin5.jpg" alt="Live lesson at AP Academy" loading="lazy" />
-          <button type="button" class="reel__play" data-src="img/work/DbgWOhvuin5.mp4" aria-label="Play training clip">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-          </button>
-        </figure>
-        <figure class="reel">
-          <img src="img/work/DbqzZQuKHbs.jpg" alt="Cage work at AP Academy" loading="lazy" />
-          <button type="button" class="reel__play" data-src="img/work/DbqzZQuKHbs.mp4" aria-label="Play training clip">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-          </button>
-        </figure>
-      </div>
-      <p class="center reels__more reveal">
-        <a class="btn btn--ghost" href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">More on Instagram</a>
-      </p>
     </div>
+    <div class="film reveal">
+      <video muted loop playsinline preload="metadata" poster="img/work/DcH1f6csW4H.jpg" src="img/work/DcH1f6csW4H.mp4" aria-label="Training clip"></video>
+      <video muted loop playsinline preload="metadata" poster="img/work/DcMGqr2ua5P.jpg" src="img/work/DcMGqr2ua5P.mp4" aria-label="Training clip"></video>
+      <video muted loop playsinline preload="metadata" poster="img/work/DbgWOhvuin5.jpg" src="img/work/DbgWOhvuin5.mp4" aria-label="Training clip"></video>
+      <video muted loop playsinline preload="metadata" poster="img/work/DbqzZQuKHbs.jpg" src="img/work/DbqzZQuKHbs.mp4" aria-label="Training clip"></video>
+    </div>
+    <p class="center film__more reveal">
+      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a>
+    </p>
   </section>
 
   <!-- ================= MEET THE COACH ================= -->
@@ -370,10 +349,6 @@
     </div>
   </footer>
 
-  <div class="clip-modal" id="clipModal" hidden>
-    <button type="button" class="clip-modal__close" id="clipClose" aria-label="Close video">&times;</button>
-    <video id="clipVideo" controls playsinline webkit-playsinline></video>
-  </div>
   <script src="js/main.js"></script>
 </body>
 </html>

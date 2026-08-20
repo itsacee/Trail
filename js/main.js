@@ -37,36 +37,38 @@ document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
 // Current year in the footer
 document.getElementById("year").textContent = new Date().getFullYear();
 
-const clipModal = document.getElementById("clipModal");
-const clipVideo = document.getElementById("clipVideo");
-const clipClose = document.getElementById("clipClose");
-
-function closeClip() {
-  if (!clipModal) return;
-  clipVideo.pause();
-  clipVideo.removeAttribute("src");
-  clipVideo.load();
-  clipModal.hidden = true;
-  document.body.style.overflow = "";
+const clips = [...document.querySelectorAll(".film video")];
+if (clips.length) {
+  const watch = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const v = entry.target;
+        if (entry.isIntersecting) v.play().catch(() => {});
+        else {
+          v.pause();
+          v.muted = true;
+          v.classList.remove("is-live");
+        }
+      });
+    },
+    { threshold: 0.4 }
+  );
+  clips.forEach((v) => {
+    watch.observe(v);
+    v.addEventListener("click", () => {
+      const live = !v.classList.contains("is-live");
+      clips.forEach((other) => {
+        other.muted = true;
+        other.classList.remove("is-live");
+      });
+      if (live) {
+        v.muted = false;
+        v.classList.add("is-live");
+        v.play().catch(() => {});
+      }
+    });
+  });
 }
-
-function openClip(src) {
-  clipVideo.src = src;
-  clipModal.hidden = false;
-  document.body.style.overflow = "hidden";
-  clipVideo.play().catch(() => {});
-}
-
-document.querySelectorAll(".reel__play").forEach((btn) => {
-  btn.addEventListener("click", () => openClip(btn.dataset.src));
-});
-clipClose?.addEventListener("click", closeClip);
-clipModal?.addEventListener("click", (e) => {
-  if (e.target === clipModal) closeClip();
-});
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && clipModal && !clipModal.hidden) closeClip();
-});
 
 /* ---------- Booking widget ---------- */
 
