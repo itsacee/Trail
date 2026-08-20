@@ -8,7 +8,7 @@ import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin 
 const SESSION_TYPES = {
   single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
   thirty: { amount: 5000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
-  membership: { amount: 24000, quantity: 1, picks: 0, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
+  membership: { amount: 24000, quantity: 1, picks: 0, label: "Membership — 4 one-hour lessons (4 weeks)", mode: "payment" },
 };
 
 const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
@@ -38,19 +38,19 @@ export default async function handler(req, res) {
   }
   if (session?.picks === 0) sessions = [];
 
+  const isMember = type === "membership";
   const emailOk = email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
   const valid =
     session &&
     player &&
-    (session.mode !== "subscription" || emailOk) &&
+    (!isMember || emailOk) &&
     sessions.length === session.picks &&
     sessions.every((s) => DATE_RE.test(String(s?.date || "")) && TIME_RE.test(String(s?.time || "")));
   if (!valid) {
     res.status(400).json({
-      error:
-        session?.mode === "subscription"
-          ? "Please enter the player's name and a valid email — that's how you sign in to pick each week's lesson."
-          : "Please pick your lesson day, time and enter the player's name.",
+      error: isMember
+        ? "Please enter the player's name and a valid email — that's how you sign in to pick each week's lesson."
+        : "Please pick your lesson day, time and enter the player's name.",
     });
     return;
   }
@@ -107,8 +107,7 @@ export default async function handler(req, res) {
     ? sessions.map((s) => `${s.date} at ${s.time}`).join(", ") + ` — ${player}`
     : `Membership — ${player}`;
 
-  const successUrl =
-    session.mode === "subscription"
+  const successUrl = isMember
       ? `${origin}/account.html?welcome=1&session_id={CHECKOUT_SESSION_ID}`
       : `${origin}/book.html?booked=1&session_id={CHECKOUT_SESSION_ID}`;
 
@@ -124,9 +123,6 @@ export default async function handler(req, res) {
   params.append("line_items[0][price_data][unit_amount]", String(session.amount));
   params.append("line_items[0][price_data][product_data][name]", session.label);
   params.append("line_items[0][price_data][product_data][description]", sessionLabel);
-  if (session.mode === "subscription") {
-    params.append("line_items[0][price_data][recurring][interval]", "month");
-  }
 
   // Metadata on the payment/subscription itself, so /api/slots can find
   // paid bookings via Stripe Search and block those times.

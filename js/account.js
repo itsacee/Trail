@@ -108,12 +108,12 @@ function renderDash(data) {
   account = data;
   document.getElementById("acctPlayer").textContent = data.player ? `${data.player}'s membership` : "Your membership";
   document.getElementById("acctCredits").textContent =
-    `${data.used || 0} of ${data.credits || 4} lessons used this month · ${data.remaining || 0} left`;
-  document.getElementById("acctTitle").textContent = data.remaining ? "Pick This Week's Lesson" : "You're all set this month";
+    `${data.used || 0} of ${data.credits || 4} lessons used · ${data.remaining || 0} left`;
+  document.getElementById("acctTitle").textContent = data.remaining ? "Pick This Week's Lesson" : "This membership is done";
   document.getElementById("acctLead").textContent =
     data.remaining
       ? "One lesson a week. Book a day in the next 10 days — when you know you can make it."
-      : "You've used this month's 4 lessons. Credits reset when your membership renews.";
+      : "You've used this membership's 4 lessons. Buy another 4 weeks on the Book page when you're ready.";
 
   const where = document.getElementById("acctWhere");
   if (data.location?.address) {
@@ -151,7 +151,7 @@ function renderDash(data) {
     msg.textContent = `You're set this week (${prettyDate(data.bookedThisWeek.date)} at ${data.bookedThisWeek.time}). Come back to book next week.`;
   } else if (!data.remaining) {
     msg.hidden = false;
-    msg.textContent = "See you next month — or text (405) 819-4401 if you want extra lessons.";
+    msg.innerHTML = `This membership is used up. <a href="book.html?type=membership">Buy another 4 weeks</a> when you're ready.`;
   } else {
     msg.hidden = true;
   }

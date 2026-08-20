@@ -239,11 +239,11 @@ function memberEmailHtml(meta, origin) {
       <div style="font-size:11px;color:#a8adb6;letter-spacing:3px;text-transform:uppercase;">Ace Performance</div>
     </td></tr>
     <tr><td style="padding-top:22px;">
-      <div style="font-size:21px;color:#ffffff;font-weight:bold;">You're in — 4 lessons this month</div>
+      <div style="font-size:21px;color:#ffffff;font-weight:bold;">You're in — 4 lessons over 4 weeks</div>
       <p style="color:#a8adb6;font-size:15px;line-height:1.6;margin:10px 0 0;">
         ${meta.parent ? `Hi ${meta.parent} — ` : ""}${meta.player || "Your player"}'s membership is active.
         Book <strong style="color:#ffffff;">one lesson each week</strong> when you know you can make it.
-        Unused lessons don't roll over.
+        It does not auto-renew. Unused lessons don't roll over.
       </p>
     </td></tr>
     <tr><td style="padding-top:22px;">
@@ -271,7 +271,7 @@ function memberEmailText(meta, origin) {
   return `AP ACADEMY — You're in
 
 ${meta.parent ? `Hi ${meta.parent} — ` : ""}${meta.player || "Your player"}'s membership is active.
-Book one lesson each week when you know you can make it. Unused lessons don't roll over.
+Book one lesson each week when you know you can make it. It does not auto-renew. Unused lessons don't roll over.
 
 Pick this week's lesson:
 ${origin}/account.html

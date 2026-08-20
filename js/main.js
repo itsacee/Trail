@@ -201,7 +201,7 @@ const DAYS_AHEAD = 28; // how many days out parents can book
 const SESSIONS = {
   single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1, focus: "full" },
   thirty: { name: "30-Minute Lesson", price: "$50 · 30 min", label: "Pay $50 — Book Lesson", picks: 1, focus: "one" },
-  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo", picks: 0, focus: "none" },
+  membership: { name: "Membership", price: "$240 · 4 weeks", label: "Start Membership — $240", picks: 0, focus: "none" },
 };
 
 const form = document.getElementById("bookingForm");
