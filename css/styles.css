@@ -836,9 +836,9 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 /* ---------- instagram reels ---------- */
 .reels {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 1.2rem;
-  max-width: 1080px;
+  max-width: 760px;
   margin: 2.6rem auto 0;
 }
 .reel {
