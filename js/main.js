@@ -34,38 +34,86 @@ document.getElementById("year").textContent = new Date().getFullYear();
 
 /* ---------- Booking widget ---------- */
 
-// Availability — MIRRORS lib/schedule.js on the server. Change both together.
-// Session START times, 24h. Lessons run one hour.
-const WEEKEND_TIMES = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
-const WEEKDAY_TIMES = ["17:00", "18:00", "19:00", "20:00"];
+// Availability defaults — MIRROR lib/schedule.js. The live values are fetched
+// from /api/availability on load (the coach can edit them from the coach page);
+// these defaults are only the fallback if that request fails.
+const STEP_MINUTES = 30; // start times offered every 30 minutes
+const DURATIONS = { single: 60, thirty: 30, membership: 60 };
+function durationFor(type) { return DURATIONS[type] || 60; }
 
-// 0 = Sunday ... 6 = Saturday
-const DAY_PLAN = {
-  0: { times: WEEKEND_TIMES, place: "Del City" },
-  1: { times: WEEKDAY_TIMES, place: "Mustang" },
-  2: { times: WEEKDAY_TIMES, place: "Mustang" },
-  3: { times: WEEKDAY_TIMES, place: "Mustang" },
-  4: { times: WEEKDAY_TIMES, place: "Mustang" },
-  5: { times: WEEKDAY_TIMES, place: "Mustang" },
-  6: { times: WEEKEND_TIMES, place: "Del City" },
+const DEFAULT_AVAILABILITY = {
+  days: {
+    0: { open: true, start: "09:00", end: "19:00" }, // Sun
+    1: { open: true, start: "17:00", end: "21:00" }, // Mon
+    2: { open: true, start: "17:00", end: "21:00" }, // Tue
+    3: { open: true, start: "17:00", end: "21:00" }, // Wed
+    4: { open: true, start: "17:00", end: "21:00" }, // Thu
+    5: { open: true, start: "17:00", end: "21:00" }, // Fri
+    6: { open: true, start: "09:00", end: "19:00" }, // Sat
+  },
+  blocked: [],
 };
+let AVAIL = DEFAULT_AVAILABILITY;
 
 const PLACE_BLURB = {
-  "Del City": "Weekend lessons train in <strong>Del City</strong> — just off I-40, southeast OKC metro.",
-  Mustang: "Weeknight lessons train in <strong>Mustang</strong>, on the west side of the metro.",
+  "Mustang": "Lessons train at <strong>Mustang High School</strong>'s baseball field in Mustang, OK.",
 };
 
-function planFor(iso) {
+function toMinutes(hhmm) {
+  const [h, m] = String(hhmm).split(":").map(Number);
+  return h * 60 + m;
+}
+
+// "5:00 PM" -> minutes since midnight
+function labelToMin(label) {
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(String(label).trim());
+  if (!m) return null;
+  let h = parseInt(m[1], 10) % 12;
+  if (/PM/i.test(m[3])) h += 12;
+  return h * 60 + parseInt(m[2], 10);
+}
+
+// Slot start times ("HH:mm") for a date — one every 30 min, but only if a
+// lesson of durationMin fits before the day's close time.
+function startsForDate(iso, durationMin) {
   const d = new Date(`${iso}T12:00:00`);
-  return isNaN(d) ? null : DAY_PLAN[d.getDay()] || null;
+  if (isNaN(d)) return [];
+  if ((AVAIL.blocked || []).includes(iso)) return [];
+  const cfg = (AVAIL.days || {})[d.getDay()];
+  if (!cfg || !cfg.open) return [];
+  const start = toMinutes(cfg.start);
+  const end = toMinutes(cfg.end);
+  const dur = durationMin || STEP_MINUTES;
+  const out = [];
+  for (let t = start; t + dur <= end; t += STEP_MINUTES) {
+    out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+function planFor(iso) {
+  const times = startsForDate(iso);
+  return times.length ? { times, place: "Mustang" } : null;
+}
+
+async function loadAvailability() {
+  try {
+    const res = await fetch("/api/availability");
+    if (res.ok) {
+      const d = await res.json();
+      if (d && d.availability && d.availability.days) AVAIL = d.availability;
+    }
+  } catch {
+    /* keep defaults — static preview or offline */
+  }
 }
 
 const DAYS_AHEAD = 28; // how many days out parents can book
 
 const SESSIONS = {
-  single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1 },
-  group: { name: "Group Session", price: "$25 / player · 2 players · 30 min each", label: "Pay $50 — Book Group (2 players)", picks: 1 },
-  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo", picks: 4 },
+  single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1, focus: "full" },
+  thirty: { name: "30-Minute Lesson", price: "$50 · 30 min", label: "Pay $50 — Book Lesson", picks: 1, focus: "one" },
+  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo", picks: 4, focus: "none" },
 };
 
 const form = document.getElementById("bookingForm");
@@ -74,6 +122,8 @@ const timeSelect = document.getElementById("bkTime");
 const pickedList = document.getElementById("pickedList");
 const submitBtn = document.getElementById("bookingSubmit");
 const statusEl = document.getElementById("bookingStatus");
+const focusField = document.getElementById("focusField");
+const focusSelect = document.getElementById("bkFocus");
 
 let selectedType = "single";
 let picked = []; // chosen sessions: [{ date: "2026-08-06", time: "9:00 AM" }]
@@ -89,9 +139,24 @@ function setType(type) {
   picked = [];
   document.getElementById("selName").textContent = SESSIONS[type].name;
   document.getElementById("selPrice").textContent = SESSIONS[type].price;
+  updateFocusField();
   renderTimeOptions();
   renderPicked();
   refreshSubmit();
+}
+
+// Show the Hitting/Fielding focus picker per session type:
+//   "full" → Hitting, Fielding, or Both (1-hour lessons)
+//   "one"  → Hitting or Fielding only (30-minute lessons)
+//   "none" → hidden (membership)
+function updateFocusField() {
+  if (!focusField) return;
+  const mode = SESSIONS[selectedType].focus;
+  if (mode === "none") { focusField.hidden = true; return; }
+  focusField.hidden = false;
+  const both = focusSelect ? focusSelect.querySelector('option[value="Both"]') : null;
+  if (both) both.hidden = mode === "one";
+  if (mode === "one" && focusSelect && focusSelect.value === "Both") focusSelect.value = "Hitting";
 }
 
 function fmtTime(t) {
@@ -114,13 +179,13 @@ function prettyDate(iso) {
 }
 
 function renderDays() {
+  dateSelect.length = 1; // keep the "Choose a day" placeholder, rebuild the rest
   const now = new Date();
   for (let i = 1; i <= DAYS_AHEAD; i++) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-    const plan = DAY_PLAN[d.getDay()];
-    if (!plan) continue;
     const iso = isoDate(d);
-    dateSelect.append(new Option(`${prettyDate(iso)} · ${plan.place}`, iso));
+    if (!planFor(iso)) continue; // closed day or a blocked date — skip it
+    dateSelect.append(new Option(prettyDate(iso), iso));
   }
 }
 
@@ -172,27 +237,40 @@ function renderTimeOptions() {
     timeSelect.disabled = true;
     return;
   }
-  const plan = planFor(date);
-  const booked = bookedCache[date] || [];
+  const dur = durationFor(selectedType);
+  const starts = startsForDate(date, dur); // start times where this lesson fits
+  const booked = bookedCache[date] || []; // [{ time, mins }]
+  const bookedRanges = booked
+    .map((b) => { const s = labelToMin(b.time); return s === null ? null : [s, s + (b.mins || 60)]; })
+    .filter(Boolean);
+  // Slots already added to THIS order block overlapping picks too
+  const mineRanges = picked
+    .filter((p) => p.date === date)
+    .map((p) => { const s = labelToMin(p.time); return s === null ? null : [s, s + dur]; })
+    .filter(Boolean);
+  const overlaps = (ranges, s, e) => ranges.some(([bs, be]) => s < be && bs < e);
   timeSelect.disabled = false;
   timeSelect.append(new Option("Choose a time", ""));
   let open = 0;
-  (plan ? plan.times : []).forEach((t) => {
+  starts.forEach((t) => {
     const label = fmtTime(t);
-    const isBooked = booked.includes(label);
-    const isMine = picked.some((p) => p.date === date && p.time === label);
+    const s = toMinutes(t);
+    const e = s + dur;
+    const thisPick = picked.some((p) => p.date === date && p.time === label);
+    const isBooked = overlaps(bookedRanges, s, e);
+    const mineHit = !thisPick && overlaps(mineRanges, s, e);
     const opt = new Option(
-      isBooked ? `${label} — booked` : isMine ? `${label} — added` : label,
+      isBooked ? `${label} — booked` : thisPick ? `${label} — added` : mineHit ? `${label} — overlaps a pick` : label,
       label
     );
-    opt.disabled = isBooked || isMine;
+    opt.disabled = isBooked || thisPick || mineHit;
     if (!opt.disabled) open++;
     timeSelect.append(opt);
   });
   if (!open) {
     timeSelect.options[0].text = "No open times this day";
   }
-  // For single/group the current pick stays shown in the dropdown
+  // For single & 30-min the current pick stays shown in the dropdown
   if (maxPicks() === 1 && picked.length && picked[0].date === date) {
     timeSelect.value = picked[0].time;
   }
@@ -250,7 +328,8 @@ function refreshSubmit() {
 }
 
 if (form) {
-  renderDays();
+  updateFocusField();
+  loadAvailability().then(renderDays);
   dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
   timeSelect.addEventListener("change", () => chooseTime(timeSelect.value));
   // "Pick Your Path" buttons carry the chosen session into the booking form
@@ -284,6 +363,7 @@ if (form) {
         body: JSON.stringify({
           type: selectedType,
           sessions: picked,
+          focus: focusField && !focusField.hidden && focusSelect ? focusSelect.value : "",
           player: form.elements.player.value.trim(),
           parent: form.elements.parent.value.trim(),
           phone: form.elements.phone.value.trim(),

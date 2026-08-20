@@ -12,7 +12,7 @@
   <style>
     :root {
       --bg: #050505; --surface: #111114; --line: #26262b;
-      --text: #f5f6f8; --dim: #a8adb6; --btn: #8fd6ff; --on-btn: #06121c;
+      --text: #f5f6f8; --dim: #a8adb6; --btn: #dfe4ea; --on-btn: #0a0a0c;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -70,6 +70,35 @@
     .subscribe span:first-child { font-size: 1.4rem; }
     .subscribe b { display: block; font-size: 0.95rem; }
     .subscribe small { color: var(--dim); font-size: 0.82rem; }
+    .card-title { font-family: "Bebas Neue", sans-serif; font-size: 1.35rem; letter-spacing: 0.04em; }
+    .avail-day { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.55rem; flex-wrap: wrap; }
+    .avail-day label { display: flex; align-items: center; gap: 0.5rem; min-width: 118px; margin: 0; cursor: pointer; font-weight: 600; }
+    .avail-day input[type="checkbox"] { width: auto; margin: 0; height: 18px; accent-color: var(--btn); }
+    .avail-day select { width: auto; flex: 0 0 auto; margin: 0; padding: 0.5rem 0.55rem; font-size: 0.95rem; }
+    .avail-day.closed select, .avail-day.closed .to { opacity: 0.35; pointer-events: none; }
+    .avail-day .to { color: var(--dim); }
+    .block-chip { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 0.35rem 0.4rem 0.35rem 0.8rem; margin: 0 0.4rem 0.4rem 0; font-size: 0.9rem; }
+    .block-chip button { width: auto; background: none; color: var(--dim); padding: 0 0.2rem; font-size: 1rem; border-radius: 0; line-height: 1; }
+    .block-chip button:hover { color: #ff8d7e; }
+    .avail-actions { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.8rem; }
+    .avail-actions input { margin: 0; flex: 1; }
+    .avail-actions button, #saveAvail { width: auto; }
+    #saveAvail { padding: 0.8rem 1.4rem; margin-top: 1.1rem; }
+    .ok-msg { color: #9fe8b9; font-weight: 600; margin-top: 0.6rem; }
+    .cal { border: 1px solid var(--line); border-radius: 14px; padding: 0.9rem; background: var(--bg); }
+    .cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
+    .cal__label { font-weight: 700; font-size: 1rem; }
+    .cal__nav { width: auto; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0.3rem 0.9rem; font-size: 1.15rem; line-height: 1; }
+    .cal__nav:hover { border-color: var(--btn); }
+    .cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .cal__dow { margin-bottom: 5px; }
+    .cal__dow span { text-align: center; font-size: 0.68rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+    .cal__day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: var(--surface); border: 1px solid transparent; cursor: pointer; font-size: 0.92rem; font-weight: 600; user-select: none; transition: background 0.12s, border-color 0.12s; }
+    .cal__day:hover { border-color: var(--dim); }
+    .cal__day.empty { background: none; cursor: default; }
+    .cal__day.past { color: #48484f; cursor: not-allowed; background: none; }
+    .cal__day.off { background: #c6402f; color: #fff; border-color: #c6402f; }
+    .cal__day.off:hover { background: #d84f3d; border-color: #d84f3d; }
   </style>
 </head>
 <body>
@@ -100,6 +129,32 @@
         <span>📅</span>
         <span><b>Add lessons to your phone calendar</b><small>Bookings appear automatically — set this up once</small></span>
       </a>
+      <div class="card" id="availCard">
+        <div class="topbar">
+          <span class="card-title">My Availability</span>
+          <span class="muted" id="availHint"></span>
+        </div>
+        <p class="muted" style="margin:0.2rem 0 1rem">Set the days and hours parents can book. Uncheck a day to close it.</p>
+        <div id="availDays"></div>
+        <div style="margin-top:1.4rem">
+          <b style="display:block;margin-bottom:0.4rem">Days off</b>
+          <p class="muted" style="margin-bottom:0.7rem">Tap any day to mark it off — holidays, travel, high-school games. Tap again to clear it. Off days can't be booked.</p>
+          <div class="cal">
+            <div class="cal__head">
+              <button type="button" id="calPrev" class="cal__nav" aria-label="Previous month">‹</button>
+              <span id="calLabel" class="cal__label"></span>
+              <button type="button" id="calNext" class="cal__nav" aria-label="Next month">›</button>
+            </div>
+            <div class="cal__grid cal__dow">
+              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
+            <div class="cal__grid" id="calDays"></div>
+          </div>
+          <p class="muted" id="offSummary" style="margin-top:0.7rem"></p>
+        </div>
+        <button id="saveAvail">Save availability</button>
+        <p class="error" id="availMsg"></p>
+      </div>
       <div id="schedule"></div>
     </div>
   </div>
@@ -111,8 +166,8 @@
 
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const TYPE_LABEL = { single: "Private", group: "Group ×2", membership: "Membership" };
-    const PLACE_LABEL = { delcity: "Del City", mustang: "Mustang", mojo: "Mojo Yard" };
+    const TYPE_LABEL = { single: "Private", thirty: "30-min", membership: "Membership" };
+    const PLACE_LABEL = { mustang: "Mustang HS", delcity: "Del City", mojo: "Mojo Yard" };
 
     function toMinutes(t) {
       const m = /(\d{1,2}):(\d{2}) (AM|PM)/.exec(t);
@@ -156,6 +211,7 @@
       app.hidden = false;
       renderStatus(data.status || {});
       render(data.sessions || []);
+      loadAvail();
     }
 
     function renderStatus(s) {
@@ -205,6 +261,7 @@
           <time>${s.time}</time>
           <div class="who"><b>${s.player || "—"}</b><small>${s.parent ? "Parent: " + s.parent : ""}</small></div>
           <div class="contact">${contact}</div>
+          ${s.focus ? `<span class="tag">${s.focus}</span>` : ""}
           ${place ? `<span class="tag place">${place}</span>` : ""}
           <span class="tag ${s.type}">${TYPE_LABEL[s.type] || s.type || ""}</span>`;
         wrap.appendChild(row);
@@ -226,6 +283,162 @@
       localStorage.removeItem("coachPass");
       app.hidden = true;
       login.hidden = false;
+    });
+
+    /* ---------- Availability editor ---------- */
+    let availState = null;
+    let availEditable = false;
+
+    const TIME_OPTS = (() => {
+      const out = [];
+      for (let m = 6 * 60; m <= 22 * 60; m += 30) {
+        const h = Math.floor(m / 60), mm = m % 60;
+        const v = `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+        const ap = h >= 12 ? "PM" : "AM", hr = h % 12 === 0 ? 12 : h % 12;
+        out.push({ v, label: `${hr}:${String(mm).padStart(2, "0")} ${ap}` });
+      }
+      return out;
+    })();
+    function timeOptionsHtml(sel) {
+      return TIME_OPTS.map((o) => `<option value="${o.v}"${o.v === sel ? " selected" : ""}>${o.label}</option>`).join("");
+    }
+
+    async function loadAvail() {
+      try {
+        const r = await fetch("/api/availability");
+        const d = await r.json();
+        availState = d.availability;
+        availEditable = Boolean(d.editable);
+      } catch {
+        availState = null;
+      }
+      renderAvail();
+    }
+
+    function renderAvail() {
+      if (!availState) return;
+      const wrap = document.getElementById("availDays");
+      wrap.innerHTML = "";
+      for (let i = 0; i < 7; i++) {
+        const c = (availState.days && availState.days[i]) || { open: false, start: "17:00", end: "21:00" };
+        const row = document.createElement("div");
+        row.className = "avail-day" + (c.open ? "" : " closed");
+        row.innerHTML =
+          `<label><input type="checkbox" data-day="${i}"${c.open ? " checked" : ""} /> ${DAYS[i]}</label>` +
+          `<select data-start="${i}">${timeOptionsHtml(c.start)}</select>` +
+          `<span class="to">to</span>` +
+          `<select data-end="${i}">${timeOptionsHtml(c.end)}</select>`;
+        wrap.appendChild(row);
+      }
+      wrap.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+        cb.addEventListener("change", () => cb.closest(".avail-day").classList.toggle("closed", !cb.checked));
+      });
+      ensureCalMonth();
+      renderCal();
+      renderOffSummary();
+      document.getElementById("availHint").textContent = availEditable ? "" : "not turned on yet — see setup";
+    }
+
+    // ----- Days-off calendar -----
+    let calMonth = null; // first day of the displayed month
+
+    function isoOf(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+    function ensureCalMonth() {
+      if (!calMonth) { const n = new Date(); calMonth = new Date(n.getFullYear(), n.getMonth(), 1); }
+    }
+    function renderCal() {
+      ensureCalMonth();
+      document.getElementById("calLabel").textContent =
+        calMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      const grid = document.getElementById("calDays");
+      grid.innerHTML = "";
+      const y = calMonth.getFullYear(), m = calMonth.getMonth();
+      const firstDow = new Date(y, m, 1).getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const todayIso = isoOf(new Date());
+      for (let i = 0; i < firstDow; i++) {
+        const e = document.createElement("div");
+        e.className = "cal__day empty";
+        grid.appendChild(e);
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const iso = isoOf(new Date(y, m, d));
+        const cell = document.createElement("div");
+        cell.className = "cal__day";
+        cell.textContent = d;
+        if (iso < todayIso) {
+          cell.classList.add("past");
+        } else {
+          if ((availState.blocked || []).includes(iso)) cell.classList.add("off");
+          cell.addEventListener("click", () => {
+            availState.blocked = availState.blocked || [];
+            if (availState.blocked.includes(iso)) {
+              availState.blocked = availState.blocked.filter((x) => x !== iso);
+            } else {
+              availState.blocked = [...availState.blocked, iso].sort();
+            }
+            renderCal();
+            renderOffSummary();
+          });
+        }
+        grid.appendChild(cell);
+      }
+    }
+    function renderOffSummary() {
+      const n = (availState.blocked || []).length;
+      document.getElementById("offSummary").textContent =
+        n ? `${n} day${n === 1 ? "" : "s"} marked off` : "No days off marked.";
+    }
+    document.getElementById("calPrev").addEventListener("click", () => {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
+      renderCal();
+    });
+    document.getElementById("calNext").addEventListener("click", () => {
+      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
+      renderCal();
+    });
+
+    function collectAvail() {
+      const days = {};
+      for (let i = 0; i < 7; i++) {
+        days[i] = {
+          open: document.querySelector(`input[data-day="${i}"]`).checked,
+          start: document.querySelector(`select[data-start="${i}"]`).value,
+          end: document.querySelector(`select[data-end="${i}"]`).value,
+        };
+      }
+      return { slotMinutes: (availState && availState.slotMinutes) || 60, days, blocked: (availState && availState.blocked) || [] };
+    }
+
+    document.getElementById("saveAvail").addEventListener("click", async () => {
+      const msg = document.getElementById("availMsg");
+      const pass = localStorage.getItem("coachPass");
+      if (!pass) return;
+      msg.className = "muted";
+      msg.textContent = "Saving…";
+      try {
+        const r = await fetch(`/api/availability?key=${encodeURIComponent(pass)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ availability: collectAvail() }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          msg.className = "error";
+          msg.textContent = d.error || "Could not save.";
+          return;
+        }
+        availState = d.availability;
+        availEditable = true;
+        renderAvail();
+        msg.className = "ok-msg";
+        msg.textContent = "Saved ✓ — your booking page is updated.";
+      } catch {
+        msg.className = "error";
+        msg.textContent = "Network error — please try again.";
+      }
     });
 
     const saved = localStorage.getItem("coachPass");

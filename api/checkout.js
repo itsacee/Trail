@@ -3,13 +3,15 @@
 // environment variable to be set in the Vercel project settings.
 
 import { bookedTimes } from "./slots.js";
-import { allowedTimes, locationKeyFor } from "../lib/schedule.js";
+import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
 
 const SESSION_TYPES = {
   single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
-  group: { amount: 2500, quantity: 2, picks: 1, label: "Group Session — 2 players, 30 min each (per player)", mode: "payment" },
+  thirty: { amount: 5000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
   membership: { amount: 24000, quantity: 1, picks: 4, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
 };
+
+const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -27,6 +29,7 @@ export default async function handler(req, res) {
   }
 
   const { type, player, parent, phone, email } = req.body || {};
+  const focus = FOCUS_LABELS[req.body?.focus] ? String(req.body.focus) : "";
   const session = SESSION_TYPES[type];
   let sessions = Array.isArray(req.body?.sessions) ? req.body.sessions : [];
   // Backwards compatibility with single date/time payloads
@@ -44,11 +47,14 @@ export default async function handler(req, res) {
     return;
   }
 
-  // The time has to be one we actually offer on that day of the week
-  const offSchedule = sessions.find((s) => !allowedTimes(s.date).includes(s.time));
+  // The time has to be one we actually offer on that day, per the coach's
+  // current availability — and a lesson of this length must fit before close.
+  const availability = await getAvailability();
+  const lessonMins = durationFor(type);
+  const offSchedule = sessions.find((s) => !allowedTimes(s.date, availability, lessonMins).includes(s.time));
   if (offSchedule) {
     res.status(400).json({
-      error: `We're not open ${offSchedule.date} at ${offSchedule.time}. Weeknights run 5–9 PM and weekends 9 AM–7 PM.`,
+      error: `We're not open ${offSchedule.date} at ${offSchedule.time}. Please pick a time shown on the booking form.`,
     });
     return;
   }
@@ -67,7 +73,16 @@ export default async function handler(req, res) {
     const takenByDate = Object.fromEntries(
       await Promise.all(dates.map(async (d) => [d, await bookedTimes(key, d)]))
     );
-    const conflict = sessions.find((s) => takenByDate[s.date]?.includes(s.time));
+    // A slot conflicts if this lesson's time range overlaps any booked range.
+    const conflict = sessions.find((s) => {
+      const start = labelToMin(s.time);
+      if (start === null) return false;
+      const endMin = start + lessonMins;
+      return (takenByDate[s.date] || []).some((b) => {
+        const bStart = labelToMin(b.time);
+        return bStart !== null && start < bStart + b.mins && bStart < endMin;
+      });
+    });
     if (conflict) {
       res.status(409).json({
         error: `Sorry — ${conflict.date} at ${conflict.time} was just booked. Please pick another time for that lesson.`,
@@ -79,7 +94,7 @@ export default async function handler(req, res) {
   }
 
   const origin = `https://${req.headers.host}`;
-  const ADDRESS = "3701 S Bryant Ave, Del City, OK 73115";
+  const ADDRESS = "231 W Juniper Dr, Mustang, OK 73064";
   // Shown on the checkout page order summary — no address here
   const sessionLabel = sessions.map((s) => `${s.date} at ${s.time}`).join(", ") + ` — ${player}`;
 
@@ -106,7 +121,7 @@ export default async function handler(req, res) {
   // this is where the buyer gets the training address (not shown pre-payment)
   params.append(
     `${metaTarget}[description]`,
-    `${session.label}: ${sessionLabel}${phone ? ` (${phone})` : ""} · Location: ${ADDRESS}`
+    `${session.label}: ${sessionLabel}${focus ? ` · Focus: ${FOCUS_LABELS[focus]}` : ""}${phone ? ` (${phone})` : ""} · Location: ${ADDRESS}`
   );
   const meta = [
     ["player", player],
@@ -114,11 +129,12 @@ export default async function handler(req, res) {
     ["phone", phone || ""],
     ["email", email || ""],
     ["type", type],
+    ["focus", focus],
     ["date", sessions[0].date],
     ["time", sessions[0].time],
   ];
   sessions.forEach((s, i) => {
-    meta.push([`date${i + 1}`, s.date], [`time${i + 1}`, s.time], [`loc${i + 1}`, locationKeyFor(s.date)]);
+    meta.push([`date${i + 1}`, s.date], [`time${i + 1}`, s.time], [`loc${i + 1}`, locationKeyFor(s.date, availability)]);
   });
   for (const [k, v] of meta) {
     params.append(`metadata[${k}]`, v);

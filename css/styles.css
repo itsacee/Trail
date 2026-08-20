@@ -13,8 +13,8 @@
   --text-dim: #a8adb6;        /* silver */
   --accent: #ffffff;          /* white accent (labels, highlights, borders) */
   --accent-soft: rgba(255, 255, 255, 0.09);
-  --btn: #8fd6ff;             /* ice blue — clickable buttons only */
-  --on-btn: #06121c;          /* dark text on ice-blue buttons */
+  --btn: #dfe4ea;             /* brushed silver — clickable buttons only */
+  --on-btn: #0a0a0c;          /* near-black text on silver buttons */
   --on-accent: #0a0a0c;       /* dark text on white accents */
   --radius: 16px;
   --font-display: "Bebas Neue", sans-serif;
@@ -80,11 +80,11 @@ h3 { font-size: 1.6rem; }
 }
 .btn--lg { padding: 1rem 2.2rem; font-size: 1.05rem; }
 .btn--primary {
-  background: var(--btn);
+  background: linear-gradient(180deg, #f2f4f7 0%, #d3d9e0 55%, #b9c1ca 100%);
   color: var(--on-btn);
-  box-shadow: 0 8px 24px rgba(143, 214, 255, 0.3);
+  box-shadow: 0 8px 24px rgba(210, 216, 224, 0.22);
 }
-.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(143, 214, 255, 0.4); }
+.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(210, 216, 224, 0.32); }
 .btn--ghost {
   border-color: var(--line);
   color: var(--text);
@@ -686,3 +686,62 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
   .booking__types { grid-template-columns: 1fr; }
   .booking__grid { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   Partners / Coaching affiliations
+   ========================================================================== */
+.partners {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.4rem;
+  margin-top: 2.6rem;
+}
+.partner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.9rem;
+}
+.partner__logo {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.partner:hover .partner__logo {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+}
+.partner__logo img {
+  max-width: 100%;
+  max-height: 118px;
+  object-fit: contain;
+}
+/* Logos that are built on a dark/transparent field read better on charcoal */
+.partner__logo--dark { background: #0d0d10; }
+.partner__name { font-size: 1.05rem; }
+.partner__role { color: var(--text-dim); font-size: 0.9rem; max-width: 22ch; }
+@media (max-width: 720px) {
+  .partners { grid-template-columns: 1fr; max-width: 320px; margin-inline: auto; }
+}
+
+.partners-band { padding-top: 3rem; }
+
+/* Clickable partner tiles */
+.partner { text-decoration: none; color: inherit; cursor: pointer; border-radius: var(--radius); }
+.partner__cta {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.01em;
+  transition: color 0.2s ease;
+}
+.partner:hover .partner__name { color: #fff; }
+.partner:hover .partner__cta { color: var(--btn); }
+.partner:focus-visible { outline: 2px solid var(--btn); outline-offset: 5px; }
