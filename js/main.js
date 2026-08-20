@@ -37,32 +37,35 @@ document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
 // Current year in the footer
 document.getElementById("year").textContent = new Date().getFullYear();
 
-document.querySelectorAll(".reel").forEach((card) => {
-  const video = card.querySelector("video");
-  const play = card.querySelector(".reel__play");
-  if (!video || !play) return;
+const clipModal = document.getElementById("clipModal");
+const clipVideo = document.getElementById("clipVideo");
+const clipClose = document.getElementById("clipClose");
 
-  const start = () => {
-    document.querySelectorAll(".reel").forEach((other) => {
-      if (other === card) return;
-      const v = other.querySelector("video");
-      if (v) {
-        v.pause();
-        v.controls = false;
-      }
-      other.classList.remove("is-playing");
-    });
-    card.classList.add("is-playing");
-    video.controls = true;
-    video.play();
-  };
+function closeClip() {
+  if (!clipModal) return;
+  clipVideo.pause();
+  clipVideo.removeAttribute("src");
+  clipVideo.load();
+  clipModal.hidden = true;
+  document.body.style.overflow = "";
+}
 
-  play.addEventListener("click", start);
-  video.addEventListener("ended", () => {
-    card.classList.remove("is-playing");
-    video.controls = false;
-    video.currentTime = 0;
-  });
+function openClip(src) {
+  clipVideo.src = src;
+  clipModal.hidden = false;
+  document.body.style.overflow = "hidden";
+  clipVideo.play().catch(() => {});
+}
+
+document.querySelectorAll(".reel__play").forEach((btn) => {
+  btn.addEventListener("click", () => openClip(btn.dataset.src));
+});
+clipClose?.addEventListener("click", closeClip);
+clipModal?.addEventListener("click", (e) => {
+  if (e.target === clipModal) closeClip();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && clipModal && !clipModal.hidden) closeClip();
 });
 
 /* ---------- Booking widget ---------- */

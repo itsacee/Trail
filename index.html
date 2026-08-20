@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <title>AP Academy | Private Baseball Training in Oklahoma City</title>
   <meta name="description" content="One-on-one baseball training in Oklahoma City with Elijah Alexander — former Oklahoma State Cowboy and Mustang High School coach. Hitting and fielding lessons. Book online." />
@@ -113,37 +116,29 @@
     <div class="container">
       <p class="eyebrow center reveal">From the field</p>
       <h2 class="center reveal">See the work</h2>
-      <p class="section__sub center reveal">Real lessons. Not a highlight reel of someone else.</p>
+      <p class="section__sub center reveal">Tap a clip. Watch a real lesson.</p>
       <div class="reels reveal">
         <figure class="reel">
-          <video poster="img/work/DcH1f6csW4H.jpg" preload="none" playsinline>
-            <source src="img/work/DcH1f6csW4H.mp4" type="video/mp4" />
-          </video>
-          <button type="button" class="reel__play" aria-label="Play training clip">
+          <img src="img/work/DcH1f6csW4H.jpg" alt="Hitting work at AP Academy" loading="lazy" />
+          <button type="button" class="reel__play" data-src="img/work/DcH1f6csW4H.mp4" aria-label="Play training clip">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </figure>
         <figure class="reel">
-          <video poster="img/work/DcMGqr2ua5P.jpg" preload="none" playsinline>
-            <source src="img/work/DcMGqr2ua5P.mp4" type="video/mp4" />
-          </video>
-          <button type="button" class="reel__play" aria-label="Play training clip">
+          <img src="img/work/DcMGqr2ua5P.jpg" alt="Fielding work at AP Academy" loading="lazy" />
+          <button type="button" class="reel__play" data-src="img/work/DcMGqr2ua5P.mp4" aria-label="Play training clip">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </figure>
         <figure class="reel">
-          <video poster="img/work/DbgWOhvuin5.jpg" preload="none" playsinline>
-            <source src="img/work/DbgWOhvuin5.mp4" type="video/mp4" />
-          </video>
-          <button type="button" class="reel__play" aria-label="Play training clip">
+          <img src="img/work/DbgWOhvuin5.jpg" alt="Live lesson at AP Academy" loading="lazy" />
+          <button type="button" class="reel__play" data-src="img/work/DbgWOhvuin5.mp4" aria-label="Play training clip">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </figure>
         <figure class="reel">
-          <video poster="img/work/DbqzZQuKHbs.jpg" preload="none" playsinline>
-            <source src="img/work/DbqzZQuKHbs.mp4" type="video/mp4" />
-          </video>
-          <button type="button" class="reel__play" aria-label="Play training clip">
+          <img src="img/work/DbqzZQuKHbs.jpg" alt="Cage work at AP Academy" loading="lazy" />
+          <button type="button" class="reel__play" data-src="img/work/DbqzZQuKHbs.mp4" aria-label="Play training clip">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </figure>
@@ -243,7 +238,7 @@
         <div class="booking__step" id="focusField">
           <div class="booking__field">
             <label for="bkFocus">What should we work on?</label>
-            <select id="bkFocus" name="focus">
+            <select id="bkFocus" name="focus" autocomplete="off">
               <option value="Both">Hitting &amp; Fielding</option>
               <option value="Hitting">Hitting</option>
               <option value="Fielding">Fielding</option>
@@ -276,19 +271,19 @@
           <div class="booking__grid">
             <div class="booking__field">
               <label for="bkPlayer">Player's name *</label>
-              <input type="text" id="bkPlayer" name="player" placeholder="Player's name" required />
+              <input type="text" id="bkPlayer" name="player" placeholder="Player's name" autocomplete="name" required />
             </div>
             <div class="booking__field">
               <label for="bkParent">Parent name</label>
-              <input type="text" id="bkParent" name="parent" placeholder="Parent name" />
+              <input type="text" id="bkParent" name="parent" placeholder="Parent name" autocomplete="name" />
             </div>
             <div class="booking__field">
               <label for="bkEmail">Email *</label>
-              <input type="email" id="bkEmail" name="email" placeholder="you@email.com" required />
+              <input type="email" id="bkEmail" name="email" placeholder="you@email.com" autocomplete="email" inputmode="email" required />
             </div>
             <div class="booking__field">
               <label for="bkPhone">Phone</label>
-              <input type="tel" id="bkPhone" name="phone" placeholder="(405) 555-0123" />
+              <input type="tel" id="bkPhone" name="phone" placeholder="(405) 555-0123" autocomplete="tel" inputmode="tel" />
             </div>
           </div>
         </div>
@@ -375,6 +370,10 @@
     </div>
   </footer>
 
+  <div class="clip-modal" id="clipModal" hidden>
+    <button type="button" class="clip-modal__close" id="clipClose" aria-label="Close video">&times;</button>
+    <video id="clipVideo" controls playsinline webkit-playsinline></video>
+  </div>
   <script src="js/main.js"></script>
 </body>
 </html>
