@@ -6,9 +6,9 @@ import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
 
 const SESSION_TYPES = {
-  single: { amount: 7500, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
+  single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
   thirty: { amount: 5000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
-  membership: { amount: 26000, quantity: 1, picks: 4, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
+  membership: { amount: 24000, quantity: 1, picks: 4, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
 };
 
 const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
