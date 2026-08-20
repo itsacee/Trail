@@ -100,11 +100,11 @@ export default async function handler(req, res) {
 
   const params = new URLSearchParams();
   params.append("mode", session.mode);
-  params.append("success_url", `${origin}/?booked=1&session_id={CHECKOUT_SESSION_ID}`);
+  params.append("success_url", `${origin}/book.html?booked=1&session_id={CHECKOUT_SESSION_ID}`);
   if (email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     params.append("customer_email", email);
   }
-  params.append("cancel_url", `${origin}/#book`);
+  params.append("cancel_url", `${origin}/book.html?type=${encodeURIComponent(type)}`);
   params.append("line_items[0][quantity]", String(session.quantity));
   params.append("line_items[0][price_data][currency]", "usd");
   params.append("line_items[0][price_data][unit_amount]", String(session.amount));

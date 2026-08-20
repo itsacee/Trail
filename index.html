@@ -35,7 +35,7 @@
         <a href="#faq">FAQ</a>
         <a href="#contact">Contact</a>
       </nav>
-      <a class="btn btn--primary nav__cta" href="#book">Book Training</a>
+      <a class="btn btn--primary nav__cta" href="book.html">Book Training</a>
       <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
@@ -60,7 +60,7 @@
           1-on-1 hitting and fielding with a D1 hitter who coaches kids every day.
         </p>
         <div class="hero__actions reveal">
-          <a class="btn btn--primary btn--lg" href="#book" data-book="single">Book a Lesson — $70</a>
+          <a class="btn btn--primary btn--lg" href="book.html?type=single">Book a Lesson — $70</a>
         </div>
       </div>
     </div>
@@ -151,7 +151,7 @@
             We find what's holding them back and fix it.
           </p>
         </div>
-        <a class="btn btn--primary reveal" href="#book">Train With Me</a>
+        <a class="btn btn--primary reveal" href="book.html">Train With Me</a>
       </div>
     </div>
   </section>
@@ -161,19 +161,20 @@
     <div class="container">
       <p class="eyebrow center reveal">Pricing</p>
       <h2 class="center reveal">Pick Your Path</h2>
+      <p class="section__sub center reveal">Tap a plan to book — you'll pick the day and time on the next page.</p>
 
       <div class="grid grid--3 pricing">
-        <div class="price-card reveal">
+        <a class="price-card reveal" href="book.html?type=single">
           <h3>Single Lesson</h3>
           <div class="price-card__price">$70<span>/ session</span></div>
           <ul>
             <li>One hour, 1-on-1</li>
             <li>Hitting, fielding, or both</li>
           </ul>
-          <a class="btn btn--ghost" href="#book" data-book="single">Book a Lesson</a>
-        </div>
+          <span class="btn btn--ghost">Book a Lesson</span>
+        </a>
 
-        <div class="price-card price-card--featured reveal">
+        <a class="price-card price-card--featured reveal" href="book.html?type=membership">
           <div class="price-card__tag">Most Popular</div>
           <h3>Membership</h3>
           <div class="price-card__price">$240<span>/ month</span></div>
@@ -181,94 +182,19 @@
             <li>4 one-hour sessions a month</li>
             <li>Save $40 vs. singles</li>
           </ul>
-          <a class="btn btn--primary" href="#book" data-book="membership">Become a Member</a>
-        </div>
+          <span class="btn btn--primary">Become a Member</span>
+        </a>
 
-        <div class="price-card reveal">
+        <a class="price-card reveal" href="book.html?type=thirty">
           <h3>30-Minute Lesson</h3>
           <div class="price-card__price">$50<span>/ session</span></div>
           <ul>
             <li>A focused half-hour, 1-on-1</li>
             <li>Hitting or fielding</li>
           </ul>
-          <a class="btn btn--ghost" href="#book" data-book="thirty">Book a 30-Min</a>
-        </div>
+          <span class="btn btn--ghost">Book a 30-Min</span>
+        </a>
       </div>
-    </div>
-  </section>
-
-  <!-- ================= BOOK A LESSON ================= -->
-  <section class="section" id="book">
-    <div class="container container--narrow">
-      <p class="eyebrow center reveal">Book Now</p>
-      <h2 class="center reveal">Pick a Day. Grab Your Spot.</h2>
-
-      <form class="booking reveal" id="bookingForm" novalidate>
-        <div class="booking__selected">
-          <div>
-            <strong id="selName">Single Lesson</strong>
-            <span id="selPrice">$70 &middot; 1 hour</span>
-          </div>
-          <a class="booking__change" href="#programs">Change</a>
-        </div>
-
-        <div class="booking__step" id="focusField">
-          <div class="booking__field">
-            <label for="bkFocus">What should we work on?</label>
-            <select id="bkFocus" name="focus" autocomplete="off">
-              <option value="Both">Hitting &amp; Fielding</option>
-              <option value="Hitting">Hitting</option>
-              <option value="Fielding">Fielding</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Pick a day &amp; time <span class="booking__step-hint">Weeknights 5&ndash;9 PM &middot; Weekends 9 AM&ndash;7 PM</span></h3>
-          <div class="booking__grid">
-            <div class="booking__field">
-              <label for="bkDate">Day</label>
-              <select id="bkDate" name="date">
-                <option value="">Choose a day</option>
-              </select>
-            </div>
-            <div class="booking__field">
-              <label for="bkTime">Time</label>
-              <select id="bkTime" name="time" disabled>
-                <option value="">Pick a day first</option>
-              </select>
-            </div>
-          </div>
-          <p class="booking__where" id="bookingWhere" hidden></p>
-          <div class="booking__picked" id="pickedList" hidden></div>
-        </div>
-
-        <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Who's training?</h3>
-          <div class="booking__grid">
-            <div class="booking__field">
-              <label for="bkPlayer">Player's name *</label>
-              <input type="text" id="bkPlayer" name="player" placeholder="Player's name" autocomplete="name" required />
-            </div>
-            <div class="booking__field">
-              <label for="bkParent">Parent name</label>
-              <input type="text" id="bkParent" name="parent" placeholder="Parent name" autocomplete="name" />
-            </div>
-            <div class="booking__field">
-              <label for="bkEmail">Email *</label>
-              <input type="email" id="bkEmail" name="email" placeholder="you@email.com" autocomplete="email" inputmode="email" required />
-            </div>
-            <div class="booking__field">
-              <label for="bkPhone">Phone</label>
-              <input type="tel" id="bkPhone" name="phone" placeholder="(405) 555-0123" autocomplete="tel" inputmode="tel" />
-            </div>
-          </div>
-        </div>
-
-        <button type="submit" class="btn btn--primary btn--lg booking__submit" id="bookingSubmit">Pay $70 — Book Lesson</button>
-        <p class="booking__note">🔒 Secure payment by Stripe. We'll email the training address after you book.</p>
-        <p class="booking__status" id="bookingStatus" role="status"></p>
-      </form>
     </div>
   </section>
 
@@ -281,7 +207,7 @@
       <div class="faq reveal">
         <details>
           <summary>What days and times can we book?</summary>
-          <p><strong>Mon–Fri 5–9 PM.</strong> <strong>Sat–Sun 9 AM–7 PM.</strong> Open times show up when you pick a day above.</p>
+          <p><strong>Mon–Fri 5–9 PM.</strong> <strong>Sat–Sun 9 AM–7 PM.</strong> Open times show up when you <a href="book.html">pick a day on the booking page</a>.</p>
         </details>
         <details>
           <summary>What ages do you train?</summary>
@@ -337,7 +263,7 @@
           <li><a href="#work">See the work</a></li>
           <li><a href="#programs">Pricing</a></li>
           <li><a href="#faq">FAQ</a></li>
-          <li><a href="#book">Book a Lesson</a></li>
+          <li><a href="book.html">Book a Lesson</a></li>
         </ul>
       </div>
     </div>

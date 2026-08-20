@@ -24,8 +24,8 @@ Want different colors? Change `--accent` at the top of `css/styles.css`.
 
 ## Booking (built into this site)
 
-The site has its own booking section (`#book`): parents pick a session type
-(single $70 / 30-min $50 / membership $240 per month), a date, a
+Parents pick a lesson type on the homepage (single $70 / 30-min $50 /
+membership $240 per month), then land on `book.html` to choose a date,
 time, enter the player's name, and pay through Stripe Checkout.
 
 The payment is created by `api/checkout.js`, a serverless function that runs

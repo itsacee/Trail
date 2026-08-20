@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <title>Book Training | AP Academy</title>
+  <meta name="description" content="Book a private hitting or fielding lesson with Elijah Alexander. Pick a day, grab your spot, and pay online." />
+
+  <link rel="icon" type="image/png" href="img/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="page-book">
+
+  <header class="nav" id="top">
+    <div class="nav__inner container">
+      <a class="nav__brand" href="index.html">
+        <span class="nav__logo">
+          <img src="img/logo-mark.png" alt="AP Academy logo" />
+        </span>
+        <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+      </a>
+      <nav class="nav__links" id="navLinks">
+        <a href="index.html#partners">Coaching</a>
+        <a href="index.html#work">Work</a>
+        <a href="index.html#coach">Coach</a>
+        <a href="index.html#programs">Pricing</a>
+        <a href="index.html#faq">FAQ</a>
+        <a href="index.html#contact">Contact</a>
+      </nav>
+      <a class="btn btn--primary nav__cta" href="book.html" aria-current="page">Book Training</a>
+      <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <section class="section book-page" id="book">
+    <div class="container container--narrow">
+      <p class="eyebrow center reveal">Book Now</p>
+      <h1 class="center reveal">Pick a Day. Grab Your Spot.</h1>
+      <p class="section__sub center reveal">Choose your lesson type, then lock in a time. We'll email the training address after you pay.</p>
+
+      <form class="booking reveal" id="bookingForm" novalidate>
+        <div class="booking__types" role="tablist" aria-label="Lesson type">
+          <button type="button" class="booking__type is-active" data-book="single" role="tab" aria-selected="true">
+            <strong>Single Lesson</strong>
+            <span>$70 · 1 hour</span>
+          </button>
+          <button type="button" class="booking__type" data-book="membership" role="tab" aria-selected="false">
+            <strong>Membership</strong>
+            <span>$240 / mo · 4 lessons</span>
+          </button>
+          <button type="button" class="booking__type" data-book="thirty" role="tab" aria-selected="false">
+            <strong>30-Minute</strong>
+            <span>$50 · 30 min</span>
+          </button>
+        </div>
+
+        <div class="booking__step" id="focusField">
+          <div class="booking__field">
+            <label for="bkFocus">What should we work on?</label>
+            <select id="bkFocus" name="focus" autocomplete="off">
+              <option value="Both">Hitting &amp; Fielding</option>
+              <option value="Hitting">Hitting</option>
+              <option value="Fielding">Fielding</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Pick a day &amp; time <span class="booking__step-hint">Weeknights 5&ndash;9 PM &middot; Weekends 9 AM&ndash;7 PM</span></h3>
+          <div class="booking__grid">
+            <div class="booking__field">
+              <label for="bkDate">Day</label>
+              <select id="bkDate" name="date">
+                <option value="">Choose a day</option>
+              </select>
+            </div>
+            <div class="booking__field">
+              <label for="bkTime">Time</label>
+              <select id="bkTime" name="time" disabled>
+                <option value="">Pick a day first</option>
+              </select>
+            </div>
+          </div>
+          <p class="booking__where" id="bookingWhere" hidden></p>
+          <div class="booking__picked" id="pickedList" hidden></div>
+        </div>
+
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">2</span> Who's training?</h3>
+          <div class="booking__grid">
+            <div class="booking__field">
+              <label for="bkPlayer">Player's name *</label>
+              <input type="text" id="bkPlayer" name="player" placeholder="Player's name" autocomplete="name" required />
+            </div>
+            <div class="booking__field">
+              <label for="bkParent">Parent name</label>
+              <input type="text" id="bkParent" name="parent" placeholder="Parent name" autocomplete="name" />
+            </div>
+            <div class="booking__field">
+              <label for="bkEmail">Email *</label>
+              <input type="email" id="bkEmail" name="email" placeholder="you@email.com" autocomplete="email" inputmode="email" required />
+            </div>
+            <div class="booking__field">
+              <label for="bkPhone">Phone</label>
+              <input type="tel" id="bkPhone" name="phone" placeholder="(405) 555-0123" autocomplete="tel" inputmode="tel" />
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn--primary btn--lg booking__submit" id="bookingSubmit">Pay $70 — Book Lesson</button>
+        <p class="booking__note">🔒 Secure payment by Stripe. We'll email the training address after you book.</p>
+        <p class="booking__status" id="bookingStatus" role="status"></p>
+      </form>
+    </div>
+  </section>
+
+  <footer class="footer" id="contact">
+    <div class="container footer__grid">
+      <div>
+        <a class="nav__brand" href="index.html">
+          <span class="nav__logo">
+            <img src="img/logo-mark.png" alt="AP Academy logo" />
+          </span>
+          <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+        </a>
+        <p class="footer__blurb">Private 1-on-1 baseball training in Oklahoma City.</p>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul class="footer__list">
+          <li><a href="tel:+14058194401">(405) 819-4401</a></li>
+          <li><a href="mailto:Apacademybsb@gmail.com">Apacademybsb@gmail.com</a></li>
+          <li>Mustang, OK</li>
+          <li>Weeknights 5&ndash;9 PM &middot; Weekends 9 AM&ndash;7 PM</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Follow</h4>
+        <ul class="footer__list">
+          <li><a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a></li>
+          <li><a href="https://instagram.com/elijahalexanderrrr" target="_blank" rel="noopener">@elijahalexanderrrr</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Train</h4>
+        <ul class="footer__list">
+          <li><a href="index.html#work">See the work</a></li>
+          <li><a href="index.html#programs">Pricing</a></li>
+          <li><a href="index.html#faq">FAQ</a></li>
+          <li><a href="book.html">Book a Lesson</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year"></span> AP Academy · Ace Performance. All rights reserved.</p>
+      <p>🔒 Secure payment by Stripe</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -423,6 +423,12 @@ h3 { font-size: 1.6rem; }
   position: relative;
   transition: transform 0.2s ease;
 }
+a.price-card {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+a.price-card .btn { text-align: center; }
 .price-card:hover { transform: translateY(-4px); }
 .price-card--featured {
   border-color: var(--accent);
@@ -495,6 +501,22 @@ h3 { font-size: 1.6rem; }
 .quote blockquote { color: var(--text); font-size: 0.96rem; flex: 1; }
 .quote figcaption { color: var(--text-dim); font-size: 0.85rem; font-weight: 600; }
 
+/* ---------- booking page ---------- */
+.page-book .nav,
+.page-book .nav.is-scrolled {
+  background: rgba(5, 5, 5, 0.92);
+  backdrop-filter: blur(18px);
+  border-bottom-color: var(--line);
+}
+.book-page {
+  padding-top: 7.2rem;
+  min-height: 70vh;
+}
+.book-page h1 {
+  font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+  margin-bottom: 0.5rem;
+}
+
 /* ---------- booking ---------- */
 .booking {
   margin-top: 2.8rem;
@@ -502,6 +524,38 @@ h3 { font-size: 1.6rem; }
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 2.6rem 2.4rem;
+}
+.booking__types {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+  margin-bottom: 2.2rem;
+}
+.booking__type {
+  background: var(--bg-alt);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.95rem 0.75rem;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: border-color 0.15s, background 0.15s;
+}
+.booking__type strong {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+.booking__type span {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.booking__type:hover { border-color: var(--btn); }
+.booking__type.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 .booking__step { margin-bottom: 2.6rem; }
 .booking__step-title {
@@ -827,7 +881,11 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
   .section { padding: 3.4rem 0; }
   .container, .container--narrow { width: min(1120px, 90%); }
   .booking { padding: 1.4rem 1rem; margin-top: 1.8rem; }
-  .booking__types { grid-template-columns: 1fr; }
+  .book-page { padding-top: 6.2rem; }
+  .booking__types { gap: 0.45rem; }
+  .booking__type { padding: 0.8rem 0.5rem; }
+  .booking__type strong { font-size: 0.78rem; }
+  .booking__type span { font-size: 0.68rem; }
   .booking__grid { grid-template-columns: 1fr; }
   .booking__selected { flex-wrap: wrap; }
   .booking__change { margin-left: 0; }

@@ -5,20 +5,22 @@ document.documentElement.classList.add("js");
 const burger = document.getElementById("navBurger");
 const links = document.getElementById("navLinks");
 
-burger.addEventListener("click", () => {
-  const open = links.classList.toggle("is-open");
-  burger.setAttribute("aria-expanded", open);
-});
+if (burger && links) {
+  burger.addEventListener("click", () => {
+    const open = links.classList.toggle("is-open");
+    burger.setAttribute("aria-expanded", open);
+  });
+  links.querySelectorAll("a").forEach((a) =>
+    a.addEventListener("click", () => links.classList.remove("is-open"))
+  );
+}
 
 const nav = document.querySelector(".nav");
-const onScroll = () => nav.classList.toggle("is-scrolled", window.scrollY > 20);
-onScroll();
-window.addEventListener("scroll", onScroll, { passive: true });
-
-// Close the mobile menu after tapping a link
-links.querySelectorAll("a").forEach((a) =>
-  a.addEventListener("click", () => links.classList.remove("is-open"))
-);
+if (nav) {
+  const onScroll = () => nav.classList.toggle("is-scrolled", window.scrollY > 20);
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+}
 
 // Fade-in sections as they scroll into view
 const observer = new IntersectionObserver(
@@ -35,7 +37,8 @@ const observer = new IntersectionObserver(
 document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
 
 // Current year in the footer
-document.getElementById("year").textContent = new Date().getFullYear();
+const yearEl = document.getElementById("year");
+if (yearEl) yearEl.textContent = new Date().getFullYear();
 
 const FILM_PAIRS = [
   [
@@ -218,16 +221,36 @@ function maxPicks() {
   return SESSIONS[selectedType].picks;
 }
 
-function setType(type) {
-  if (!SESSIONS[type] || type === selectedType) return;
-  selectedType = type;
-  picked = [];
-  document.getElementById("selName").textContent = SESSIONS[type].name;
-  document.getElementById("selPrice").textContent = SESSIONS[type].price;
+function syncTypeTabs() {
+  document.querySelectorAll("[data-book]").forEach((el) => {
+    const on = el.dataset.book === selectedType;
+    el.classList.toggle("is-active", on);
+    if (el.getAttribute("role") === "tab") el.setAttribute("aria-selected", on ? "true" : "false");
+  });
+}
+
+function setType(type, { syncUrl = true } = {}) {
+  if (!SESSIONS[type]) return;
+  if (type !== selectedType) {
+    selectedType = type;
+    picked = [];
+  }
+  const selName = document.getElementById("selName");
+  const selPrice = document.getElementById("selPrice");
+  if (selName) selName.textContent = SESSIONS[type].name;
+  if (selPrice) selPrice.textContent = SESSIONS[type].price;
+  syncTypeTabs();
   updateFocusField();
   renderTimeOptions();
   renderPicked();
   refreshSubmit();
+  if (syncUrl) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("type", type);
+    url.searchParams.delete("booked");
+    url.searchParams.delete("session_id");
+    history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+  }
 }
 
 // Show the Hitting/Fielding focus picker per session type:
@@ -413,13 +436,20 @@ function refreshSubmit() {
 }
 
 if (form) {
+  const params = new URLSearchParams(window.location.search);
+  const typeFromUrl = params.get("type");
+  if (SESSIONS[typeFromUrl]) selectedType = typeFromUrl;
+
   updateFocusField();
+  syncTypeTabs();
   loadAvailability().then(renderDays);
   dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
   timeSelect.addEventListener("change", () => chooseTime(timeSelect.value));
-  // "Pick Your Path" buttons carry the chosen session into the booking form
-  document.querySelectorAll("[data-book]").forEach((a) =>
-    a.addEventListener("click", () => setType(a.dataset.book))
+  document.querySelectorAll("[data-book]").forEach((el) =>
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      setType(el.dataset.book);
+    })
   );
   refreshSubmit();
 
@@ -478,11 +508,10 @@ if (form) {
 
   // Back from Stripe: confirm the payment, send the confirmation email,
   // and show the training address on screen.
-  const params = new URLSearchParams(window.location.search);
   if (params.get("booked") === "1") {
     statusEl.classList.add("booking__status--ok");
     statusEl.textContent = "✅ You're booked! Getting your details…";
-    document.getElementById("book").scrollIntoView();
+    document.getElementById("book")?.scrollIntoView();
 
     const finish = (d = {}) => {
       const when = (d.sessions || [])
@@ -503,7 +532,7 @@ if (form) {
           ? `<br />A confirmation with directions is on its way to ${d.email || "your inbox"}.`
           : `<br />Questions? Call or text (405) 819-4401.`);
       // Clean the URL so a refresh doesn't re-run this
-      history.replaceState({}, "", window.location.pathname + "#book");
+      history.replaceState({}, "", window.location.pathname);
     };
 
     const sid = params.get("session_id");
