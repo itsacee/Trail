@@ -804,6 +804,8 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
   .hero__inner { align-items: flex-end; padding: 6.5rem 0 1.4rem; }
   .hero__copy { max-width: 100%; }
   .hero__title { font-size: clamp(2.5rem, 11vw, 4.1rem); }
+  .still { height: min(54vh, 460px); }
+  .still img { object-position: 48% 22%; }
   .hero__actions { width: 100%; }
   .hero__actions .btn { width: 100%; }
   .stat { text-align: center; padding: 1rem 0.25rem; }
