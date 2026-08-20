@@ -25,7 +25,7 @@ Want different colors? Change `--accent` at the top of `css/styles.css`.
 ## Booking (built into this site)
 
 The site has its own booking section (`#book`): parents pick a session type
-(single $60 / group $30 per player / membership $200 per month), a date, a
+(single $70 / group $25 per player · $50 total / membership $240 per month), a date, a
 time, enter the player's name, and pay through Stripe Checkout.
 
 The payment is created by `api/checkout.js`, a serverless function that runs

@@ -63,9 +63,9 @@ function planFor(iso) {
 const DAYS_AHEAD = 28; // how many days out parents can book
 
 const SESSIONS = {
-  single: { name: "Single Lesson", price: "$60 · 1 hour", label: "Pay $60 — Book Lesson", picks: 1 },
-  group: { name: "Group Session", price: "$30 / player · 2 players · 30 min each", label: "Pay $60 — Book Group (2 players)", picks: 1 },
-  membership: { name: "Membership", price: "$200 / month · 4 lessons", label: "Start Membership — $200/mo", picks: 4 },
+  single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1 },
+  group: { name: "Group Session", price: "$25 / player · 2 players · 30 min each", label: "Pay $50 — Book Group (2 players)", picks: 1 },
+  membership: { name: "Membership", price: "$240 / month · 4 lessons", label: "Start Membership — $240/mo", picks: 4 },
 };
 
 const form = document.getElementById("bookingForm");

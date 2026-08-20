@@ -6,9 +6,9 @@ import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor } from "../lib/schedule.js";
 
 const SESSION_TYPES = {
-  single: { amount: 6000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
-  group: { amount: 3000, quantity: 2, picks: 1, label: "Group Session — 2 players, 30 min each (per player)", mode: "payment" },
-  membership: { amount: 20000, quantity: 1, picks: 4, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
+  single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
+  group: { amount: 2500, quantity: 2, picks: 1, label: "Group Session — 2 players, 30 min each (per player)", mode: "payment" },
+  membership: { amount: 24000, quantity: 1, picks: 4, label: "Membership — 4 one-hour lessons / month", mode: "subscription" },
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
