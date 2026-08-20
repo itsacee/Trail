@@ -199,13 +199,13 @@ h3 { font-size: 1.6rem; }
 }
 .hero__stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
-  max-width: 860px;
+  max-width: 720px;
   margin: 0 auto;
 }
 .stat { background: var(--bg-alt); padding: 1.4rem 1rem; }
@@ -224,7 +224,7 @@ h3 { font-size: 1.6rem; }
 }
 
 /* ---------- sections ---------- */
-.section { padding: 5.5rem 0; }
+.section { padding: 4.5rem 0; }
 .section--alt { background: var(--bg-alt); border-block: 1px solid var(--line); }
 
 /* ---------- coach ---------- */
@@ -276,6 +276,7 @@ h3 { font-size: 1.6rem; }
 }
 .coach__bio p { color: var(--text-dim); margin-bottom: 1rem; }
 .coach__bio h2 { margin-bottom: 1rem; }
+.coach__bio .btn { margin-top: 0.4rem; }
 .coach__creds {
   list-style: none;
   margin: 1.5rem 0 2rem;
@@ -659,7 +660,6 @@ html.js .reveal.is-visible { opacity: 1; transform: none; }
   .coach { grid-template-columns: 1fr; gap: 3rem; }
   .coach__photo { max-width: 380px; margin-inline: auto; width: 100%; }
   .footer__grid { grid-template-columns: 1fr 1fr; }
-  .hero__stats { grid-template-columns: repeat(2, 1fr); }
 
   .nav__links {
     position: absolute;
