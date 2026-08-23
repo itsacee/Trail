@@ -643,11 +643,18 @@ a.price-card .btn { text-align: center; }
 .acct__top {
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.4rem;
 }
 .acct__top strong { display: block; font-size: 1.05rem; }
 .acct__top span { color: var(--text-dim); font-size: 0.9rem; }
+.acct__expires {
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: -0.6rem 0 1.2rem;
+}
 .acct__lessons { margin: 0.4rem 0 1.6rem; display: grid; gap: 0.55rem; }
 .acct__empty { color: var(--text-dim); font-size: 0.92rem; }
 .acct__row {

@@ -201,7 +201,8 @@ const DAYS_AHEAD = 28; // how many days out parents can book
 const SESSIONS = {
   single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1, focus: "full" },
   thirty: { name: "30-Minute Lesson", price: "$50 · 30 min", label: "Pay $50 — Book Lesson", picks: 1, focus: "one" },
-  membership: { name: "Membership", price: "$240 · 4 weeks", label: "Start Membership — $240", picks: 0, focus: "none" },
+  // Membership: lock in the first lesson at checkout; the other 3 are booked later via Members.
+  membership: { name: "Membership", price: "$240 · 4 weeks", label: "Start Membership — $240", picks: 1, focus: "full" },
 };
 
 const form = document.getElementById("bookingForm");
@@ -231,20 +232,24 @@ function syncTypeTabs() {
 
 function updateMemberCheckout() {
   const isMem = selectedType === "membership";
-  const slotStep = document.getElementById("slotStep");
   const memberNote = document.getElementById("memberNote");
   const bookTitle = document.getElementById("bookTitle");
   const bookLead = document.getElementById("bookLead");
-  if (slotStep) slotStep.hidden = isMem;
+  const slotTitle = document.querySelector("#slotStep .booking__step-title");
   if (memberNote) memberNote.hidden = !isMem;
   const whoNum = document.getElementById("whoStepNum");
-  if (whoNum) whoNum.textContent = isMem ? "1" : "2";
+  if (whoNum) whoNum.textContent = "2";
+  if (slotTitle) {
+    slotTitle.innerHTML = isMem
+      ? `<span class="booking__step-num">1</span> Pick your first day &amp; time <span class="booking__step-hint">Weeknights 5&ndash;9 PM &middot; Weekends 9 AM&ndash;7 PM</span>`
+      : `<span class="booking__step-num">1</span> Pick a day &amp; time <span class="booking__step-hint">Weeknights 5&ndash;9 PM &middot; Weekends 9 AM&ndash;7 PM</span>`;
+  }
   if (bookTitle) {
-    bookTitle.textContent = isMem ? "Join. Then Pick Your Weeks." : "Pick a Day. Grab Your Spot.";
+    bookTitle.textContent = isMem ? "Join. Lock In Your First Lesson." : "Pick a Day. Grab Your Spot.";
   }
   if (bookLead) {
     bookLead.textContent = isMem
-      ? "Pay today. After that you'll sign in and book one lesson each week — when you know you can make it."
+      ? "Choose your first day today. After you pay, sign in with your email on Members to book the other 3 — one at a time."
       : "Choose your lesson type, then lock in a time. We'll email the training address after you pay.";
   }
 }
@@ -275,13 +280,11 @@ function setType(type, { syncUrl = true } = {}) {
 }
 
 // Show the Hitting/Fielding focus picker per session type:
-//   "full" → Hitting, Fielding, or Both (1-hour lessons)
+//   "full" → Hitting, Fielding, or Both (1-hour lessons, including membership first lesson)
 //   "one"  → Hitting or Fielding only (30-minute lessons)
-//   "none" → hidden (membership)
 function updateFocusField() {
   if (!focusField) return;
   const mode = SESSIONS[selectedType].focus;
-  if (mode === "none") { focusField.hidden = true; return; }
   focusField.hidden = false;
   const both = focusSelect ? focusSelect.querySelector('option[value="Both"]') : null;
   if (both) both.hidden = mode === "one";
@@ -476,7 +479,7 @@ if (form) {
     if (picked.length < maxPicks() || !form.elements.player.value.trim()) {
       statusEl.textContent =
         selectedType === "membership"
-          ? "Please enter the player's name and your email."
+          ? "Please pick your first lesson day and time, and enter the player's name."
           : "Please pick a day, a time, and enter the player's name.";
       return;
     }

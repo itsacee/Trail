@@ -104,16 +104,41 @@ function showDash() {
   dashCard.hidden = false;
 }
 
+function prettyLongDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T12:00:00");
+  if (isNaN(d)) return iso;
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
 function renderDash(data) {
   account = data;
   document.getElementById("acctPlayer").textContent = data.player ? `${data.player}'s membership` : "Your membership";
+  const left = data.remaining || 0;
+  const total = data.credits || 4;
+  const used = data.used || 0;
+  const endLabel = prettyLongDate(data.periodEndDate);
   document.getElementById("acctCredits").textContent =
-    `${data.used || 0} of ${data.credits || 4} lessons used · ${data.remaining || 0} left`;
-  document.getElementById("acctTitle").textContent = data.remaining ? "Pick This Week's Lesson" : "This membership is done";
+    `${left} of ${total} lessons left (${used} used)` +
+    (endLabel ? ` · credits end ${endLabel}` : "");
+  document.getElementById("acctTitle").textContent = left ? "Book Your Next Lesson" : "This membership is done";
   document.getElementById("acctLead").textContent =
-    data.remaining
+    left
       ? "One lesson a week. Book a day in the next 10 days — when you know you can make it."
       : "You've used this membership's 4 lessons. Buy another 4 weeks on the Book page when you're ready.";
+
+  const expires = document.getElementById("acctExpires");
+  if (expires) {
+    if (endLabel && left > 0) {
+      expires.hidden = false;
+      expires.textContent = `Your ${left} remaining lesson${left === 1 ? "" : "s"} must be used by ${endLabel}. Unused lessons don't roll over.`;
+    } else if (endLabel && !left) {
+      expires.hidden = false;
+      expires.textContent = `This membership ended ${endLabel}.`;
+    } else {
+      expires.hidden = true;
+    }
+  }
 
   const where = document.getElementById("acctWhere");
   if (data.location?.address) {
@@ -131,7 +156,7 @@ function renderDash(data) {
   if (!upcoming.length) {
     list.innerHTML = `<p class="acct__empty">No lessons on the calendar yet.</p>`;
   } else {
-    list.innerHTML = `<p class="booking__picked-title">Upcoming</p>` + upcoming.map((l) => {
+    list.innerHTML = `<p class="booking__picked-title">Your booked days</p>` + upcoming.map((l) => {
       const canDrop = l.source !== "stripe";
       return `<div class="acct__row">
         <div><strong>${prettyDate(l.date)}</strong> · ${l.time}${l.focus ? ` · ${l.focus}` : ""}</div>
@@ -143,13 +168,13 @@ function renderDash(data) {
     });
   }
 
-  const canBook = (data.remaining || 0) > 0 && !data.bookedThisWeek;
+  const canBook = left > 0 && !data.bookedThisWeek;
   weekForm.hidden = !canBook;
   const msg = document.getElementById("acctMsg");
-  if (data.bookedThisWeek && data.remaining > 0) {
+  if (data.bookedThisWeek && left > 0) {
     msg.hidden = false;
     msg.textContent = `You're set this week (${prettyDate(data.bookedThisWeek.date)} at ${data.bookedThisWeek.time}). Come back to book next week.`;
-  } else if (!data.remaining) {
+  } else if (!left) {
     msg.hidden = false;
     msg.innerHTML = `This membership is used up. <a href="book.html?type=membership">Buy another 4 weeks</a> when you're ready.`;
   } else {

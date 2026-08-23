@@ -34,12 +34,20 @@ function publicAccount(acct) {
   };
 }
 
-async function emailWeeklyBook(to, lesson, player) {
+async function emailWeeklyBook(to, lesson, player, summary) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey || !to) return;
   const loc = LOCATIONS.mustang || {};
   const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
   const when = `${lesson.date} at ${lesson.time}`;
+  const left = summary?.remaining ?? "";
+  const end = summary?.periodEndDate || "";
+  const creditLine =
+    left !== ""
+      ? `\nLessons left: ${left} of ${summary?.credits || 4}` +
+        (end ? ` · credits end ${end}` : "") +
+        "\n"
+      : "";
   try {
     await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -51,8 +59,9 @@ async function emailWeeklyBook(to, lesson, player) {
         reply_to: REPLY_TO,
         subject: `Lesson booked — ${when}`,
         text:
-          `${player ? player + "'s" : "Your"} lesson is set for ${when}.\n\n` +
-          (loc.address ? `Where: ${loc.address}\n${loc.note || ""}\n` : "") +
+          `${player ? player + "'s" : "Your"} lesson is set for ${when}.\n` +
+          creditLine +
+          (loc.address ? `\nWhere: ${loc.address}\n${loc.note || ""}\n` : "") +
           `\nNeed to change it? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
           `Questions? (405) 819-4401`,
       }),
@@ -201,6 +210,6 @@ export default async function handler(req, res) {
 
   acct.scheduled = scheduledFor(acct.sub, acct.stored);
   acct.summary = membershipSummary(acct.sub, acct.scheduled);
-  emailWeeklyBook(email, lesson, lesson.player);
+  emailWeeklyBook(email, lesson, lesson.player, acct.summary);
   res.status(200).json({ ok: true, lesson, ...publicAccount(acct) });
 }

@@ -227,8 +227,40 @@ ${REPLY_TO}
 apacademybsb.com`;
 }
 
-function memberEmailHtml(meta, origin) {
+function memberEmailHtml(meta, origin, sessions = [], periodEndLabel = "") {
   const link = `${origin}/account.html`;
+  const first = sessions[0];
+  const remaining = Math.max(0, 4 - sessions.length);
+  const firstBlock = first
+    ? `<tr><td style="padding-top:22px;">
+      <div style="font-size:11px;color:#a8adb6;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:6px;">Your first lesson</div>
+      <div style="font-size:17px;color:#ffffff;font-weight:bold;">${prettyDate(first.date)} · ${first.time}</div>
+      <p style="color:#a8adb6;font-size:14px;line-height:1.6;margin:8px 0 0;">That's 1 of your 4 lessons. You have <strong style="color:#ffffff;">${remaining} left</strong>${
+          periodEndLabel ? ` — use them by <strong style="color:#ffffff;">${periodEndLabel}</strong>` : ""
+        }.</p>
+    </td></tr>`
+    : "";
+  const places = placesFor(sessions);
+  const placeBlocks = places
+    .map((p) => {
+      const hasAddress = Boolean(p.address);
+      return `<div style="background:#050505;border:2px solid #cfd4da;border-radius:12px;padding:20px;margin-top:12px;">
+        <div style="font-size:11px;color:#cfd4da;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Where to Go</div>
+        <div style="font-size:17px;color:#ffffff;font-weight:bold;padding-top:8px;line-height:1.5;">
+          ${hasAddress ? p.address : p.name}
+        </div>
+        <p style="color:#a8adb6;font-size:13px;line-height:1.6;margin:8px 0 0;">
+          ${hasAddress ? p.note || "Plan to arrive about 5 minutes early." : `I'll text you the exact address — or call ${PHONE}.`}
+        </p>
+        ${
+          hasAddress
+            ? `<a href="${mapUrl(p.address)}" style="display:inline-block;margin-top:14px;background:#cfd4da;color:#06121c;text-decoration:none;font-weight:bold;font-size:14px;padding:11px 22px;border-radius:99px;">Get Directions</a>`
+            : ""
+        }
+      </div>`;
+    })
+    .join("");
+
   return `<!DOCTYPE html>
 <html><body style="margin:0;padding:0;background:#050505;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:28px 12px;">
@@ -242,16 +274,22 @@ function memberEmailHtml(meta, origin) {
       <div style="font-size:21px;color:#ffffff;font-weight:bold;">You're in — 4 lessons over 4 weeks</div>
       <p style="color:#a8adb6;font-size:15px;line-height:1.6;margin:10px 0 0;">
         ${meta.parent ? `Hi ${meta.parent} — ` : ""}${meta.player || "Your player"}'s membership is active.
-        Book <strong style="color:#ffffff;">one lesson each week</strong> when you know you can make it.
-        It does not auto-renew. Unused lessons don't roll over.
+        ${first
+          ? `Your first day is locked in below. Book the other lessons on the <strong style="color:#ffffff;">Members</strong> tab when you're ready — one per week.`
+          : `Book <strong style="color:#ffffff;">one lesson each week</strong> when you know you can make it.`}
+        It does not auto-renew. Unused lessons don't roll over${periodEndLabel ? ` after ${periodEndLabel}` : ""}.
       </p>
     </td></tr>
+    ${firstBlock}
+    ${placeBlocks ? `<tr><td style="padding-top:8px;">${placeBlocks}</td></tr>` : ""}
     <tr><td style="padding-top:22px;">
-      <a href="${link}" style="display:inline-block;background:#cfd4da;color:#06121c;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 22px;border-radius:99px;">Pick this week's lesson</a>
+      <a href="${link}" style="display:inline-block;background:#cfd4da;color:#06121c;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 22px;border-radius:99px;">${
+        remaining ? "Book your next lesson" : "Open membership"
+      }</a>
     </td></tr>
     <tr><td style="padding-top:22px;">
       <p style="color:#a8adb6;font-size:14px;line-height:1.7;margin:0;">
-        Sign in with this email. We'll send the training address after you book a day.
+        Sign in with this email on Members to see lessons left and your credit end date.
         Questions? Call or text <a href="tel:${PHONE_TEL}" style="color:#cfd4da;text-decoration:none;font-weight:bold;">${PHONE}</a>.
       </p>
     </td></tr>
@@ -267,16 +305,34 @@ function memberEmailHtml(meta, origin) {
 </body></html>`;
 }
 
-function memberEmailText(meta, origin) {
+function memberEmailText(meta, origin, sessions = [], periodEndLabel = "") {
+  const first = sessions[0];
+  const remaining = Math.max(0, 4 - sessions.length);
+  const places = placesFor(sessions);
+  const where = places
+    .map((p) =>
+      p.address
+        ? `${p.address}${p.note ? "\n" + p.note : ""}\nDirections: ${mapUrl(p.address)}`
+        : `${p.name} — call ${PHONE} for the address.`
+    )
+    .join("\n\n");
   return `AP ACADEMY — You're in
 
 ${meta.parent ? `Hi ${meta.parent} — ` : ""}${meta.player || "Your player"}'s membership is active.
-Book one lesson each week when you know you can make it. It does not auto-renew. Unused lessons don't roll over.
+${
+  first
+    ? `FIRST LESSON\n${prettyDate(first.date)} at ${first.time}\nThat's 1 of 4. You have ${remaining} left${
+        periodEndLabel ? ` — use them by ${periodEndLabel}` : ""
+      }.\n`
+    : "Book one lesson each week when you know you can make it.\n"
+}
+${where ? `WHERE TO GO\n${where}\n` : ""}
+It does not auto-renew. Unused lessons don't roll over.
 
-Pick this week's lesson:
+Book your next lesson (sign in with this email):
 ${origin}/account.html
 
-Sign in with this email. We'll send the training address after you book a day.
+You'll see how many lessons you have left and when your credits end.
 
 Questions? Call or text ${PHONE}.
 
@@ -325,7 +381,21 @@ export default async function handler(req, res) {
     const isMember = meta.type === "membership" || Boolean(session.subscription);
     const memberToken = isMember && to ? signMemberToken(to) : "";
     const origin = `https://${req.headers.host || "www.apacademybsb.com"}`;
-    const summary = { player: meta.player || "", sessions, email: to, places, member: isMember, memberToken };
+    // Membership credits run 28 days from payment (matches lib/members.js).
+    const paidAt = Number(session.created) || Math.floor(Date.now() / 1000);
+    const periodEndIso = new Date((paidAt + 28 * 86400) * 1000).toLocaleDateString("en-CA", {
+      timeZone: "America/Chicago",
+    });
+    const periodEndLabel = prettyDate(periodEndIso);
+    const summary = {
+      player: meta.player || "",
+      sessions,
+      email: to,
+      places,
+      member: isMember,
+      memberToken,
+      periodEndDate: isMember ? periodEndIso : "",
+    };
 
     // 2. Don't send twice if they refresh the success page
     const target = session.subscription
@@ -351,12 +421,16 @@ export default async function handler(req, res) {
       return;
     }
 
-    // 3. Send it
-    const mailBody = isMember && !sessions.length
+    // 3. Send it — membership always gets the member template (includes first
+    // lesson details when they picked one at checkout). Coach is BCC'd so
+    // they see the days chosen.
+    const mailBody = isMember
       ? {
-          subject: "You're in — pick this week's lesson | AP Academy",
-          html: memberEmailHtml(meta, origin),
-          text: memberEmailText(meta, origin),
+          subject: sessions[0]
+            ? `Membership confirmed — first lesson ${prettyDate(sessions[0].date)} at ${sessions[0].time}`
+            : "You're in — pick this week's lesson | AP Academy",
+          html: memberEmailHtml(meta, origin, sessions, periodEndLabel),
+          text: memberEmailText(meta, origin, sessions, periodEndLabel),
         }
       : {
           subject: `Thank you for booking with AP Academy — ${prettyDate(sessions[0].date)} at ${sessions[0].time}`,
