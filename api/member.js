@@ -15,6 +15,8 @@ import {
   prettyDate,
 } from "../lib/members.js";
 import { tokenFromRequest } from "../lib/memberAuth.js";
+import { buildCalendar, stamp } from "../lib/ics.js";
+import { bookingEvent } from "./calendar.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -39,6 +41,19 @@ async function emailMemberBooking(to, lesson, summary) {
   if (!resendKey || !to) return;
   const loc = LOCATIONS.mustang || {};
   const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
+  // Same tap-to-add invite the paid confirmations carry — the coach is BCC'd,
+  // so a member booking reaches their calendar immediately too.
+  const events = bookingEvent(lesson, stamp());
+  const invite = events.length
+    ? {
+        filename: "ap-academy-lesson.ics",
+        content: Buffer.from(
+          buildCalendar({ name: "AP Academy", events: [events] }),
+          "utf8"
+        ).toString("base64"),
+        content_type: "text/calendar; charset=utf-8; method=PUBLISH",
+      }
+    : null;
   const when = `${prettyDate(lesson.date)} at ${lesson.time}`;
   const left = summary.remaining || 0;
   const player = lesson.player;
@@ -63,6 +78,7 @@ async function emailMemberBooking(to, lesson, summary) {
           `${leftLine}\n\n` +
           `Need to change it? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
           `Questions? Call or text (405) 819-4401.`,
+        ...(invite ? { attachments: [invite] } : {}),
       }),
     });
   } catch {

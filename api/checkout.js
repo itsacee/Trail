@@ -4,6 +4,7 @@
 
 import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
+import { placeHold } from "../lib/holds.js";
 
 const SESSION_TYPES = {
   single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
@@ -167,6 +168,13 @@ export default async function handler(req, res) {
   if (!response.ok) {
     res.status(502).json({ error: data.error?.message || "Payment setup failed. Please try again." });
     return;
+  }
+
+  // Hold the slot for the length of the checkout. Until the payment succeeds
+  // nothing else marks it as taken, so without this a second parent could pay
+  // for the same time while this one is still entering their card.
+  if (data.id && sessions.length) {
+    await placeHold(data.id, sessions, lessonMins);
   }
 
   res.status(200).json({ url: data.url });

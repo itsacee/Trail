@@ -12,6 +12,45 @@
 import { LOCATIONS, locationKeyFor, LOCATION_KEY } from "../lib/schedule.js";
 import { signMemberToken } from "../lib/memberAuth.js";
 import { MEMBER_CREDITS, MEMBER_PERIOD_DAYS, lastUsableDate } from "../lib/members.js";
+import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
+import { releaseHold } from "../lib/holds.js";
+
+// A .ics of the booked lesson(s), attached to the confirmation. The coach is
+// BCC'd on every one of these, so a booking is one tap away from their phone
+// calendar without waiting on the subscribed feed to refresh.
+function inviteAttachment(meta, sessions, sourceId) {
+  const now = stamp();
+  const player = meta.player || "Lesson";
+  const kind = meta.type === "thirty" ? "30-min" : meta.type === "membership" ? "Membership" : "Private";
+  const events = sessions.map((s, i) => {
+    const place = LOCATIONS[s.loc] || LOCATIONS[LOCATION_KEY] || {};
+    return eventLines({
+      uid: `${sourceId}-${i + 1}@apacademybsb.com`,
+      date: s.date,
+      time: s.time,
+      durationMin: meta.type === "thirty" ? 30 : 60,
+      summary: `${player} — ${kind}${place.name ? ` @ ${place.name}` : ""}`,
+      location: place.address || place.name || "",
+      description: [
+        meta.parent ? `Parent: ${meta.parent}` : "",
+        meta.phone ? `Phone: ${meta.phone}` : "",
+        meta.email ? `Email: ${meta.email}` : "",
+        meta.focus ? `Working on: ${meta.focus}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      alarmMinutes: 60,
+      now,
+    });
+  });
+  if (!events.some((e) => e.length)) return null;
+  const ics = buildCalendar({ name: "AP Academy", events });
+  return {
+    filename: sessions.length > 1 ? "ap-academy-lessons.ics" : "ap-academy-lesson.ics",
+    content: Buffer.from(ics, "utf8").toString("base64"),
+    content_type: "text/calendar; charset=utf-8; method=PUBLISH",
+  };
+}
 
 const COACH = "Elijah Alexander";
 const PHONE = "(405) 819-4401";
@@ -499,6 +538,10 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
           text: emailText(meta, sessions),
         };
 
+    const invite = sessions.length
+      ? inviteAttachment(meta, sessions, session.payment_intent || session.id)
+      : null;
+
     const mail = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -508,6 +551,7 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
         bcc: [REPLY_TO],
         reply_to: REPLY_TO,
         ...mailBody,
+        ...(invite ? { attachments: [invite] } : {}),
       }),
     });
 
@@ -519,6 +563,10 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
         body: { sent: false, error: err.message || "Email failed to send.", ...summary },
       };
     }
+
+    // The payment now covers this slot, so the checkout hold is redundant.
+    // It would expire on its own; clearing it frees the slot listing sooner.
+    releaseHold(sessionId).catch(() => {});
 
     // 4. Flag it so refreshes — and the webhook — don't re-send
     if (target) {

@@ -8,6 +8,7 @@
 
 import { durationFor } from "../lib/schedule.js";
 import { loadLessons, lessonsOnDate } from "../lib/lessons.js";
+import { loadHolds, holdsOnDate } from "../lib/holds.js";
 
 // Returns [{ time: "5:00 PM", mins: 60 }] — each taken slot with how long it
 // runs, so callers can block overlapping start times (a 1-hour lesson blocks
@@ -51,6 +52,15 @@ export async function bookedTimes(key, date) {
     lessonsOnDate(stored, date).forEach((l) => add(l.time, durationFor(l.type || "membership")));
   } catch {
     /* blob optional */
+  }
+
+  // Slots someone is part-way through paying for. Read straight from storage,
+  // so these are visible immediately — unlike Stripe Search, which lags.
+  try {
+    const holds = await loadHolds();
+    holdsOnDate(holds, date).forEach((h) => add(h.time, h.mins || 60));
+  } catch {
+    /* holds optional */
   }
 
   return [...byTime.entries()].map(([time, mins]) => ({ time, mins }));
