@@ -166,6 +166,14 @@ function authorised(req) {
   const secret = process.env.CRON_SECRET;
   const auth = String(req.headers?.authorization || "");
   if (secret && auth === `Bearer ${secret}`) return true;
+
+  // Vercel only sends that Authorization header when CRON_SECRET is set, so
+  // without this the scheduled run would 401 every day and nobody would know.
+  // Vercel strips inbound x-vercel-* headers from outside traffic, so this is
+  // only present on genuine cron invocations. Setting CRON_SECRET is still
+  // better, and takes precedence above.
+  if (req.headers?.["x-vercel-cron"]) return true;
+
   const pass = process.env.COACH_PASS;
   return Boolean(pass && String(req.query?.key || "") === pass);
 }
