@@ -67,6 +67,15 @@ function fmtTime(t) {
   return `${hr}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+// "5:00 PM" -> minutes since midnight, for comparing against booked ranges.
+function labelToMinutes(label) {
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(String(label).trim());
+  if (!m) return null;
+  let h = parseInt(m[1], 10) % 12;
+  if (/PM/i.test(m[3])) h += 12;
+  return h * 60 + parseInt(m[2], 10);
+}
+
 function startsForDate(iso) {
   if (!AVAIL) return [];
   if ((AVAIL.blocked || []).includes(iso)) return [];
@@ -215,13 +224,24 @@ async function loadTimes(date) {
     }
   }
   const taken = bookedCache[date] || [];
+  // Lessons run an hour, so a booking at 5:00 also rules out 5:30 — compare
+  // ranges, not just identical start times, or the server rejects the pick
+  // only after they've clicked.
+  const bookedRanges = taken
+    .map((b) => {
+      const s = labelToMinutes(b.time);
+      return s === null ? null : [s, s + (b.mins || 60)];
+    })
+    .filter(Boolean);
   const starts = startsForDate(date);
   timeSelect.innerHTML = "";
   timeSelect.append(new Option("Choose a time", ""));
   let open = 0;
   starts.forEach((t) => {
     const label = fmtTime(t);
-    const hit = taken.some((b) => b.time === label);
+    const s = toMinutes(t);
+    const e = s + 60;
+    const hit = bookedRanges.some(([bs, be]) => s < be && bs < e);
     const opt = new Option(hit ? `${label} — booked` : label, label);
     opt.disabled = hit;
     if (!hit) open++;
