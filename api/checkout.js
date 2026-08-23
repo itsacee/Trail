@@ -29,7 +29,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { type, player, parent, phone, email } = req.body || {};
+  const { type, player, parent, phone } = req.body || {};
+  // Stored lowercase so member sign-in can find them later — Stripe's metadata
+  // search is case-sensitive, and parents type their address however they like.
+  const email = String(req.body?.email || "").trim().toLowerCase();
   const focus = FOCUS_LABELS[req.body?.focus] ? String(req.body.focus) : "";
   const session = SESSION_TYPES[type];
   let sessions = Array.isArray(req.body?.sessions) ? req.body.sessions : [];
