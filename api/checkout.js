@@ -8,7 +8,7 @@ import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin 
 const SESSION_TYPES = {
   single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
   thirty: { amount: 5000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
-  membership: { amount: 24000, quantity: 1, picks: 0, label: "Membership — 4 one-hour lessons (4 weeks)", mode: "payment" },
+  membership: { amount: 24000, quantity: 1, picks: 1, label: "Membership — 4 one-hour lessons (4 weeks)", mode: "payment" },
 };
 
 const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
   if (!valid) {
     res.status(400).json({
       error: isMember
-        ? "Please enter the player's name and a valid email — that's how you sign in to pick each week's lesson."
+        ? "Please pick your first lesson day and time, enter the player's name, and a valid email — that's how you sign in to book the rest."
         : "Please pick your lesson day, time and enter the player's name.",
     });
     return;

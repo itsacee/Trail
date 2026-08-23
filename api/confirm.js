@@ -61,9 +61,25 @@ function placesFor(sessions) {
   return keys.map((k) => ({ key: k, ...(LOCATIONS[k] || {}) })).filter((p) => p.name);
 }
 
-function emailHtml(meta, sessions) {
+function emailHtml(meta, sessions, origin) {
   const places = placesFor(sessions);
   const showPlace = places.length > 1;
+  const isMember = meta.type === "membership";
+  const memberBlock = isMember
+    ? `<tr><td style="padding-top:22px;">
+      <div style="background:#0a1a12;border:1px solid #1a3d2a;border-radius:12px;padding:20px;">
+        <div style="font-size:11px;color:#7dd3a0;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:8px;">
+          Your Membership
+        </div>
+        <p style="color:#d4e8dc;font-size:15px;line-height:1.6;margin:0;">
+          You have <strong style="color:#ffffff;">3 more lessons</strong> to book this month.
+          Sign in at <a href="${origin}/account.html" style="color:#7dd3a0;text-decoration:none;font-weight:bold;">apacademybsb.com/account</a>
+          with this email to pick your next lesson — one per week, when you know you can make it.
+          Your dashboard shows how many lessons you have left and when your credits expire.
+        </p>
+      </div>
+    </td></tr>`
+    : "";
 
   const rows = sessions
     .map(
@@ -139,6 +155,8 @@ function emailHtml(meta, sessions) {
       ${placeBlocks}
     </td></tr>
 
+    ${memberBlock}
+
     <tr><td style="padding-top:26px;">
       <div style="font-size:11px;color:#a8adb6;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:8px;">
         What to Bring
@@ -177,9 +195,10 @@ function emailHtml(meta, sessions) {
 </body></html>`;
 }
 
-function emailText(meta, sessions) {
+function emailText(meta, sessions, origin) {
   const places = placesFor(sessions);
   const showPlace = places.length > 1;
+  const isMember = meta.type === "membership";
   const lines = sessions
     .map(
       (s) =>
@@ -208,7 +227,12 @@ ${lines}
 
 WHERE TO GO
 ${where}
-
+${isMember ? `
+YOUR MEMBERSHIP
+You have 3 more lessons to book this month. Sign in at ${origin}/account.html with this email
+to pick your next lesson — one per week, when you know you can make it.
+Your dashboard shows how many lessons you have left and when your credits expire.
+` : ""}
 WHAT TO BRING
 Bat, glove, turfs, and a water bottle.
 
@@ -359,9 +383,11 @@ export default async function handler(req, res) {
           text: memberEmailText(meta, origin),
         }
       : {
-          subject: `Thank you for booking with AP Academy — ${prettyDate(sessions[0].date)} at ${sessions[0].time}`,
-          html: emailHtml(meta, sessions),
-          text: emailText(meta, sessions),
+          subject: isMember
+            ? `You're in — first lesson ${prettyDate(sessions[0].date)} at ${sessions[0].time} | AP Academy`
+            : `Thank you for booking with AP Academy — ${prettyDate(sessions[0].date)} at ${sessions[0].time}`,
+          html: emailHtml(meta, sessions, origin),
+          text: emailText(meta, sessions, origin),
         };
 
     const mail = await fetch("https://api.resend.com/emails", {

@@ -104,15 +104,21 @@ function showDash() {
   dashCard.hidden = false;
 }
 
+function prettyExpiry(iso) {
+  const d = new Date(iso + "T12:00:00");
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
 function renderDash(data) {
   account = data;
   document.getElementById("acctPlayer").textContent = data.player ? `${data.player}'s membership` : "Your membership";
+  const expiry = data.periodEndDate ? ` · credits expire ${prettyExpiry(data.periodEndDate)}` : "";
   document.getElementById("acctCredits").textContent =
-    `${data.used || 0} of ${data.credits || 4} lessons used · ${data.remaining || 0} left`;
-  document.getElementById("acctTitle").textContent = data.remaining ? "Pick This Week's Lesson" : "This membership is done";
+    `${data.remaining || 0} lesson${data.remaining === 1 ? "" : "s"} left · ${data.used || 0} of ${data.credits || 4} used${expiry}`;
+  document.getElementById("acctTitle").textContent = data.remaining ? "Book Your Next Lesson" : "This membership is done";
   document.getElementById("acctLead").textContent =
     data.remaining
-      ? "One lesson a week. Book a day in the next 10 days — when you know you can make it."
+      ? "One lesson per week. Book a day in the next 10 days — when you know you can make it."
       : "You've used this membership's 4 lessons. Buy another 4 weeks on the Book page when you're ready.";
 
   const where = document.getElementById("acctWhere");
