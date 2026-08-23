@@ -201,7 +201,8 @@ const DAYS_AHEAD = 28; // how many days out parents can book
 const SESSIONS = {
   single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1, focus: "full" },
   thirty: { name: "30-Minute Lesson", price: "$50 · 30 min", label: "Pay $50 — Book Lesson", picks: 1, focus: "one" },
-  membership: { name: "Membership", price: "$240 · 4 weeks", label: "Start Membership — $240", picks: 0, focus: "none" },
+  // Members pick lesson 1 of 4 here; the other 3 get booked later from account.html.
+  membership: { name: "Membership", price: "$240 · 4 lessons", label: "Start Membership — $240", picks: 1, focus: "full" },
 };
 
 const form = document.getElementById("bookingForm");
@@ -231,20 +232,23 @@ function syncTypeTabs() {
 
 function updateMemberCheckout() {
   const isMem = selectedType === "membership";
-  const slotStep = document.getElementById("slotStep");
   const memberNote = document.getElementById("memberNote");
   const bookTitle = document.getElementById("bookTitle");
   const bookLead = document.getElementById("bookLead");
-  if (slotStep) slotStep.hidden = isMem;
+  const slotTitle = document.getElementById("slotStepTitle");
+  // Members pick their first lesson right here, same as a drop-in.
   if (memberNote) memberNote.hidden = !isMem;
   const whoNum = document.getElementById("whoStepNum");
-  if (whoNum) whoNum.textContent = isMem ? "1" : "2";
+  if (whoNum) whoNum.textContent = "2";
+  if (slotTitle) {
+    slotTitle.textContent = isMem ? "Pick your first lesson" : "Pick a day & time";
+  }
   if (bookTitle) {
-    bookTitle.textContent = isMem ? "Join. Then Pick Your Weeks." : "Pick a Day. Grab Your Spot.";
+    bookTitle.textContent = isMem ? "Join. Pick Your First Day." : "Pick a Day. Grab Your Spot.";
   }
   if (bookLead) {
     bookLead.textContent = isMem
-      ? "Pay today. After that you'll sign in and book one lesson each week — when you know you can make it."
+      ? "Pay today and lock in lesson 1 of 4. You book the other 3 whenever you like — any days that work, inside your 4 weeks."
       : "Choose your lesson type, then lock in a time. We'll email the training address after you pay.";
   }
 }
@@ -476,7 +480,7 @@ if (form) {
     if (picked.length < maxPicks() || !form.elements.player.value.trim()) {
       statusEl.textContent =
         selectedType === "membership"
-          ? "Please enter the player's name and your email."
+          ? "Please pick your first lesson day and time, and enter the player's name."
           : "Please pick a day, a time, and enter the player's name.";
       return;
     }

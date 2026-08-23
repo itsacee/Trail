@@ -1,5 +1,7 @@
 const TOKEN_KEY = "ap_member_token";
-const MAX_AHEAD = 10;
+// Safety net only — the real cutoff is the membership's own expiry date,
+// which the server sends back as `lastDay`.
+const MAX_AHEAD = 60;
 
 const loginCard = document.getElementById("loginCard");
 const dashCard = document.getElementById("dashCard");
@@ -106,14 +108,31 @@ function showDash() {
 
 function renderDash(data) {
   account = data;
+  const left = data.remaining || 0;
+  const expires = data.lastDayPretty || (data.lastDay ? prettyDate(data.lastDay) : "");
   document.getElementById("acctPlayer").textContent = data.player ? `${data.player}'s membership` : "Your membership";
   document.getElementById("acctCredits").textContent =
-    `${data.used || 0} of ${data.credits || 4} lessons used · ${data.remaining || 0} left`;
-  document.getElementById("acctTitle").textContent = data.remaining ? "Pick This Week's Lesson" : "This membership is done";
-  document.getElementById("acctLead").textContent =
-    data.remaining
-      ? "One lesson a week. Book a day in the next 10 days — when you know you can make it."
-      : "You've used this membership's 4 lessons. Buy another 4 weeks on the Book page when you're ready.";
+    `${left} of ${data.credits || 4} lessons left${expires ? ` · use by ${expires}` : ""}`;
+  document.getElementById("acctTitle").textContent = left ? "Book Your Next Lesson" : "This membership is used up";
+  document.getElementById("acctLead").textContent = left
+    ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Pick any day that works${
+        expires ? ` — they expire ${expires}` : ""
+      }. Book one at a time; you don't have to plan them all now.`
+    : `You've used all ${data.credits || 4} lessons. Buy another membership on the Book page when you're ready for 4 more.`;
+
+  const expiry = document.getElementById("acctExpiry");
+  if (expiry) {
+    if (expires && left) {
+      expiry.hidden = false;
+      const days = typeof data.daysLeft === "number" ? data.daysLeft : null;
+      expiry.innerHTML =
+        `⏳ <strong>${left} lesson${left === 1 ? "" : "s"} left</strong> · must be used by <strong>${expires}</strong>` +
+        (days !== null ? ` (${days} day${days === 1 ? "" : "s"} from today)` : "") +
+        `<br />Unused lessons don't roll over, and your membership does not auto-renew.`;
+    } else {
+      expiry.hidden = true;
+    }
+  }
 
   const where = document.getElementById("acctWhere");
   if (data.location?.address) {
@@ -143,15 +162,15 @@ function renderDash(data) {
     });
   }
 
-  const canBook = (data.remaining || 0) > 0 && !data.bookedThisWeek;
+  const canBook = left > 0 && !data.expired;
   weekForm.hidden = !canBook;
   const msg = document.getElementById("acctMsg");
-  if (data.bookedThisWeek && data.remaining > 0) {
+  if (data.expired) {
     msg.hidden = false;
-    msg.textContent = `You're set this week (${prettyDate(data.bookedThisWeek.date)} at ${data.bookedThisWeek.time}). Come back to book next week.`;
-  } else if (!data.remaining) {
+    msg.innerHTML = `This membership ended${expires ? ` on ${expires}` : ""}. <a href="book.html?type=membership">Buy another month</a> when you're ready.`;
+  } else if (!left) {
     msg.hidden = false;
-    msg.innerHTML = `This membership is used up. <a href="book.html?type=membership">Buy another 4 weeks</a> when you're ready.`;
+    msg.innerHTML = `This membership is used up. <a href="book.html?type=membership">Buy another month</a> when you're ready for 4 more.`;
   } else {
     msg.hidden = true;
   }
@@ -160,14 +179,21 @@ function renderDash(data) {
   showDash();
 }
 
+// Every open day from tomorrow through the day the membership expires — they
+// can spend their remaining lessons on any of them.
 function renderDays() {
   dateSelect.length = 1;
+  const lastDay = (account && account.lastDay) || "";
   const now = new Date();
   for (let i = 1; i <= MAX_AHEAD; i++) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
     const iso = isoDate(d);
+    if (lastDay && iso > lastDay) break;
     if (!startsForDate(iso).length) continue;
     dateSelect.append(new Option(prettyDate(iso), iso));
+  }
+  if (dateSelect.length === 1) {
+    dateSelect.options[0].text = "No open days left in this membership";
   }
 }
 

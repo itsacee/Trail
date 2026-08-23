@@ -57,12 +57,13 @@ export default async function handler(req, res) {
       reply_to: REPLY_TO,
       subject: "Your AP Academy member sign-in",
       text:
-        `Sign in to pick ${player}'s next lesson:\n\n${link}\n\n` +
-        `This link works for 30 days. One lesson a week, 4 per month.\n\n` +
+        `Sign in to book ${player}'s next lesson:\n\n${link}\n\n` +
+        `This link works for 30 days. Your membership page shows how many lessons\n` +
+        `you have left and the date they expire.\n\n` +
         `Questions? Call or text (405) 819-4401.`,
-      html: `<p>Sign in to pick ${player}'s next lesson:</p>
+      html: `<p>Sign in to book ${player}'s next lesson:</p>
         <p><a href="${link}" style="display:inline-block;background:#cfd4da;color:#06121c;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:99px;">Open my membership</a></p>
-        <p style="color:#555;font-size:13px;">This link works for 30 days. One lesson a week, 4 per month.</p>
+        <p style="color:#555;font-size:13px;">This link works for 30 days. Your membership page shows how many lessons you have left and the date they expire.</p>
         <p>Questions? Call or text (405) 819-4401.</p>`,
     }),
   });

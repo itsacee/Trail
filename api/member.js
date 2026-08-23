@@ -3,16 +3,16 @@ import { allowedTimes, getAvailability, durationFor, labelToMin, LOCATIONS } fro
 import {
   loadLessons,
   saveLessons,
-  lessonsForEmail,
   makeMemberLesson,
   removeLesson,
-  lessonFromStripeMeta,
+  scheduledFor,
 } from "../lib/lessons.js";
 import {
   findMembership,
   membershipSummary,
   bookingBlocked,
   canCancelLesson,
+  prettyDate,
 } from "../lib/members.js";
 import { tokenFromRequest } from "../lib/memberAuth.js";
 
@@ -34,12 +34,19 @@ function publicAccount(acct) {
   };
 }
 
-async function emailWeeklyBook(to, lesson, player) {
+async function emailMemberBooking(to, lesson, summary) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey || !to) return;
   const loc = LOCATIONS.mustang || {};
   const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
-  const when = `${lesson.date} at ${lesson.time}`;
+  const when = `${prettyDate(lesson.date)} at ${lesson.time}`;
+  const left = summary.remaining || 0;
+  const player = lesson.player;
+  const leftLine = left
+    ? `You have ${left} lesson${left === 1 ? "" : "s"} left on this membership. ` +
+      `They have to be used by ${summary.lastDayPretty} — book them anytime at apacademybsb.com/account.html.`
+    : `That was the last of your ${summary.credits} lessons. This membership does not auto-renew — ` +
+      `buy another month at apacademybsb.com/book.html?type=membership whenever you're ready for 4 more.`;
   try {
     await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -52,30 +59,15 @@ async function emailWeeklyBook(to, lesson, player) {
         subject: `Lesson booked — ${when}`,
         text:
           `${player ? player + "'s" : "Your"} lesson is set for ${when}.\n\n` +
-          (loc.address ? `Where: ${loc.address}\n${loc.note || ""}\n` : "") +
-          `\nNeed to change it? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
-          `Questions? (405) 819-4401`,
+          (loc.address ? `WHERE\n${loc.name}\n${loc.address}\n${loc.note || ""}\n\n` : "") +
+          `${leftLine}\n\n` +
+          `Need to change it? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
+          `Questions? Call or text (405) 819-4401.`,
       }),
     });
   } catch {
     /* booking still stands */
   }
-}
-
-function scheduledFor(sub, stored) {
-  const email = String(sub.metadata?.email || "").toLowerCase();
-  const fromBlob = lessonsForEmail(stored, email);
-  const fromStripe = lessonFromStripeMeta(sub.id, sub.metadata || {}, "membership");
-  const seen = new Set(fromBlob.map((l) => `${l.date}|${l.time}`));
-  const merged = [...fromBlob];
-  fromStripe.forEach((l) => {
-    const k = `${l.date}|${l.time}`;
-    if (!seen.has(k)) {
-      seen.add(k);
-      merged.push(l);
-    }
-  });
-  return merged;
 }
 
 async function loadAccount(key, email) {
@@ -201,6 +193,6 @@ export default async function handler(req, res) {
 
   acct.scheduled = scheduledFor(acct.sub, acct.stored);
   acct.summary = membershipSummary(acct.sub, acct.scheduled);
-  emailWeeklyBook(email, lesson, lesson.player);
+  emailMemberBooking(email, lesson, acct.summary);
   res.status(200).json({ ok: true, lesson, ...publicAccount(acct) });
 }
