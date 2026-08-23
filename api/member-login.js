@@ -77,7 +77,16 @@ export default async function handler(req, res) {
   });
 
   if (!mail.ok) {
-    res.status(200).json({ sent: false, message: "Couldn't send the email. Call or text (405) 819-4401." });
+    // Keep the provider's reason — "domain not verified", a bad from-address —
+    // out of the member's way but visible to us. The page only renders
+    // `message`; without this a send failure is impossible to diagnose.
+    const err = await mail.json().catch(() => ({}));
+    console.error("Resend rejected the sign-in email:", mail.status, err);
+    res.status(200).json({
+      sent: false,
+      message: "Couldn't send the email. Call or text (405) 819-4401.",
+      error: err.message || err.name || `Resend returned ${mail.status}`,
+    });
     return;
   }
 
