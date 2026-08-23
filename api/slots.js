@@ -23,7 +23,11 @@ import { loadHolds, holdsOnDate } from "../lib/holds.js";
 // Returns [{ time: "5:00 PM", mins: 60, sources: [...] }] — each taken slot with
 // how long it runs, so callers can block overlapping start times (a 1-hour
 // lesson blocks both the hour and the half-hour that follow it).
-export async function bookedTimes(key, date) {
+// `ignoreHold` is the caller's own checkout session. Without it a parent who
+// backs out of payment and tries again is blocked by the hold they just
+// created — the slot they were about to buy reads as taken, to them, for the
+// full hold window.
+export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
   const byTime = new Map(); // time label -> { mins, sources }
   const add = (time, mins, source) => {
     if (!time) return;
@@ -85,7 +89,9 @@ export async function bookedTimes(key, date) {
   // so these are visible immediately — unlike Stripe Search, which lags.
   try {
     const holds = await loadHolds();
-    holdsOnDate(holds, date).forEach((h) =>
+    holdsOnDate(holds, date)
+      .filter((h) => !ignoreHold || h.sessionId !== ignoreHold)
+      .forEach((h) =>
       add(h.time, h.mins || 60, {
         kind: "hold",
         id: h.sessionId,
@@ -109,8 +115,11 @@ export default async function handler(req, res) {
   }
   const pass = process.env.COACH_PASS;
   const isCoach = Boolean(pass && String(req.query?.key || "") === pass);
+  // The browser passes back the checkout it last started, so someone who
+  // abandoned payment doesn't see their own hold sitting on the slot.
+  const mine = /^cs_[A-Za-z0-9_]+$/.test(String(req.query?.mine || "")) ? String(req.query.mine) : "";
   try {
-    const booked = await bookedTimes(key, date);
+    const booked = await bookedTimes(key, date, { ignoreHold: mine });
     res.status(200).json({
       date,
       // Names and ids stay private unless the coach asked.

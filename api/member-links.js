@@ -100,8 +100,10 @@ export default async function handler(req, res) {
           <a class="btn" href="mailto:${esc(m.email)}?subject=${encodeURIComponent(
             "Your AP Academy membership link"
           )}&body=${encodeURIComponent(sms)}">Email it</a>
-          <a class="btn btn--ghost" href="${esc(m.link)}" target="_blank" rel="noopener">Open as them</a>
         </div>
+        <p class="warn">Send this link — don't open it yourself. Opening it signs
+        <em>your</em> browser in as ${esc(m.player || "them")} for 30 days, so the
+        Members page keeps showing their account instead of the login form.</p>
       </article>`;
     })
     .join("");
@@ -136,6 +138,7 @@ export default async function handler(req, res) {
   .btn { background:#cfd4da; color:#06121c; text-decoration:none; font-weight:700; font-size:13px;
          padding:9px 16px; border-radius:99px; }
   .btn--ghost { background:transparent; color:#cfd4da; border:1px solid #3a3a41; }
+  .warn { color:#e0b457; font-size:12px; line-height:1.5; margin:12px 0 0; }
   .empty { color:#a8adb6; }
 </style></head><body>
 <h1>Member sign-in links</h1>

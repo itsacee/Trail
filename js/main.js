@@ -218,6 +218,17 @@ let selectedType = "single";
 let picked = []; // chosen sessions: [{ date: "2026-08-06", time: "9:00 AM" }]
 const bookedCache = {}; // date -> array of taken times
 
+// Starting checkout reserves the slot so nobody else can pay for it. That
+// reservation must never block the person who created it — otherwise backing
+// out of payment locks them out of the very time they were trying to buy.
+const HOLD_KEY = "ap_checkout_session";
+const myHold = () => {
+  try { return sessionStorage.getItem(HOLD_KEY) || ""; } catch { return ""; }
+};
+const rememberHold = (id) => {
+  try { id ? sessionStorage.setItem(HOLD_KEY, id) : sessionStorage.removeItem(HOLD_KEY); } catch { /* private mode */ }
+};
+
 function maxPicks() {
   return SESSIONS[selectedType].picks;
 }
@@ -419,7 +430,8 @@ async function loadTimes(date) {
     timeSelect.append(new Option("Checking open times…", ""));
     timeSelect.disabled = true;
     try {
-      const res = await fetch(`/api/slots?date=${date}`);
+      const mine = myHold();
+      const res = await fetch(`/api/slots?date=${date}${mine ? `&mine=${encodeURIComponent(mine)}` : ""}`);
       bookedCache[date] = res.ok ? (await res.json()).booked || [] : [];
     } catch {
       bookedCache[date] = []; // static preview or offline — show all as open
@@ -503,10 +515,14 @@ if (form) {
           parent: form.elements.parent.value.trim(),
           phone: form.elements.phone.value.trim(),
           email: form.elements.email.value.trim(),
+          // Drop the reservation from an attempt they abandoned, so a retry
+          // isn't rejected as a clash with themselves.
+          previousSession: myHold(),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) {
+        rememberHold(data.sessionId || "");
         window.location.href = data.url;
         return;
       }
@@ -526,9 +542,30 @@ if (form) {
     refreshSubmit();
   });
 
+  // Backed out of Stripe without paying — hand the slot straight back rather
+  // than leaving it reserved against everyone else until the hold expires.
+  const cancelled = params.get("cancelled") || "";
+  if (/^cs_[A-Za-z0-9_]+$/.test(cancelled)) {
+    rememberHold("");
+    Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
+    fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "release", sessionId: cancelled }),
+    })
+      .catch(() => {})
+      .finally(() => loadTimes(dateSelect.value));
+    const url = new URL(window.location.href);
+    url.searchParams.delete("cancelled");
+    history.replaceState({}, "", url.pathname + (url.searchParams.toString() ? "?" + url.searchParams : ""));
+  }
+
   // Back from Stripe: confirm the payment, send the confirmation email,
   // and show the training address on screen.
   if (params.get("booked") === "1") {
+    // Paid, so the reservation has done its job and the booking itself now
+    // covers the slot.
+    rememberHold("");
     statusEl.classList.add("booking__status--ok");
     statusEl.textContent = "✅ You're booked! Getting your details…";
     document.getElementById("book")?.scrollIntoView();

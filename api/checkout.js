@@ -4,7 +4,9 @@
 
 import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
-import { placeHold } from "../lib/holds.js";
+import { placeHold, releaseHold } from "../lib/holds.js";
+
+const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 
 const SESSION_TYPES = {
   single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
@@ -29,6 +31,20 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Stripe is not connected yet. Call or text (405) 819-4401 to book." });
     return;
   }
+
+  // Backing out of Stripe returns them here; drop the hold so the slot frees up
+  // straight away instead of sitting reserved until it expires.
+  if (req.body?.action === "release") {
+    const id = String(req.body?.sessionId || "");
+    if (SESSION_ID_RE.test(id)) await releaseHold(id);
+    res.status(200).json({ released: true });
+    return;
+  }
+
+  // A retry after an abandoned payment must not collide with the hold that
+  // attempt left behind.
+  const previous = String(req.body?.previousSession || "");
+  if (SESSION_ID_RE.test(previous)) await releaseHold(previous);
 
   const { type, player, parent, phone } = req.body || {};
   // Stored lowercase so member sign-in can find them later — Stripe's metadata
@@ -120,7 +136,10 @@ export default async function handler(req, res) {
   if (emailOk) {
     params.append("customer_email", email);
   }
-  params.append("cancel_url", `${origin}/book.html?type=${encodeURIComponent(type)}`);
+  params.append(
+    "cancel_url",
+    `${origin}/book.html?type=${encodeURIComponent(type)}&cancelled={CHECKOUT_SESSION_ID}`
+  );
   params.append("line_items[0][quantity]", String(session.quantity));
   params.append("line_items[0][price_data][currency]", "usd");
   params.append("line_items[0][price_data][unit_amount]", String(session.amount));
@@ -177,5 +196,6 @@ export default async function handler(req, res) {
     await placeHold(data.id, sessions, lessonMins);
   }
 
-  res.status(200).json({ url: data.url });
+  // The browser keeps this so it can ignore — and later release — its own hold.
+  res.status(200).json({ url: data.url, sessionId: data.id || "" });
 }
