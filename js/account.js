@@ -265,7 +265,8 @@ loginForm.addEventListener("submit", async (e) => {
       method: "POST",
       body: JSON.stringify({ email: loginForm.elements.email.value.trim() }),
     });
-    loginStatus.classList.add("booking__status--ok");
+    // Only show it green when a link actually went out.
+    loginStatus.classList.toggle("booking__status--ok", data.sent !== false);
     loginStatus.textContent = data.message || "Check your email for a sign-in link.";
   } catch {
     loginStatus.classList.remove("booking__status--ok");

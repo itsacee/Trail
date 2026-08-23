@@ -31,6 +31,19 @@ export default async function handler(req, res) {
     return;
   }
 
+  // If email isn't wired up we can't send anything — say so plainly instead of
+  // telling them to watch an inbox nothing will ever arrive in. Answered before
+  // the membership lookup so it reads the same either way and doesn't reveal
+  // whether an address has a membership.
+  if (!resendKey) {
+    res.status(200).json({
+      sent: false,
+      message:
+        "Sign-in links are down right now. Text (405) 819-4401 and I'll send your booking link straight over.",
+    });
+    return;
+  }
+
   const sub = await findMembership(key, email);
   if (!sub) {
     res.status(200).json({ sent: true, message: okMsg });
@@ -40,11 +53,6 @@ export default async function handler(req, res) {
   const token = signMemberToken(email);
   const link = `${originFrom(req)}/account.html?k=${encodeURIComponent(token)}`;
   const player = sub.metadata?.player || "your player";
-
-  if (!resendKey) {
-    res.status(200).json({ sent: false, message: "Email isn't connected yet. Call or text (405) 819-4401 and we'll get you in." });
-    return;
-  }
 
   const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
   const mail = await fetch("https://api.resend.com/emails", {
