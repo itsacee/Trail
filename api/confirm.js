@@ -418,15 +418,15 @@ ${REPLY_TO}
 apacademybsb.com`;
 }
 
-export default async function handler(req, res) {
-  const key = process.env.STRIPE_SECRET_KEY;
-  const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
-  const id = String(req.query?.session_id || "");
-
-  if (!key || !/^cs_[A-Za-z0-9_]+$/.test(id)) {
-    res.status(400).json({ sent: false, error: "Invalid request." });
-    return;
+// Verifies a paid Checkout session with Stripe and sends its confirmation
+// email exactly once, flagging the payment so it can't go out twice.
+//
+// Two things call this: the success page (/api/confirm) and the Stripe webhook
+// (/api/webhook). The webhook is the reliable one — the success page only runs
+// if the buyer's browser actually gets there.
+export async function deliverConfirmation({ key, resendKey, from, sessionId, origin }) {
+  if (!key || !/^cs_[A-Za-z0-9_]+$/.test(String(sessionId || ""))) {
+    return { status: 400, body: { sent: false, error: "Invalid request." } };
   }
 
   const stripe = (path, opts = {}) =>
@@ -437,15 +437,13 @@ export default async function handler(req, res) {
 
   try {
     // 1. Verify the payment actually went through
-    const sRes = await stripe(`checkout/sessions/${id}`);
+    const sRes = await stripe(`checkout/sessions/${sessionId}`);
     if (!sRes.ok) {
-      res.status(404).json({ sent: false, error: "Booking not found." });
-      return;
+      return { status: 404, body: { sent: false, error: "Booking not found." } };
     }
     const session = await sRes.json();
     if (session.payment_status !== "paid") {
-      res.status(402).json({ sent: false, error: "Payment not completed." });
-      return;
+      return { status: 402, body: { sent: false, error: "Payment not completed." } };
     }
 
     const meta = session.metadata || {};
@@ -458,7 +456,6 @@ export default async function handler(req, res) {
     }));
     const isMember = meta.type === "membership" || Boolean(session.subscription);
     const memberToken = isMember && to ? signMemberToken(to) : "";
-    const origin = `https://${req.headers.host || "www.apacademybsb.com"}`;
     const summary = { player: meta.player || "", sessions, email: to, places, member: isMember, memberToken };
 
     // 2. Don't send twice if they refresh the success page
@@ -477,16 +474,14 @@ export default async function handler(req, res) {
         const obj = await tRes.json();
         if (obj.created) startedAt = obj.created;
         if (obj.metadata?.confirmation_sent === "1") {
-          res.status(200).json({ sent: true, alreadySent: true, ...summary });
-          return;
+          return { status: 200, body: { sent: true, alreadySent: true, ...summary } };
         }
       }
     }
 
     const canEmail = Boolean(resendKey && to && (sessions.length || isMember));
     if (!canEmail) {
-      res.status(200).json({ sent: false, ...summary });
-      return;
+      return { status: 200, body: { sent: false, ...summary } };
     }
 
     // 3. Send it
@@ -518,11 +513,14 @@ export default async function handler(req, res) {
 
     if (!mail.ok) {
       const err = await mail.json().catch(() => ({}));
-      res.status(200).json({ sent: false, error: err.message || "Email failed to send.", ...summary });
-      return;
+      console.error("Resend rejected the confirmation email:", mail.status, err);
+      return {
+        status: 200,
+        body: { sent: false, error: err.message || "Email failed to send.", ...summary },
+      };
     }
 
-    // 4. Flag it so refreshes don't re-send
+    // 4. Flag it so refreshes — and the webhook — don't re-send
     if (target) {
       await stripe(target.path, {
         method: "POST",
@@ -531,8 +529,23 @@ export default async function handler(req, res) {
       });
     }
 
-    res.status(200).json({ sent: true, ...summary });
-  } catch {
-    res.status(200).json({ sent: false, error: "Could not send the confirmation email." });
+    return { status: 200, body: { sent: true, ...summary } };
+  } catch (e) {
+    console.error("Confirmation failed:", e);
+    return {
+      status: 200,
+      body: { sent: false, error: "Could not send the confirmation email." },
+    };
   }
+}
+
+export default async function handler(req, res) {
+  const { status, body } = await deliverConfirmation({
+    key: process.env.STRIPE_SECRET_KEY,
+    resendKey: process.env.RESEND_API_KEY,
+    from: process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>",
+    sessionId: String(req.query?.session_id || ""),
+    origin: `https://${req.headers.host || "www.apacademybsb.com"}`,
+  });
+  res.status(status).json(body);
 }
