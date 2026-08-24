@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <title>College Track | AP Academy</title>
+  <meta name="description" content="A month of three-a-week training for 14u and up players chasing college baseball. Apply to be considered." />
+  <!-- Not launched yet: keep it out of search until it goes live. -->
+  <meta name="robots" content="noindex, nofollow" />
+
+  <link rel="icon" type="image/png" href="img/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="page-book">
+
+  <header class="nav" id="top">
+    <div class="nav__inner container">
+      <a class="nav__brand" href="index.html">
+        <span class="nav__logo">
+          <img src="img/logo-mark.png" alt="AP Academy logo" />
+        </span>
+        <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+      </a>
+      <nav class="nav__links" id="navLinks">
+        <a href="index.html#partners">Coaching</a>
+        <a href="index.html#work">Work</a>
+        <a href="index.html#programs">Pricing</a>
+        <a href="program.html" aria-current="page">College Track</a>
+        <a href="account.html">Members</a>
+      </nav>
+      <a class="btn btn--primary nav__cta" href="#apply">Apply</a>
+      <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <section class="section book-page">
+    <div class="container container--narrow">
+      <p class="eyebrow center reveal">14U and up &middot; By application</p>
+      <h1 class="center reveal">College Track</h1>
+      <p class="section__sub center reveal">
+        A month of three-a-week training for the player who has decided baseball is what they're doing after
+        high school — and is willing to train like it.
+      </p>
+
+      <div class="prog__stats reveal">
+        <div class="prog__stat"><b>12</b><span>Sessions</span></div>
+        <div class="prog__stat"><b>3&times;</b><span>Per week</span></div>
+        <div class="prog__stat"><b>4</b><span>Weeks</span></div>
+      </div>
+
+      <div class="prog__block reveal">
+        <h2>Who it's for</h2>
+        <p>
+          This isn't a once-a-week lesson. It's for a <strong>14u and older</strong> player who wants to be
+          seen by college coaches and is ready to put in real reps — the same three days every week for a
+          month, on top of whatever their team is doing.
+        </p>
+        <p class="prog__muted">
+          If your player is younger, or you're not sure they'll make every session, the
+          <a href="book.html?type=membership">membership</a> is the better fit and you can always step up later.
+        </p>
+      </div>
+
+      <div class="prog__block reveal">
+        <h2>How it works</h2>
+        <ol class="prog__steps">
+          <li>
+            <b>You apply below.</b>
+            Tell me about your player — age, position, what team they're on, what they're chasing.
+          </li>
+          <li>
+            <b>I read every one myself.</b>
+            If it's a fit I'll call or text you within a couple of days to talk it through. If it isn't,
+            I'll tell you that straight and point you somewhere that is.
+          </li>
+          <li>
+            <b>We lock your three days.</b>
+            You pick the same three days and time each week — Monday, Wednesday, Friday at 6pm, say — and I
+            block all twelve sessions off at once. No booking each one.
+          </li>
+          <li>
+            <b>Then we work.</b>
+            Every session builds on the last. You'll get a plan for the month, not twelve separate lessons.
+          </li>
+        </ol>
+      </div>
+
+      <div class="prog__block prog__block--price reveal">
+        <div>
+          <div class="prog__price" id="progPrice">$600</div>
+          <div class="prog__per">for the month &middot; <span id="progPer">$50</span> a session</div>
+        </div>
+        <p class="prog__muted">
+          Paid once, up front, after we've spoken. Does not auto-renew — if you want another month we'll
+          talk about it at the end of this one.
+        </p>
+      </div>
+
+      <div class="prog__block reveal" id="apply">
+        <h2>Apply</h2>
+        <p class="prog__muted" style="margin-bottom:1.6rem">
+          Takes two minutes. Nothing is charged — this just starts the conversation.
+        </p>
+
+        <form class="booking" id="applyForm" novalidate>
+          <div class="booking__grid">
+            <div class="booking__field">
+              <label for="apPlayer">Player's name *</label>
+              <input type="text" id="apPlayer" name="player" placeholder="Player's name" autocomplete="name" required />
+            </div>
+            <div class="booking__field">
+              <label for="apAge">Player's age *</label>
+              <select id="apAge" name="age" required>
+                <option value="">Select age</option>
+                <option value="13 or under">13 or under</option>
+                <option value="14">14</option>
+                <option value="15">15</option>
+                <option value="16">16</option>
+                <option value="17">17</option>
+                <option value="18">18</option>
+                <option value="19+">19 or older</option>
+              </select>
+            </div>
+            <div class="booking__field">
+              <label for="apParent">Parent / guardian name *</label>
+              <input type="text" id="apParent" name="parent" placeholder="Your name" autocomplete="name" required />
+            </div>
+            <div class="booking__field">
+              <label for="apPhone">Phone *</label>
+              <input type="tel" id="apPhone" name="phone" placeholder="(405) 555-0123" autocomplete="tel" inputmode="tel" required />
+            </div>
+            <div class="booking__field">
+              <label for="apEmail">Email *</label>
+              <input type="email" id="apEmail" name="email" placeholder="you@email.com" autocomplete="email" inputmode="email" required />
+            </div>
+            <div class="booking__field">
+              <label for="apPosition">Primary position *</label>
+              <select id="apPosition" name="position" required>
+                <option value="">Select position</option>
+                <option>Pitcher</option>
+                <option>Catcher</option>
+                <option>Infield</option>
+                <option>Outfield</option>
+                <option>Two-way</option>
+                <option>Utility</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="booking__field">
+            <label for="apTeam">Current team / school *</label>
+            <input type="text" id="apTeam" name="team" placeholder="e.g. Mustang HS, Risin' 16u" required />
+          </div>
+
+          <div class="booking__field">
+            <label for="apDays">Which days could they train? *</label>
+            <p class="prog__hint">Pick every day that could work — we'll settle on three.</p>
+            <div class="prog__days" id="apDays">
+              <label><input type="checkbox" name="days" value="Monday" /> <span>Mon</span></label>
+              <label><input type="checkbox" name="days" value="Tuesday" /> <span>Tue</span></label>
+              <label><input type="checkbox" name="days" value="Wednesday" /> <span>Wed</span></label>
+              <label><input type="checkbox" name="days" value="Thursday" /> <span>Thu</span></label>
+              <label><input type="checkbox" name="days" value="Friday" /> <span>Fri</span></label>
+              <label><input type="checkbox" name="days" value="Saturday" /> <span>Sat</span></label>
+              <label><input type="checkbox" name="days" value="Sunday" /> <span>Sun</span></label>
+            </div>
+          </div>
+
+          <div class="booking__field">
+            <label for="apGoals">What are they working toward? *</label>
+            <textarea id="apGoals" name="goals" rows="4" required
+              placeholder="What they want out of the month, where they're trying to play, anything holding them back right now."></textarea>
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--lg booking__submit" id="applySubmit">Send my application</button>
+          <p class="booking__note">No payment now. I'll be in touch within a couple of days.</p>
+          <p class="booking__status" id="applyStatus" role="status"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer" id="contact">
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year"></span> AP Academy · Ace Performance</p>
+      <p><a href="tel:+14058194401">(405) 819-4401</a></p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+    (function () {
+      const form = document.getElementById("applyForm");
+      if (!form) return;
+      const statusEl = document.getElementById("applyStatus");
+      const btn = document.getElementById("applySubmit");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        statusEl.classList.remove("booking__status--ok");
+        statusEl.textContent = "";
+
+        const days = [...form.querySelectorAll('input[name="days"]:checked')].map((c) => c.value);
+        const required = ["player", "age", "parent", "phone", "email", "position", "team", "goals"];
+        const missing = required.find((n) => !String(form.elements[n].value || "").trim());
+        if (missing) {
+          statusEl.textContent = "Please fill in every field marked with a *.";
+          form.elements[missing].focus();
+          return;
+        }
+        if (!form.elements.email.checkValidity()) {
+          statusEl.textContent = "That email doesn't look right — I'll need it to reply to you.";
+          form.elements.email.focus();
+          return;
+        }
+        // Three sessions a week means at least three possible days.
+        if (days.length < 3) {
+          statusEl.textContent = "Pick at least three days your player could train.";
+          document.getElementById("apDays").scrollIntoView({ block: "center" });
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Sending…";
+        try {
+          const res = await fetch("/api/apply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              player: form.elements.player.value.trim(),
+              age: form.elements.age.value,
+              parent: form.elements.parent.value.trim(),
+              phone: form.elements.phone.value.trim(),
+              email: form.elements.email.value.trim(),
+              position: form.elements.position.value,
+              team: form.elements.team.value.trim(),
+              goals: form.elements.goals.value.trim(),
+              days,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            statusEl.textContent = data.error || "Couldn't send that. Call or text (405) 819-4401.";
+            btn.disabled = false;
+            btn.textContent = "Send my application";
+            return;
+          }
+          form.hidden = true;
+          const done = document.createElement("div");
+          done.className = "prog__done";
+          done.innerHTML =
+            "<h3>Got it — thanks.</h3>" +
+            "<p>Your application is with me. I read every one myself and I'll call or text you " +
+            "within a couple of days.</p>" +
+            "<p class=\"prog__muted\">In a hurry? Call or text <a href=\"tel:+14058194401\">(405) 819-4401</a>.</p>";
+          form.parentNode.appendChild(done);
+          done.scrollIntoView({ block: "center" });
+        } catch {
+          statusEl.textContent = "Network problem — please try again, or text (405) 819-4401.";
+          btn.disabled = false;
+          btn.textContent = "Send my application";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

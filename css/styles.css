@@ -1082,3 +1082,157 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 .partner:hover .partner__name { color: #fff; }
 .partner:hover .partner__cta { color: var(--btn); }
 .partner:focus-visible { outline: 2px solid var(--btn); outline-offset: 5px; }
+
+/* ============ COLLEGE TRACK PROGRAM ============ */
+/* Mobile-first: everything stacks, nothing sits side by side except the
+   three-up stat strip, which stays readable down to 320px. */
+.prog__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 2rem 0 2.4rem;
+}
+.prog__stat {
+  background: var(--bg-alt);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem 0.4rem;
+  text-align: center;
+}
+.prog__stat b {
+  display: block;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 2.2rem;
+  line-height: 1.05;
+  color: var(--btn);
+}
+.prog__stat span {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.prog__block {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.3rem;
+  margin-bottom: 1.1rem;
+}
+.prog__block h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.8rem;
+}
+.prog__block p { margin-bottom: 0.9rem; line-height: 1.7; }
+.prog__block p:last-child { margin-bottom: 0; }
+.prog__muted { color: var(--text-dim); font-size: 0.92rem; }
+.prog__muted a { color: var(--btn); font-weight: 700; }
+.prog__hint { color: var(--text-dim); font-size: 0.85rem; margin: -0.3rem 0 0.6rem; }
+
+.prog__steps {
+  list-style: none;
+  counter-reset: step;
+  margin: 0;
+  padding: 0;
+}
+.prog__steps li {
+  counter-increment: step;
+  position: relative;
+  padding: 0 0 1.2rem 2.6rem;
+  line-height: 1.65;
+}
+.prog__steps li:last-child { padding-bottom: 0; }
+.prog__steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.9rem;
+  height: 1.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--btn);
+  color: var(--on-accent, #0a0a0c);
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+.prog__steps b { display: block; color: var(--text); }
+
+.prog__block--price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.2rem;
+  border-color: var(--btn);
+}
+.prog__price {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 3.2rem;
+  line-height: 1;
+  color: var(--btn);
+}
+.prog__per { color: var(--text-dim); font-size: 0.92rem; }
+.prog__block--price p { flex: 1 1 240px; margin: 0; }
+
+/* Day picker — chunky enough to tap. A fixed 4-column grid so it lands as a
+   tidy 4 + 3 instead of whatever flex-wrap decides at a given width. */
+.prog__days {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+.prog__days label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 0.5rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.92rem;
+  user-select: none;
+}
+.prog__days input { position: absolute; opacity: 0; width: 0; height: 0; }
+.prog__days label:has(input:checked) {
+  background: var(--btn);
+  border-color: var(--btn);
+  color: var(--on-accent, #0a0a0c);
+}
+.prog__days label:has(input:focus-visible) { outline: 2px solid var(--btn); outline-offset: 2px; }
+
+.page-book textarea {
+  width: 100%;
+  background: var(--bg-alt);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  padding: 0.85rem 1rem;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.page-book textarea:focus { outline: none; border-color: var(--btn); }
+
+.prog__done {
+  background: var(--bg-alt);
+  border: 1px solid var(--btn);
+  border-radius: var(--radius);
+  padding: 1.6rem 1.3rem;
+  text-align: center;
+}
+.prog__done h3 { font-size: 1.5rem; margin-bottom: 0.6rem; }
+.prog__done p { margin-bottom: 0.7rem; }
+.prog__done p:last-child { margin-bottom: 0; }
+
+@media (min-width: 640px) {
+  .prog__block { padding: 1.9rem 1.8rem; }
+  .prog__stat b { font-size: 2.6rem; }
+}
