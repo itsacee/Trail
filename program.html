@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-  <title>College Track | AP Academy</title>
-  <meta name="description" content="A month of three-a-week training for 14u and up players chasing college baseball. Apply to be considered." />
+  <title>Off-Season Program | AP Academy</title>
+  <meta name="description" content="Twelve sessions over four weeks for 14u and up players with a clear month — the off-season block where you actually change something." />
   <!-- Not launched yet: keep it out of search until it goes live. -->
   <meta name="robots" content="noindex, nofollow" />
 
@@ -32,7 +32,7 @@
         <a href="index.html#partners">Coaching</a>
         <a href="index.html#work">Work</a>
         <a href="index.html#programs">Pricing</a>
-        <a href="program.html" aria-current="page">College Track</a>
+        <a href="program.html" aria-current="page">Off-Season</a>
         <a href="account.html">Members</a>
       </nav>
       <a class="btn btn--primary nav__cta" href="#apply">Apply</a>
@@ -45,10 +45,19 @@
   <section class="section book-page">
     <div class="container container--narrow">
       <p class="eyebrow center reveal">14U and up &middot; By application</p>
-      <h1 class="center reveal">College Track</h1>
+      <h1 class="center reveal">The Off-Season Program</h1>
       <p class="section__sub center reveal">
-        A month of three-a-week training for the player who has decided baseball is what they're doing after
-        high school — and is willing to train like it.
+        Twelve sessions over four weeks, three days a week — for the stretch when your player
+        <em>isn't</em> playing. This is when you actually change something.
+      </p>
+
+      <!--
+        EDIT THIS LINE when the next block changes. Deliberately plain text
+        rather than a booking system — no dates to keep in sync, and nothing to
+        go stale except one sentence.
+      -->
+      <p class="prog__next reveal">
+        <strong>Next block starting:</strong> November &nbsp;·&nbsp; a few spots each month
       </p>
 
       <div class="prog__stats reveal">
@@ -58,16 +67,34 @@
       </div>
 
       <div class="prog__block reveal">
+        <h2>Why the off-season</h2>
+        <p>
+          You can't rebuild a swing in the middle of a season. There's a game on Saturday, so every
+          lesson turns into a patch job — get through this weekend, fix it properly later.
+          Later never comes.
+        </p>
+        <p>
+          A clear month is different. Nothing to protect, nothing to undo on the weekend. We can pull
+          something apart, let it feel awful for a week, and put it back together better. Three days a
+          week is what makes that stick — the gap between sessions is short enough that the last one
+          hasn't worn off.
+        </p>
+      </div>
+
+      <div class="prog__block reveal">
         <h2>Who it's for</h2>
         <p>
-          This isn't a once-a-week lesson. It's for a <strong>14u and older</strong> player who wants to be
-          seen by college coaches and is ready to put in real reps — the same three days every week for a
-          month, on top of whatever their team is doing.
+          A <strong>14u and older</strong> player who's serious about playing after high school and has a
+          genuine gap coming — after travel ball winds down, over winter, a school break. Somewhere they
+          can give this month their full attention.
         </p>
-        <p class="prog__muted">
-          If your player is younger, or you're not sure they'll make every session, the
-          <a href="book.html?type=membership">membership</a> is the better fit and you can always step up later.
-        </p>
+        <div class="prog__notfor">
+          <b>Not while they're in season.</b>
+          If your player has games every weekend and team practice midweek, this is too much on top and
+          you won't get the benefit. Do the
+          <a href="book.html?type=membership">membership</a> to tick over, and come back to this when
+          their calendar clears.
+        </div>
       </div>
 
       <div class="prog__block reveal">
@@ -75,33 +102,35 @@
         <ol class="prog__steps">
           <li>
             <b>You apply below.</b>
-            Tell me about your player — age, position, what team they're on, what they're chasing.
+            Tell me about your player and — this matters most — when they've actually got a clear month.
           </li>
           <li>
             <b>I read every one myself.</b>
-            If it's a fit I'll call or text you within a couple of days to talk it through. If it isn't,
-            I'll tell you that straight and point you somewhere that is.
+            If it's a fit I'll call or text you within a couple of days. If the timing's wrong I'll say so
+            and tell you when to come back, rather than take your money for a month that won't work.
           </li>
           <li>
             <b>We lock your three days.</b>
-            You pick the same three days and time each week — Monday, Wednesday, Friday at 6pm, say — and I
-            block all twelve sessions off at once. No booking each one.
+            Same three days and time each week — Monday, Wednesday, Friday at 6pm, say. I block all twelve
+            off at once so they're yours. No booking each one.
           </li>
           <li>
             <b>Then we work.</b>
-            Every session builds on the last. You'll get a plan for the month, not twelve separate lessons.
+            Every session builds on the last, with a plan for the month. Not twelve separate lessons that
+            happen to be near each other.
           </li>
         </ol>
       </div>
 
       <div class="prog__block prog__block--price reveal">
         <div>
-          <div class="prog__price" id="progPrice">$600</div>
-          <div class="prog__per">for the month &middot; <span id="progPer">$50</span> a session</div>
+          <div class="prog__price">$720</div>
+          <div class="prog__per">for the month &middot; $60 a session</div>
         </div>
         <p class="prog__muted">
-          Paid once, up front, after we've spoken. Does not auto-renew — if you want another month we'll
-          talk about it at the end of this one.
+          Same rate as a membership lesson, for three times the work. Paid once, up front, after we've
+          spoken — never before. Doesn't auto-renew; if you want to run another block we'll talk about it
+          at the end of this one.
         </p>
       </div>
 
@@ -162,7 +191,33 @@
           </div>
 
           <div class="booking__field">
-            <label for="apDays">Which days could they train? *</label>
+            <label for="apWindow">When do they have a clear month? *</label>
+            <p class="prog__hint">The single most important answer on this form.</p>
+            <select id="apWindow" name="window" required>
+              <option value="">Select a window</option>
+              <option>As soon as possible — they're free now</option>
+              <option>Late July / August — after travel ball</option>
+              <option>September / October</option>
+              <option>November / December — after fall ball</option>
+              <option>Over winter break</option>
+              <option>January — before the school season</option>
+              <option>Not sure yet — want to talk it through</option>
+            </select>
+          </div>
+
+          <div class="booking__field">
+            <label>Are they in season during that month? *</label>
+            <p class="prog__hint">Straight answer is better for both of us.</p>
+            <!-- Button text stays short so it can't wrap; the submitted value
+                 is the full phrase, which is what the coach reads. -->
+            <div class="prog__days prog__days--two" id="apSeason">
+              <label><input type="radio" name="inSeason" value="No — their calendar is clear" /> <span>No</span></label>
+              <label><input type="radio" name="inSeason" value="Yes — still playing games" /> <span>Yes</span></label>
+            </div>
+          </div>
+
+          <div class="booking__field">
+            <label>Which days could they train? *</label>
             <p class="prog__hint">Pick every day that could work — we'll settle on three.</p>
             <div class="prog__days" id="apDays">
               <label><input type="checkbox" name="days" value="Monday" /> <span>Mon</span></label>
@@ -176,9 +231,9 @@
           </div>
 
           <div class="booking__field">
-            <label for="apGoals">What are they working toward? *</label>
+            <label for="apGoals">What do they want to change this month? *</label>
             <textarea id="apGoals" name="goals" rows="4" required
-              placeholder="What they want out of the month, where they're trying to play, anything holding them back right now."></textarea>
+              placeholder="What they'd fix if they had a month with no games. Where they're trying to play. Anything holding them back right now."></textarea>
           </div>
 
           <button type="submit" class="btn btn--primary btn--lg booking__submit" id="applySubmit">Send my application</button>
@@ -210,7 +265,8 @@
         statusEl.textContent = "";
 
         const days = [...form.querySelectorAll('input[name="days"]:checked')].map((c) => c.value);
-        const required = ["player", "age", "parent", "phone", "email", "position", "team", "goals"];
+        const inSeason = form.querySelector('input[name="inSeason"]:checked');
+        const required = ["player", "age", "parent", "phone", "email", "position", "team", "window", "goals"];
         const missing = required.find((n) => !String(form.elements[n].value || "").trim());
         if (missing) {
           statusEl.textContent = "Please fill in every field marked with a *.";
@@ -220,6 +276,11 @@
         if (!form.elements.email.checkValidity()) {
           statusEl.textContent = "That email doesn't look right — I'll need it to reply to you.";
           form.elements.email.focus();
+          return;
+        }
+        if (!inSeason) {
+          statusEl.textContent = "Let me know whether they're in season that month.";
+          document.getElementById("apSeason").scrollIntoView({ block: "center" });
           return;
         }
         // Three sessions a week means at least three possible days.
@@ -243,6 +304,8 @@
               email: form.elements.email.value.trim(),
               position: form.elements.position.value,
               team: form.elements.team.value.trim(),
+              window: form.elements.window.value,
+              inSeason: inSeason.value,
               goals: form.elements.goals.value.trim(),
               days,
             }),

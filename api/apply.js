@@ -1,4 +1,4 @@
-// College Track applications.
+// Off-season program applications.
 //
 // No payment and no account — this only starts a conversation. The coach gets
 // the details as an email he can reply to directly, and the applicant gets an
@@ -14,6 +14,19 @@ const REPLY_TO = "Apacademybsb@gmail.com";
 const POSITIONS = ["Pitcher", "Catcher", "Infield", "Outfield", "Two-way", "Utility"];
 const AGES = ["13 or under", "14", "15", "16", "17", "18", "19+"];
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const WINDOWS = [
+  "As soon as possible — they're free now",
+  "Late July / August — after travel ball",
+  "September / October",
+  "November / December — after fall ball",
+  "Over winter break",
+  "January — before the school season",
+  "Not sure yet — want to talk it through",
+];
+const IN_SEASON = ["No — their calendar is clear", "Yes — still playing games"];
+// The program only works over a genuine break, so a "yes" is the thing the
+// coach most needs to see before he reads anything else.
+const isInSeason = (v) => v === IN_SEASON[1];
 
 const esc = (v) =>
   String(v == null ? "" : v).replace(/[&<>"']/g, (c) =>
@@ -29,22 +42,41 @@ function coachEmail(a) {
       <td style="padding:8px 0;color:#f5f6f8;font-size:15px;font-weight:600;">${value}</td>
     </tr>`;
   const tel = a.phone.replace(/[^\d+]/g, "");
+  const flagged = isInSeason(a.inSeason);
   return `<!DOCTYPE html>
 <html><body style="margin:0;padding:0;background:#050505;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:28px 12px;">
 <tr><td align="center">
   <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#111114;border:1px solid #26262b;border-radius:16px;padding:28px;font-family:Helvetica,Arial,sans-serif;">
     <tr><td>
-      <div style="font-size:11px;color:#e0b457;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">College Track application</div>
+      <div style="font-size:11px;color:#e0b457;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Off-season program application</div>
       <div style="font-size:24px;font-weight:bold;color:#ffffff;padding-top:6px;">${esc(a.player)}</div>
       <div style="color:#a8adb6;font-size:14px;">Age ${esc(a.age)} &middot; ${esc(a.position)} &middot; ${esc(a.team)}</div>
     </td></tr>
+
+    ${
+      flagged
+        ? `<tr><td style="padding-top:18px;">
+      <div style="background:#1d0c0a;border:1px solid #c6402f;border-radius:12px;padding:14px 16px;">
+        <div style="font-size:11px;color:#ff8d7e;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Heads up — still in season</div>
+        <p style="color:#f5f6f8;font-size:14px;line-height:1.6;margin:6px 0 0;">
+          They said they'd still be playing games that month. Probably a conversation about
+          timing, or point them at the membership instead.
+        </p>
+      </div>
+    </td></tr>`
+        : ""
+    }
 
     <tr><td style="padding-top:22px;">
       <table width="100%" cellpadding="0" cellspacing="0">
         ${row("Parent", esc(a.parent))}
         ${row("Phone", `<a href="tel:${esc(tel)}" style="color:#cfd4da;text-decoration:none;">${esc(a.phone)}</a>`)}
         ${row("Email", `<a href="mailto:${esc(a.email)}" style="color:#cfd4da;text-decoration:none;">${esc(a.email)}</a>`)}
+        ${row("Window", `<span style="color:#e0b457;">${esc(a.window)}</span>`)}
+        ${row("In season?", flagged
+            ? `<span style="color:#ff8d7e;">${esc(a.inSeason)}</span>`
+            : esc(a.inSeason))}
         ${row("Can train", esc(a.days.join(", ")))}
       </table>
     </td></tr>
@@ -71,16 +103,18 @@ function coachEmail(a) {
 }
 
 function coachText(a) {
-  return `COLLEGE TRACK APPLICATION
-
+  return `OFF-SEASON PROGRAM APPLICATION
+${isInSeason(a.inSeason) ? "\n** STILL IN SEASON THAT MONTH — check the timing **\n" : ""}
 ${a.player} — age ${a.age}, ${a.position}, ${a.team}
 
-Parent:    ${a.parent}
-Phone:     ${a.phone}
-Email:     ${a.email}
-Can train: ${a.days.join(", ")}
+Parent:     ${a.parent}
+Phone:      ${a.phone}
+Email:      ${a.email}
+Window:     ${a.window}
+In season:  ${a.inSeason}
+Can train:  ${a.days.join(", ")}
 
-WORKING TOWARD
+WANTS TO CHANGE
 ${a.goals}
 
 Reply to this email to reach ${a.parent} directly.`;
@@ -99,7 +133,7 @@ function applicantEmail(a) {
     <tr><td style="padding-top:22px;">
       <div style="font-size:21px;color:#ffffff;font-weight:bold;">Thanks — I've got your application</div>
       <p style="color:#a8adb6;font-size:15px;line-height:1.6;margin:10px 0 0;">
-        ${esc(a.parent)}, thanks for putting ${esc(a.player)} forward for College Track.
+        ${esc(a.parent)}, thanks for putting ${esc(a.player)} forward for the off-season program.
       </p>
       <p style="color:#a8adb6;font-size:15px;line-height:1.6;margin:12px 0 0;">
         I read every application myself, so this isn't an automated screening. I'll call or text you on
@@ -116,6 +150,7 @@ function applicantEmail(a) {
       <div style="background:#050505;border:1px solid #26262b;border-radius:12px;padding:14px 16px;color:#cfd4da;font-size:14px;line-height:1.7;">
         ${esc(a.player)} &middot; age ${esc(a.age)} &middot; ${esc(a.position)}<br />
         ${esc(a.team)}<br />
+        Looking at: ${esc(a.window)}<br />
         Available: ${esc(a.days.join(", "))}
       </div>
     </td></tr>
@@ -135,7 +170,7 @@ function applicantEmail(a) {
 function applicantText(a) {
   return `AP ACADEMY — thanks, I've got your application
 
-${a.parent}, thanks for putting ${a.player} forward for College Track.
+${a.parent}, thanks for putting ${a.player} forward for the off-season program.
 
 I read every application myself. I'll call or text you on ${a.phone} within a
 couple of days to talk through whether it's the right fit and, if it is, which
@@ -147,6 +182,7 @@ the schedule.
 WHAT YOU SENT ME
 ${a.player} - age ${a.age} - ${a.position}
 ${a.team}
+Looking at: ${a.window}
 Available: ${a.days.join(", ")}
 
 In a hurry? Call or text ${PHONE}.
@@ -170,6 +206,8 @@ export default async function handler(req, res) {
     email: clean(b.email, 120).toLowerCase(),
     position: clean(b.position, 30),
     team: clean(b.team, 120),
+    window: clean(b.window, 80),
+    inSeason: clean(b.inSeason, 60),
     goals: clean(b.goals, 2000),
     days: Array.isArray(b.days) ? b.days.filter((d) => DAYS.includes(d)) : [],
   };
@@ -181,6 +219,8 @@ export default async function handler(req, res) {
     !a.goals ||
     !AGES.includes(a.age) ||
     !POSITIONS.includes(a.position) ||
+    !WINDOWS.includes(a.window) ||
+    !IN_SEASON.includes(a.inSeason) ||
     !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a.email) ||
     a.phone.replace(/\D/g, "").length < 10 ||
     a.days.length < 3;
@@ -216,14 +256,14 @@ export default async function handler(req, res) {
     const toCoach = await send({
       to: [REPLY_TO],
       reply_to: a.email,
-      subject: `College Track application — ${a.player} (age ${a.age}, ${a.position})`,
+      subject: `${isInSeason(a.inSeason) ? "[in season] " : ""}Off-season application — ${a.player} (age ${a.age}, ${a.position}) — ${a.window}`,
       html: coachEmail(a),
       text: coachText(a),
     });
 
     if (!toCoach.ok) {
       const err = await toCoach.json().catch(() => ({}));
-      console.error("College Track application failed to send:", toCoach.status, err);
+      console.error("Off-season application failed to send:", toCoach.status, err);
       res.status(502).json({
         error: "Couldn't send that. Please call or text (405) 819-4401.",
         detail: err.message || `Resend returned ${toCoach.status}`,
@@ -237,14 +277,14 @@ export default async function handler(req, res) {
       to: [a.email],
       bcc: [REPLY_TO],
       reply_to: REPLY_TO,
-      subject: "Got your College Track application — AP Academy",
+      subject: "Got your off-season program application — AP Academy",
       html: applicantEmail(a),
       text: applicantText(a),
     }).catch(() => {});
 
     res.status(200).json({ ok: true });
   } catch (e) {
-    console.error("College Track application error:", e);
+    console.error("Off-season application error:", e);
     res.status(500).json({ error: "Something went wrong. Please call or text (405) 819-4401." });
   }
 }

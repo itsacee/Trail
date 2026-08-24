@@ -1236,3 +1236,33 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
   .prog__block { padding: 1.9rem 1.8rem; }
   .prog__stat b { font-size: 2.6rem; }
 }
+
+/* Next-block line — one editable sentence rather than a scheduling system */
+.prog__next {
+  margin: 1.6rem auto 0;
+  max-width: 520px;
+  text-align: center;
+  padding: 0.7rem 1rem;
+  background: #1a1206;
+  border: 1px solid #6b4d16;
+  border-radius: 999px;
+  color: #e0b457;
+  font-size: 0.9rem;
+}
+.prog__next strong { color: #f3d489; }
+
+/* The "don't do this in season" warning — deliberately hard to skim past */
+.prog__notfor {
+  margin-top: 1.2rem;
+  padding: 1rem 1.1rem;
+  background: var(--bg-alt);
+  border-left: 3px solid #c6402f;
+  border-radius: 0 12px 12px 0;
+  color: var(--text-dim);
+  font-size: 0.93rem;
+  line-height: 1.65;
+}
+.prog__notfor b { display: block; color: var(--text); margin-bottom: 0.2rem; }
+.prog__notfor a { color: var(--btn); font-weight: 700; }
+
+.prog__days--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
