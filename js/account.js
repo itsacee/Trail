@@ -120,6 +120,8 @@ function renderDash(data) {
   const left = data.remaining || 0;
   const expires = data.lastDayPretty || (data.lastDay ? prettyDate(data.lastDay) : "");
   document.getElementById("acctPlayer").textContent = data.player ? `${data.player}'s membership` : "Your membership";
+  const whoName = document.getElementById("acctWhoName");
+  if (whoName) whoName.textContent = data.email || data.player || "this member";
   document.getElementById("acctCredits").textContent =
     `${left} of ${data.credits || 4} lessons left${expires ? ` · use by ${expires}` : ""}`;
   document.getElementById("acctTitle").textContent = left ? "Book Your Next Lesson" : "This membership is used up";
@@ -333,10 +335,22 @@ weekForm.addEventListener("submit", async (e) => {
 });
 
 dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
-document.getElementById("signOut").addEventListener("click", () => {
+function signOut() {
   clearToken();
+  account = null;
+  const status = document.getElementById("loginStatus");
+  if (status) {
+    status.classList.remove("booking__status--ok");
+    status.textContent = "";
+  }
+  const emailField = document.getElementById("loginEmail");
+  if (emailField) emailField.value = "";
   showLogin();
-});
+}
+
+document.getElementById("signOut").addEventListener("click", signOut);
+// Same thing, worded for someone who didn't expect to be signed in at all.
+document.getElementById("switchUser")?.addEventListener("click", signOut);
 
 (async function init() {
   const params = new URLSearchParams(window.location.search);
