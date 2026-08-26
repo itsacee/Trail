@@ -725,13 +725,14 @@ a.price-card .btn { text-align: center; }
 .camp-note {
   margin-top: 2.2rem;
   text-align: center;
-  padding: 1.4rem 1.2rem;
+  padding: 1.6rem 1.3rem 1.5rem;
   border: 1px dashed var(--line);
   border-radius: var(--radius);
 }
 .camp-note h3 { margin-bottom: 0.4rem; }
-.camp-note p { color: var(--text-dim); font-size: 0.95rem; max-width: 520px; margin: 0 auto; }
+.camp-note p { color: var(--text-dim); font-size: 0.95rem; max-width: 540px; margin: 0 auto 1.1rem; }
 .camp-note a { color: var(--btn); font-weight: 700; }
+.camp-note .btn { margin-top: 0.2rem; }
 .booking__where {
   margin-top: 1.1rem;
   padding: 0.85rem 1.1rem;
@@ -789,7 +790,8 @@ a.price-card .btn { text-align: center; }
   color: var(--text-dim);
 }
 .booking__field input,
-.booking__field select {
+.booking__field select,
+.booking__field textarea {
   background: var(--bg-alt);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -801,10 +803,67 @@ a.price-card .btn { text-align: center; }
   width: 100%;
   color-scheme: dark;
 }
+.booking__field textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.5;
+}
 .booking__field input:focus,
-.booking__field select:focus {
+.booking__field select:focus,
+.booking__field textarea:focus {
   outline: none;
   border-color: var(--btn);
+}
+.booking__field--wide { grid-column: 1 / -1; }
+.hp {
+  position: absolute;
+  left: -9999px;
+  height: 0;
+  overflow: hidden;
+}
+.apply-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.apply-days label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-height: 48px;
+  padding: 0.4rem 0.2rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.booking__field .apply-days label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.82rem;
+}
+.apply-days input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.apply-days label:has(input:checked) {
+  border-color: var(--btn);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.apply-days label:has(input:focus-visible) {
+  outline: 2px solid var(--btn);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  .apply-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 .booking__field select {
   cursor: pointer;

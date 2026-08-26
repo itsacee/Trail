@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <title>3 Days a Week | AP Academy</title>
+  <meta name="description" content="Apply for 3 days a week with Elijah Alexander — 12 lessons in one month, same days and time. $700 if it's a fit. No payment online." />
+
+  <link rel="icon" type="image/png" href="img/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="page-book">
+
+  <header class="nav" id="top">
+    <div class="nav__inner container">
+      <a class="nav__brand" href="index.html">
+        <span class="nav__logo">
+          <img src="img/logo-mark.png" alt="AP Academy logo" />
+        </span>
+        <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+      </a>
+      <nav class="nav__links" id="navLinks">
+        <a href="index.html#programs">Pricing</a>
+        <a href="book.html">Book</a>
+        <a href="account.html">Members</a>
+        <a href="index.html#contact">Contact</a>
+      </nav>
+      <a class="btn btn--primary nav__cta" href="book.html">Book Training</a>
+      <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <section class="section book-page" id="apply">
+    <div class="container container--narrow">
+      <p class="eyebrow center reveal">3 days a week</p>
+      <h1 class="center reveal">For a Serious Player.</h1>
+      <p class="section__sub center reveal">
+        12 one-hour lessons over one month — same 3 days, same time, every week. $700 if I take you on.
+        This is not something you buy online. Answer a few questions and I'll review it. If it's a fit, I'll reach out.
+      </p>
+
+      <form class="booking reveal" id="applyForm" novalidate>
+        <div class="booking__member-note">
+          <strong>What this is</strong>
+          <ul>
+            <li><strong>3 days a week for one month</strong> — 12 lessons, locked to the same days and time.</li>
+            <li><strong>$700</strong> if I take you on. Nothing is charged from this form.</li>
+            <li>I read every application. If it's not a fit, I'll tell you — no surprise bill.</li>
+          </ul>
+        </div>
+
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Who's training?</h3>
+          <div class="booking__grid">
+            <div class="booking__field">
+              <label for="apPlayer">Player's name *</label>
+              <input type="text" id="apPlayer" name="player" placeholder="Player's name" autocomplete="name" required />
+            </div>
+            <div class="booking__field">
+              <label for="apAge">Age / grade *</label>
+              <input type="text" id="apAge" name="age" placeholder="14 / freshman" autocomplete="off" required />
+            </div>
+            <div class="booking__field">
+              <label for="apParent">Parent name</label>
+              <input type="text" id="apParent" name="parent" placeholder="Parent name" autocomplete="name" />
+            </div>
+            <div class="booking__field">
+              <label for="apTeam">Team / school</label>
+              <input type="text" id="apTeam" name="team" placeholder="Team or high school" autocomplete="off" />
+            </div>
+            <div class="booking__field">
+              <label for="apPhone">Phone *</label>
+              <input type="tel" id="apPhone" name="phone" placeholder="(405) 555-0123" autocomplete="tel" inputmode="tel" required />
+            </div>
+            <div class="booking__field">
+              <label for="apEmail">Email *</label>
+              <input type="email" id="apEmail" name="email" placeholder="you@email.com" autocomplete="email" inputmode="email" required />
+            </div>
+          </div>
+        </div>
+
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">2</span> The week</h3>
+          <div class="booking__field booking__field--wide">
+            <label id="apDaysLabel">Pick exactly 3 days *</label>
+            <div class="apply-days" role="group" aria-labelledby="apDaysLabel">
+              <label><input type="checkbox" name="days" value="Monday" /> Mon</label>
+              <label><input type="checkbox" name="days" value="Tuesday" /> Tue</label>
+              <label><input type="checkbox" name="days" value="Wednesday" /> Wed</label>
+              <label><input type="checkbox" name="days" value="Thursday" /> Thu</label>
+              <label><input type="checkbox" name="days" value="Friday" /> Fri</label>
+              <label><input type="checkbox" name="days" value="Saturday" /> Sat</label>
+              <label><input type="checkbox" name="days" value="Sunday" /> Sun</label>
+            </div>
+            <p class="booking__note" style="text-align:left;margin-top:0.55rem;">Same 3 days every week. Weeknights run evenings; weekends run daytime.</p>
+          </div>
+          <div class="booking__grid">
+            <div class="booking__field">
+              <label for="apTime">Same time each of those days *</label>
+              <select id="apTime" name="time" required>
+                <option value="">Choose a time</option>
+                <optgroup label="Weeknights">
+                  <option>5:00 PM</option>
+                  <option>5:30 PM</option>
+                  <option>6:00 PM</option>
+                  <option>6:30 PM</option>
+                  <option>7:00 PM</option>
+                  <option>7:30 PM</option>
+                  <option>8:00 PM</option>
+                </optgroup>
+                <optgroup label="Weekends">
+                  <option>9:00 AM</option>
+                  <option>9:30 AM</option>
+                  <option>10:00 AM</option>
+                  <option>10:30 AM</option>
+                  <option>11:00 AM</option>
+                  <option>11:30 AM</option>
+                  <option>12:00 PM</option>
+                  <option>12:30 PM</option>
+                  <option>1:00 PM</option>
+                  <option>1:30 PM</option>
+                  <option>2:00 PM</option>
+                  <option>2:30 PM</option>
+                  <option>3:00 PM</option>
+                  <option>3:30 PM</option>
+                  <option>4:00 PM</option>
+                  <option>4:30 PM</option>
+                  <option>5:00 PM</option>
+                  <option>5:30 PM</option>
+                  <option>6:00 PM</option>
+                </optgroup>
+                <option value="Flexible">Flexible — we'll figure it out</option>
+              </select>
+            </div>
+            <div class="booking__field">
+              <label for="apFocus">What should we work on?</label>
+              <select id="apFocus" name="focus">
+                <option value="Both">Hitting &amp; Fielding</option>
+                <option value="Hitting">Hitting</option>
+                <option value="Fielding">Fielding</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">3</span> Why this month?</h3>
+          <div class="booking__field booking__field--wide">
+            <label for="apWhy">What's the player working toward? *</label>
+            <textarea id="apWhy" name="why" rows="4" required placeholder="Showcase, in-season, getting ready for high school, catching up after a slump…"></textarea>
+          </div>
+          <div class="booking__field booking__field--wide">
+            <label for="apNotes">Anything else I should know?</label>
+            <textarea id="apNotes" name="notes" rows="3" placeholder="Injuries, a start date, travel ball conflicts…"></textarea>
+          </div>
+        </div>
+
+        <p class="hp" aria-hidden="true">
+          <label for="apCompany">Company</label>
+          <input type="text" id="apCompany" name="company" tabindex="-1" autocomplete="off" />
+        </p>
+
+        <button type="submit" class="btn btn--primary btn--lg booking__submit" id="applySubmit">Send application</button>
+        <p class="booking__note">No payment on this page. I'll read it and reach out if it's something I'll do.</p>
+        <p class="booking__status" id="applyStatus" role="status"></p>
+      </form>
+
+      <div class="booking" id="applyDone" hidden>
+        <div class="booking__member-note">
+          <strong>Got it.</strong>
+          <p style="margin:0;">I'll review this and reach out if it's a fit. Nothing has been charged. Questions in the meantime? Text <a href="sms:+14058194401">(405) 819-4401</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer" id="contact">
+    <div class="container footer__grid">
+      <div>
+        <a class="nav__brand" href="index.html">
+          <span class="nav__logo">
+            <img src="img/logo-mark.png" alt="AP Academy logo" />
+          </span>
+          <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+        </a>
+        <p class="footer__blurb">Private 1-on-1 baseball training in Oklahoma City.</p>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul class="footer__list">
+          <li><a href="tel:+14058194401">(405) 819-4401</a></li>
+          <li><a href="mailto:Apacademybsb@gmail.com">Apacademybsb@gmail.com</a></li>
+          <li>Mustang, OK</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Follow</h4>
+        <ul class="footer__list">
+          <li><a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a></li>
+          <li><a href="https://instagram.com/elijahalexanderrrr" target="_blank" rel="noopener">@elijahalexanderrrr</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Train</h4>
+        <ul class="footer__list">
+          <li><a href="index.html#programs">Pricing</a></li>
+          <li><a href="book.html">Book a Lesson</a></li>
+          <li><a href="apply.html">3 days a week</a></li>
+          <li><a href="account.html">Member login</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year"></span> AP Academy · Ace Performance. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script src="js/apply.js"></script>
+</body>
+</html>
