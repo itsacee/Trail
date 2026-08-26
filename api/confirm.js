@@ -301,7 +301,7 @@ function memberEmailHtml(meta, origin, sessions, startedAt) {
       <div style="font-size:21px;color:#ffffff;font-weight:bold;">Thank you for joining AP Academy!</div>
       <p style="color:#a8adb6;font-size:15px;line-height:1.6;margin:10px 0 0;">
         ${meta.parent ? `Hi ${meta.parent} — ` : ""}${f.who}'s membership is active: <strong style="color:#ffffff;">${MEMBER_CREDITS} one-hour lessons</strong>
-        to use over the next 4 weeks. I'm looking forward to getting to work.
+        to use over the next month. I'm looking forward to getting to work.
       </p>
     </td></tr>
 
@@ -367,9 +367,9 @@ function memberEmailHtml(meta, origin, sessions, startedAt) {
       <div style="background:#1a1206;border:1px solid #6b4d16;border-radius:12px;padding:18px;">
         <div style="font-size:11px;color:#e0b457;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Heads Up — This Does Not Auto-Renew</div>
         <p style="color:#f5f6f8;font-size:15px;line-height:1.6;margin:8px 0 0;">
-          You will <strong>not</strong> be charged again. Nothing renews on its own, and there's no subscription to cancel.
+          You will <strong>not</strong> be charged again. Nothing renews on its own — if you want another month, you buy it again.
           When your ${MEMBER_CREDITS} lessons are used up — or ${f.lastDayPretty} passes — the membership simply ends.
-          If you want another month, just buy membership again at
+          Ready for another month? Rejoin at
           <a href="${origin}/book.html?type=membership" style="color:#e0b457;text-decoration:none;font-weight:bold;">apacademybsb.com</a>.
         </p>
       </div>
@@ -414,7 +414,7 @@ function memberEmailText(meta, origin, sessions, startedAt) {
   return `AP ACADEMY — Thank you for joining!
 
 ${meta.parent ? `Hi ${meta.parent} — ` : ""}${f.who}'s membership is active: ${MEMBER_CREDITS} one-hour lessons
-to use over the next 4 weeks.
+to use over the next month.
 ${
   f.first
     ? `
@@ -437,10 +437,10 @@ HOW YOUR MEMBERSHIP WORKS
 * Use them by ${f.lastDayPretty}. Unused lessons don't roll over.
 
 HEADS UP — THIS DOES NOT AUTO-RENEW
-You will NOT be charged again. Nothing renews on its own and there's no
-subscription to cancel. When your ${MEMBER_CREDITS} lessons are used up — or ${f.lastDayPretty}
-passes — the membership simply ends. Want another month? Buy membership
-again at ${origin}/book.html?type=membership
+You will NOT be charged again. Nothing renews on its own — if you want
+another month, you buy it again. When your ${MEMBER_CREDITS} lessons are used up —
+or ${f.lastDayPretty} passes — the membership simply ends. Ready for another
+month? Rejoin at ${origin}/book.html?type=membership
 
 WHAT TO BRING
 Bat, glove, turfs, and a water bottle.

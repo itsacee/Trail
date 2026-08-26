@@ -259,7 +259,7 @@ function updateMemberCheckout() {
   }
   if (bookLead) {
     bookLead.textContent = isMem
-      ? "Pay today and lock in lesson 1 of 4. You book the other 3 whenever you like — any days that work, inside your 4 weeks."
+      ? "Pay today and lock in lesson 1 of 4. You book the other 3 whenever you like — any days that work, inside that month. It does not auto-renew."
       : "Choose your lesson type, then lock in a time. We'll email the training address after you pay.";
   }
 }

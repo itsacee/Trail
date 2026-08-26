@@ -132,7 +132,7 @@ function endedMail(s, origin) {
     html: shell(
       `${who}'s membership has ended`,
       [
-        `${s.parent ? `Hi ${s.parent} — ` : ""}the 4 weeks are up as of ${s.lastDayPretty}, so that membership is finished.`,
+        `${s.parent ? `Hi ${s.parent} — ` : ""}the month is up as of ${s.lastDayPretty}, so that membership is finished.`,
         unused
           ? `You had ${s.remaining} lesson${s.remaining === 1 ? "" : "s"} left over. Those don't carry across, but I'd love to keep the work going.`
           : `${who} used all ${MEMBER_CREDITS} lessons — great month of work.`,
