@@ -62,6 +62,36 @@ async function emailWeeklyBook(to, lesson, player) {
   }
 }
 
+async function emailWeeklyReschedule(to, from_, to_, player) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey || !to) return;
+  const loc = LOCATIONS.mustang || {};
+  const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
+  const was = `${from_.date} at ${from_.time}`;
+  const now = `${to_.date} at ${to_.time}`;
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        bcc: [REPLY_TO],
+        reply_to: REPLY_TO,
+        subject: `Lesson moved — now ${now}`,
+        text:
+          `${player ? player + "'s" : "Your"} lesson has been moved.\n\n` +
+          `Was: ${was}\nNow: ${now}\n\n` +
+          (loc.address ? `Where: ${loc.address}\n${loc.note || ""}\n` : "") +
+          `\nNeed to change it again? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
+          `Questions? (405) 819-4401`,
+      }),
+    });
+  } catch {
+    /* the move still stands */
+  }
+}
+
 function scheduledFor(sub, stored) {
   const email = String(sub.metadata?.email || "").toLowerCase();
   const fromBlob = lessonsForEmail(stored, email);
@@ -145,6 +175,91 @@ export default async function handler(req, res) {
     acct.scheduled = scheduledFor(acct.sub, acct.stored);
     acct.summary = membershipSummary(acct.sub, acct.scheduled);
     res.status(200).json({ ok: true, ...publicAccount(acct) });
+    return;
+  }
+
+  if (action === "reschedule") {
+    const id = String(req.body?.id || "");
+    const lesson = acct.scheduled.find((l) => l.id === id);
+    if (!lesson) {
+      res.status(404).json({ error: "Lesson not found." });
+      return;
+    }
+    if (lesson.source === "stripe") {
+      res.status(400).json({
+        error: "That lesson was booked at signup. Call or text (405) 819-4401 and I'll move it.",
+      });
+      return;
+    }
+    // The 12-hour window is measured from the lesson they currently hold.
+    if (!canCancelLesson(lesson.date, lesson.time)) {
+      res.status(400).json({ error: "Changes need 12 hours notice before your lesson. Call or text (405) 819-4401." });
+      return;
+    }
+
+    const newDate = String(req.body?.date || "");
+    const newTime = String(req.body?.time || "");
+    const newFocus = FOCUS[req.body?.focus] ? String(req.body.focus) : lesson.focus || "";
+    if (!DATE_RE.test(newDate) || !TIME_RE.test(newTime)) {
+      res.status(400).json({ error: "Pick a new day and time." });
+      return;
+    }
+    if (newDate === lesson.date && newTime === lesson.time) {
+      res.status(400).json({ error: "That's the same day and time you already have. Pick a different slot." });
+      return;
+    }
+
+    // Judge the new slot as if the lesson being moved weren't on the calendar,
+    // so the one-per-week and remaining-credit rules don't count it twice.
+    const others = acct.scheduled.filter((l) => l.id !== id);
+    const summaryWithout = membershipSummary(acct.sub, others);
+    const blocked = bookingBlocked(summaryWithout, newDate, others);
+    if (blocked) {
+      res.status(400).json({ error: blocked });
+      return;
+    }
+
+    const availability = await getAvailability();
+    if (!allowedTimes(newDate, availability, durationFor("membership")).includes(newTime)) {
+      res.status(400).json({ error: "That time isn't open. Pick another slot." });
+      return;
+    }
+
+    try {
+      const taken = await bookedTimes(key, newDate);
+      const start = labelToMin(newTime);
+      const dur = durationFor("membership");
+      const conflict = start !== null && taken.some((b) => {
+        // Don't collide with the slot we're moving away from.
+        if (newDate === lesson.date && b.time === lesson.time) return false;
+        const bStart = labelToMin(b.time);
+        return bStart !== null && start < bStart + b.mins && bStart < start + dur;
+      });
+      if (conflict) {
+        res.status(409).json({ error: "Sorry — that time was just booked. Pick another." });
+        return;
+      }
+    } catch {
+      /* continue */
+    }
+
+    if (!removeLesson(acct.stored, id, email)) {
+      res.status(404).json({ error: "Lesson not found." });
+      return;
+    }
+    const moved = makeMemberLesson({ sub: acct.sub, date: newDate, time: newTime, focus: newFocus, availability });
+    moved.email = email;
+    acct.stored.lessons.push(moved);
+    const saved = await saveLessons(acct.stored);
+    if (!saved) {
+      res.status(500).json({ error: "Couldn't move that lesson. Call or text (405) 819-4401." });
+      return;
+    }
+
+    acct.scheduled = scheduledFor(acct.sub, acct.stored);
+    acct.summary = membershipSummary(acct.sub, acct.scheduled);
+    emailWeeklyReschedule(email, lesson, moved, moved.player);
+    res.status(200).json({ ok: true, lesson: moved, ...publicAccount(acct) });
     return;
   }
 

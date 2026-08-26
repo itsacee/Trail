@@ -661,6 +661,12 @@ a.price-card .btn { text-align: center; }
   border-radius: 12px;
   font-size: 0.92rem;
 }
+.acct__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-shrink: 0;
+}
 .camp-note {
   margin-top: 2.2rem;
   text-align: center;
