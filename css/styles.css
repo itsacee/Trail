@@ -731,8 +731,11 @@ a.price-card .btn { text-align: center; }
 }
 .camp-note h3 { margin-bottom: 0.4rem; }
 .camp-note p { color: var(--text-dim); font-size: 0.95rem; max-width: 540px; margin: 0 auto 1.1rem; }
-.camp-note a { color: var(--btn); font-weight: 700; }
-.camp-note .btn { margin-top: 0.2rem; }
+.camp-note a:not(.btn) { color: var(--btn); font-weight: 700; }
+.camp-note .btn {
+  margin-top: 0.2rem;
+  color: var(--on-btn);
+}
 .booking__where {
   margin-top: 1.1rem;
   padding: 0.85rem 1.1rem;
