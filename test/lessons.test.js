@@ -9,6 +9,9 @@ import {
   lessonFromStripeMeta,
   makeMemberLesson,
   newLessonId,
+  scheduledFor,
+  voidStripeLesson,
+  isVoided,
 } from "../lib/lessons.js";
 
 test("newLessonId is unique-ish and prefixed", () => {
@@ -81,4 +84,26 @@ test("makeMemberLesson stamps a member-source membership lesson", () => {
   assert.equal(l.player, "Sam");
   assert.equal(l.loc, "mustang");
   assert.match(l.id, /^lsn_/);
+});
+
+test("voided Stripe signup lessons drop off the member calendar", () => {
+  const sub = {
+    id: "pi_1",
+    metadata: {
+      player: "Sam",
+      email: "sam@example.com",
+      date1: "2026-08-27",
+      time1: "5:00 PM",
+    },
+  };
+  const stored = { lessons: [], voids: [] };
+  const before = scheduledFor(sub, stored);
+  assert.equal(before.length, 1);
+  assert.equal(before[0].source, "stripe");
+
+  voidStripeLesson(stored, before[0]);
+  assert.equal(isVoided(stored, { sourceId: "pi_1", date: "2026-08-27", time: "5:00 PM" }), true);
+
+  const after = scheduledFor(sub, stored);
+  assert.equal(after.length, 0);
 });

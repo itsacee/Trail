@@ -163,15 +163,14 @@ function renderDash(data) {
     list.innerHTML = `<p class="acct__empty">No lessons on the calendar yet.</p>`;
   } else {
     list.innerHTML = `<p class="booking__picked-title">Upcoming</p>` + upcoming.map((l) => {
-      const canDrop = l.source !== "stripe";
       return `<div class="acct__row">
         <div><strong>${prettyDate(l.date)}</strong> · ${l.time}${l.focus ? ` · ${l.focus}` : ""}</div>
-        ${canDrop ? `<span class="acct__actions">
-          <button type="button" class="booking__change" data-reschedule="${l.id}">Reschedule</button>
-          <button type="button" class="booking__change" data-cancel="${l.id}">Cancel</button>
-        </span>` : ""}
+        <span class="acct__actions">
+          <button type="button" class="acct__btn" data-reschedule="${l.id}">Reschedule</button>
+          <button type="button" class="acct__btn acct__btn--quiet" data-cancel="${l.id}">Cancel</button>
+        </span>
       </div>`;
-    }).join("");
+    }).join("") + `<p class="acct__hint">Need a different day? Reschedule or cancel at least 12 hours before the lesson. That credit stays on your membership so you can book another day.</p>`;
     list.querySelectorAll("[data-cancel]").forEach((btn) => {
       btn.addEventListener("click", () => cancelLesson(btn.dataset.cancel));
     });
@@ -320,6 +319,9 @@ function startReschedule(id) {
 }
 
 async function cancelLesson(id) {
+  const lesson = (account?.lessons || []).find((l) => l.id === id);
+  const label = lesson ? `${prettyDate(lesson.date)} at ${lesson.time}` : "this lesson";
+  if (!window.confirm(`Cancel ${label}?\n\nYou'll get that credit back and can book another day.`)) return;
   weekStatus.textContent = "";
   const { res, data } = await api("/api/member", {
     method: "POST",

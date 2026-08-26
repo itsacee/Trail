@@ -17,7 +17,7 @@
 // booking ids are never exposed publicly.
 
 import { durationFor } from "../lib/schedule.js";
-import { loadLessons, lessonsOnDate } from "../lib/lessons.js";
+import { loadLessons, lessonsOnDate, isVoided } from "../lib/lessons.js";
 import { loadHolds, holdsOnDate } from "../lib/holds.js";
 
 // Returns [{ time: "5:00 PM", mins: 60, sources: [...] }] — each taken slot with
@@ -29,6 +29,13 @@ import { loadHolds, holdsOnDate } from "../lib/holds.js";
 // full hold window.
 export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
   const byTime = new Map(); // time label -> { mins, sources }
+  let stored = { lessons: [], voids: [] };
+  try {
+    stored = await loadLessons();
+  } catch {
+    /* blob optional */
+  }
+
   const add = (time, mins, source) => {
     if (!time) return;
     const cur = byTime.get(time) || { mins: 0, sources: [] };
@@ -44,6 +51,8 @@ export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
     ((await res.json()).data || []).forEach((item) => {
       const m = item.metadata || {};
       const { time, mins } = pick(m);
+      // Member moved/cancelled this Stripe signup slot — don't keep it blocked.
+      if (isVoided(stored, { sourceId: item.id, date, time })) return;
       add(time, mins, {
         kind: "paid",
         id: item.id,
@@ -71,7 +80,6 @@ export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
   await Promise.all(queries);
 
   try {
-    const stored = await loadLessons();
     lessonsOnDate(stored, date).forEach((l) =>
       add(l.time, durationFor(l.type || "membership"), {
         kind: "member",

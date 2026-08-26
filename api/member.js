@@ -6,6 +6,7 @@ import {
   makeMemberLesson,
   removeLesson,
   scheduledFor,
+  voidStripeLesson,
 } from "../lib/lessons.js";
 import {
   findMembership,
@@ -144,6 +145,42 @@ async function loadAccount(key, email) {
   return { sub, stored, scheduled, summary: membershipSummary(sub, scheduled) };
 }
 
+// Drop a lesson the member currently holds. Portal-booked lessons live in the
+// blob; the first day they picked at checkout lives on the Stripe payment, so
+// those get voided (and we clear the Stripe metadata so the old slot opens up).
+async function releaseLesson(key, acct, lesson, email) {
+  if (lesson.source === "stripe") {
+    voidStripeLesson(acct.stored, { ...lesson, email });
+    const id = lesson.sourceId || acct.sub?.id;
+    if (id && key) {
+      const slot = String(lesson.id).match(/-([1-4])$/)?.[1] || "1";
+      const path = String(id).startsWith("sub_") ? `subscriptions/${id}` : `payment_intents/${id}`;
+      const body = new URLSearchParams();
+      body.append(`metadata[date${slot}]`, "");
+      body.append(`metadata[time${slot}]`, "");
+      body.append(`metadata[loc${slot}]`, "");
+      if (slot === "1") {
+        body.append("metadata[date]", "");
+        body.append("metadata[time]", "");
+      }
+      try {
+        await fetch(`https://api.stripe.com/v1/${path}`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${key}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body,
+        });
+      } catch {
+        /* void still hides it on the member calendar */
+      }
+    }
+    return true;
+  }
+  return removeLesson(acct.stored, lesson.id, email);
+}
+
 export default async function handler(req, res) {
   const key = process.env.STRIPE_SECRET_KEY;
   const email = tokenFromRequest(req);
@@ -181,17 +218,11 @@ export default async function handler(req, res) {
       res.status(404).json({ error: "Lesson not found." });
       return;
     }
-    if (lesson.source === "stripe") {
-      res.status(400).json({
-        error: "That lesson was booked at signup. Call or text (405) 819-4401 and I'll move it.",
-      });
-      return;
-    }
     if (!canCancelLesson(lesson.date, lesson.time)) {
       res.status(400).json({ error: "Cancellations need 12 hours notice. Call or text (405) 819-4401." });
       return;
     }
-    if (!removeLesson(acct.stored, id, email)) {
+    if (!(await releaseLesson(key, acct, lesson, email))) {
       res.status(404).json({ error: "Lesson not found." });
       return;
     }
@@ -211,12 +242,6 @@ export default async function handler(req, res) {
     const lesson = acct.scheduled.find((l) => l.id === id);
     if (!lesson) {
       res.status(404).json({ error: "Lesson not found." });
-      return;
-    }
-    if (lesson.source === "stripe") {
-      res.status(400).json({
-        error: "That lesson was booked at signup. Call or text (405) 819-4401 and I'll move it.",
-      });
       return;
     }
     // The 12-hour window is measured from the lesson they currently hold.
@@ -271,7 +296,7 @@ export default async function handler(req, res) {
       /* continue */
     }
 
-    if (!removeLesson(acct.stored, id, email)) {
+    if (!(await releaseLesson(key, acct, lesson, email))) {
       res.status(404).json({ error: "Lesson not found." });
       return;
     }
