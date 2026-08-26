@@ -30,6 +30,7 @@ let AVAIL = {
   blocked: [],
 };
 let account = null;
+let rescheduleId = null;
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -165,14 +166,21 @@ function renderDash(data) {
       const canDrop = l.source !== "stripe";
       return `<div class="acct__row">
         <div><strong>${prettyDate(l.date)}</strong> · ${l.time}${l.focus ? ` · ${l.focus}` : ""}</div>
-        ${canDrop ? `<button type="button" class="booking__change" data-cancel="${l.id}">Cancel</button>` : ""}
+        ${canDrop ? `<span class="acct__actions">
+          <button type="button" class="booking__change" data-reschedule="${l.id}">Reschedule</button>
+          <button type="button" class="booking__change" data-cancel="${l.id}">Cancel</button>
+        </span>` : ""}
       </div>`;
     }).join("");
     list.querySelectorAll("[data-cancel]").forEach((btn) => {
       btn.addEventListener("click", () => cancelLesson(btn.dataset.cancel));
     });
+    list.querySelectorAll("[data-reschedule]").forEach((btn) => {
+      btn.addEventListener("click", () => startReschedule(btn.dataset.reschedule));
+    });
   }
 
+  exitReschedule();
   const canBook = left > 0 && !data.expired;
   weekForm.hidden = !canBook;
   const msg = document.getElementById("acctMsg");
@@ -262,6 +270,55 @@ async function loadAccount() {
   renderDash(data);
 }
 
+function exitReschedule() {
+  rescheduleId = null;
+  const title = document.getElementById("weekFormTitle");
+  if (title) title.innerHTML = `<span class="booking__step-num">+</span> Book another lesson`;
+  const submit = document.getElementById("weekSubmit");
+  if (submit) submit.textContent = "Lock in this lesson";
+  const keep = document.getElementById("keepTime");
+  if (keep) keep.hidden = true;
+  weekStatus.textContent = "";
+  weekStatus.classList.remove("booking__status--ok");
+}
+
+function startReschedule(id) {
+  const lesson = (account?.lessons || []).find((l) => l.id === id);
+  if (!lesson) return;
+  rescheduleId = id;
+
+  const focus = document.getElementById("memFocus");
+  if (focus && lesson.focus) focus.value = lesson.focus;
+
+  const title = document.getElementById("weekFormTitle");
+  if (title) title.innerHTML = `<span class="booking__step-num">↻</span> Move your ${prettyDate(lesson.date)} lesson`;
+  const submit = document.getElementById("weekSubmit");
+  if (submit) submit.textContent = "Move this lesson";
+
+  // A one-click way back out of reschedule mode, created the first time it's needed.
+  let keep = document.getElementById("keepTime");
+  if (!keep) {
+    keep = document.createElement("button");
+    keep.type = "button";
+    keep.id = "keepTime";
+    keep.className = "booking__change";
+    keep.style.marginTop = "0.6rem";
+    keep.textContent = "Keep my current time";
+    keep.addEventListener("click", () => renderDash(account));
+    weekForm.appendChild(keep);
+  }
+  keep.hidden = false;
+
+  weekStatus.classList.remove("booking__status--ok");
+  weekStatus.textContent = "Pick a new day and time — your old slot is freed up when the change goes through.";
+
+  dateSelect.value = "";
+  loadTimes("");
+  renderDays();
+  weekForm.hidden = false;
+  weekForm.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
 async function cancelLesson(id) {
   weekStatus.textContent = "";
   const { res, data } = await api("/api/member", {
@@ -308,30 +365,32 @@ weekForm.addEventListener("submit", async (e) => {
     weekStatus.textContent = "Pick a day and a time.";
     return;
   }
+  const moving = Boolean(rescheduleId);
   const btn = document.getElementById("weekSubmit");
+  const restoreLabel = moving ? "Move this lesson" : "Lock in this lesson";
   btn.disabled = true;
-  btn.textContent = "Booking…";
+  btn.textContent = moving ? "Moving…" : "Booking…";
   const { res, data } = await api("/api/member", {
     method: "POST",
     body: JSON.stringify({
-      action: "book",
+      action: moving ? "reschedule" : "book",
+      id: rescheduleId || undefined,
       date,
       time,
       focus: document.getElementById("memFocus").value,
     }),
   });
   if (!res.ok) {
-    weekStatus.textContent = data.error || "Couldn't book that time.";
+    weekStatus.textContent = data.error || (moving ? "Couldn't move that lesson." : "Couldn't book that time.");
     if (res.status === 409) delete bookedCache[date];
     btn.disabled = false;
-    btn.textContent = "Lock in this lesson";
+    btn.textContent = restoreLabel;
     loadTimes(date);
     return;
   }
   Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
   renderDash(data);
   btn.disabled = false;
-  btn.textContent = "Lock in this lesson";
 });
 
 dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));

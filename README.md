@@ -8,6 +8,22 @@ Plain HTML/CSS/JS — nothing to install, easy to edit, free to host.
 Open `index.html` in your browser, or in Cursor right-click it and choose
 "Open with Live Server" style preview. That's it.
 
+## Tests
+
+The booking rules — date math, the 12-hour cancel/reschedule cutoff, credit
+counting, expiry, and the one-lesson-per-day gate — are covered by automated tests
+that run offline, with **nothing to install** (they use Node's built-in test
+runner). Run them any time with:
+
+```
+npm test
+```
+
+They live in `test/` and check the logic in `lib/` (`schedule.js`,
+`members.js`, `lessons.js`). If you change any booking rule, run this first —
+a red test means the change broke something before it ever reaches the live
+site.
+
 ## Make it yours
 
 The site is fully written with Elijah's real info (Connors State stats,
