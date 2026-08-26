@@ -66,6 +66,7 @@ test("coachMail names the player and says it is not paid", () => {
   const mail = coachMail(parseApply(good).data);
   assert.match(mail.subject, /Sam Rivera/);
   assert.match(mail.text, /Not paid yet/i);
+  assert.match(mail.text, /14U–college/);
   assert.match(mail.text, /Monday, Wednesday, Friday/);
   assert.match(mail.html, /tel:\+14055550199/);
 });

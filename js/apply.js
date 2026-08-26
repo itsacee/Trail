@@ -28,7 +28,7 @@ if (form) {
       return;
     }
     if (!form.elements.player.value.trim() || !form.elements.age.value.trim()) {
-      statusEl.textContent = "Please enter the player's name and age / grade.";
+      statusEl.textContent = "Please enter the player's name and age / level.";
       return;
     }
     if (!form.elements.phone.value.trim()) {
