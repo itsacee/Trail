@@ -4,11 +4,15 @@
 
 import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
+import { placeHold, releaseHold } from "../lib/holds.js";
+
+const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 
 const SESSION_TYPES = {
   single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
   thirty: { amount: 5000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
-  membership: { amount: 24000, quantity: 1, picks: 0, label: "Membership — 4 one-hour lessons (4 weeks)", mode: "payment" },
+  // Members pick lesson 1 of 4 here; the other 3 get booked from /account.html.
+  membership: { amount: 24000, quantity: 1, picks: 1, label: "Membership — 4 one-hour lessons (4 weeks)", mode: "payment" },
 };
 
 const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
@@ -28,7 +32,24 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { type, player, parent, phone, email } = req.body || {};
+  // Backing out of Stripe returns them here; drop the hold so the slot frees up
+  // straight away instead of sitting reserved until it expires.
+  if (req.body?.action === "release") {
+    const id = String(req.body?.sessionId || "");
+    if (SESSION_ID_RE.test(id)) await releaseHold(id);
+    res.status(200).json({ released: true });
+    return;
+  }
+
+  // A retry after an abandoned payment must not collide with the hold that
+  // attempt left behind.
+  const previous = String(req.body?.previousSession || "");
+  if (SESSION_ID_RE.test(previous)) await releaseHold(previous);
+
+  const { type, player, parent, phone } = req.body || {};
+  // Stored lowercase so member sign-in can find them later — Stripe's metadata
+  // search is case-sensitive, and parents type their address however they like.
+  const email = String(req.body?.email || "").trim().toLowerCase();
   const focus = FOCUS_LABELS[req.body?.focus] ? String(req.body.focus) : "";
   const session = SESSION_TYPES[type];
   let sessions = Array.isArray(req.body?.sessions) ? req.body.sessions : [];
@@ -36,8 +57,6 @@ export default async function handler(req, res) {
   if (!sessions.length && req.body?.date && req.body?.time) {
     sessions = [{ date: req.body.date, time: req.body.time }];
   }
-  if (session?.picks === 0) sessions = [];
-
   const isMember = type === "membership";
   const emailOk = email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
   const valid =
@@ -49,7 +68,7 @@ export default async function handler(req, res) {
   if (!valid) {
     res.status(400).json({
       error: isMember
-        ? "Please enter the player's name and a valid email — that's how you sign in to pick each week's lesson."
+        ? "Please pick your first lesson day and time, the player's name, and a valid email — that email is how you sign in to book the other 3."
         : "Please pick your lesson day, time and enter the player's name.",
     });
     return;
@@ -117,7 +136,10 @@ export default async function handler(req, res) {
   if (emailOk) {
     params.append("customer_email", email);
   }
-  params.append("cancel_url", `${origin}/book.html?type=${encodeURIComponent(type)}`);
+  params.append(
+    "cancel_url",
+    `${origin}/book.html?type=${encodeURIComponent(type)}&cancelled={CHECKOUT_SESSION_ID}`
+  );
   params.append("line_items[0][quantity]", String(session.quantity));
   params.append("line_items[0][price_data][currency]", "usd");
   params.append("line_items[0][price_data][unit_amount]", String(session.amount));
@@ -167,5 +189,13 @@ export default async function handler(req, res) {
     return;
   }
 
-  res.status(200).json({ url: data.url });
+  // Hold the slot for the length of the checkout. Until the payment succeeds
+  // nothing else marks it as taken, so without this a second parent could pay
+  // for the same time while this one is still entering their card.
+  if (data.id && sessions.length) {
+    await placeHold(data.id, sessions, lessonMins);
+  }
+
+  // The browser keeps this so it can ignore — and later release — its own hold.
+  res.status(200).json({ url: data.url, sessionId: data.id || "" });
 }

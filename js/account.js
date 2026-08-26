@@ -1,5 +1,7 @@
 const TOKEN_KEY = "ap_member_token";
-const MAX_AHEAD = 10;
+// Safety net only — the real cutoff is the membership's own expiry date,
+// which the server sends back as `lastDay`.
+const MAX_AHEAD = 60;
 
 const loginCard = document.getElementById("loginCard");
 const dashCard = document.getElementById("dashCard");
@@ -66,6 +68,15 @@ function fmtTime(t) {
   return `${hr}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+// "5:00 PM" -> minutes since midnight, for comparing against booked ranges.
+function labelToMinutes(label) {
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(String(label).trim());
+  if (!m) return null;
+  let h = parseInt(m[1], 10) % 12;
+  if (/PM/i.test(m[3])) h += 12;
+  return h * 60 + parseInt(m[2], 10);
+}
+
 function startsForDate(iso) {
   if (!AVAIL) return [];
   if ((AVAIL.blocked || []).includes(iso)) return [];
@@ -107,14 +118,33 @@ function showDash() {
 
 function renderDash(data) {
   account = data;
+  const left = data.remaining || 0;
+  const expires = data.lastDayPretty || (data.lastDay ? prettyDate(data.lastDay) : "");
   document.getElementById("acctPlayer").textContent = data.player ? `${data.player}'s membership` : "Your membership";
+  const whoName = document.getElementById("acctWhoName");
+  if (whoName) whoName.textContent = data.email || data.player || "this member";
   document.getElementById("acctCredits").textContent =
-    `${data.used || 0} of ${data.credits || 4} lessons used · ${data.remaining || 0} left`;
-  document.getElementById("acctTitle").textContent = data.remaining ? "Pick This Week's Lesson" : "This membership is done";
-  document.getElementById("acctLead").textContent =
-    data.remaining
-      ? "One lesson a week. Book a day in the next 10 days — when you know you can make it."
-      : "You've used this membership's 4 lessons. Buy another 4 weeks on the Book page when you're ready.";
+    `${left} of ${data.credits || 4} lessons left${expires ? ` · use by ${expires}` : ""}`;
+  document.getElementById("acctTitle").textContent = left ? "Book Your Next Lesson" : "This membership is used up";
+  document.getElementById("acctLead").textContent = left
+    ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Pick any day that works${
+        expires ? ` — they expire ${expires}` : ""
+      }. Book one at a time; you don't have to plan them all now.`
+    : `You've used all ${data.credits || 4} lessons. Buy another membership on the Book page when you're ready for 4 more.`;
+
+  const expiry = document.getElementById("acctExpiry");
+  if (expiry) {
+    if (expires && left) {
+      expiry.hidden = false;
+      const days = typeof data.daysLeft === "number" ? data.daysLeft : null;
+      expiry.innerHTML =
+        `⏳ <strong>${left} lesson${left === 1 ? "" : "s"} left</strong> · must be used by <strong>${expires}</strong>` +
+        (days !== null ? ` (${days} day${days === 1 ? "" : "s"} from today)` : "") +
+        `<br />Unused lessons don't roll over, and your membership does not auto-renew.`;
+    } else {
+      expiry.hidden = true;
+    }
+  }
 
   const where = document.getElementById("acctWhere");
   if (data.location?.address) {
@@ -151,15 +181,15 @@ function renderDash(data) {
   }
 
   exitReschedule();
-  const canBook = (data.remaining || 0) > 0 && !data.bookedThisWeek;
+  const canBook = left > 0 && !data.expired;
   weekForm.hidden = !canBook;
   const msg = document.getElementById("acctMsg");
-  if (data.bookedThisWeek && data.remaining > 0) {
+  if (data.expired) {
     msg.hidden = false;
-    msg.textContent = `You're set this week (${prettyDate(data.bookedThisWeek.date)} at ${data.bookedThisWeek.time}). Come back to book next week.`;
-  } else if (!data.remaining) {
+    msg.innerHTML = `This membership ended${expires ? ` on ${expires}` : ""}. <a href="book.html?type=membership">Buy another month</a> when you're ready.`;
+  } else if (!left) {
     msg.hidden = false;
-    msg.innerHTML = `This membership is used up. <a href="book.html?type=membership">Buy another 4 weeks</a> when you're ready.`;
+    msg.innerHTML = `This membership is used up. <a href="book.html?type=membership">Buy another month</a> when you're ready for 4 more.`;
   } else {
     msg.hidden = true;
   }
@@ -168,14 +198,21 @@ function renderDash(data) {
   showDash();
 }
 
+// Every open day from tomorrow through the day the membership expires — they
+// can spend their remaining lessons on any of them.
 function renderDays() {
   dateSelect.length = 1;
+  const lastDay = (account && account.lastDay) || "";
   const now = new Date();
   for (let i = 1; i <= MAX_AHEAD; i++) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
     const iso = isoDate(d);
+    if (lastDay && iso > lastDay) break;
     if (!startsForDate(iso).length) continue;
     dateSelect.append(new Option(prettyDate(iso), iso));
+  }
+  if (dateSelect.length === 1) {
+    dateSelect.options[0].text = "No open days left in this membership";
   }
 }
 
@@ -197,13 +234,24 @@ async function loadTimes(date) {
     }
   }
   const taken = bookedCache[date] || [];
+  // Lessons run an hour, so a booking at 5:00 also rules out 5:30 — compare
+  // ranges, not just identical start times, or the server rejects the pick
+  // only after they've clicked.
+  const bookedRanges = taken
+    .map((b) => {
+      const s = labelToMinutes(b.time);
+      return s === null ? null : [s, s + (b.mins || 60)];
+    })
+    .filter(Boolean);
   const starts = startsForDate(date);
   timeSelect.innerHTML = "";
   timeSelect.append(new Option("Choose a time", ""));
   let open = 0;
   starts.forEach((t) => {
     const label = fmtTime(t);
-    const hit = taken.some((b) => b.time === label);
+    const s = toMinutes(t);
+    const e = s + 60;
+    const hit = bookedRanges.some(([bs, be]) => s < be && bs < e);
     const opt = new Option(hit ? `${label} — booked` : label, label);
     opt.disabled = hit;
     if (!hit) open++;
@@ -225,7 +273,7 @@ async function loadAccount() {
 function exitReschedule() {
   rescheduleId = null;
   const title = document.getElementById("weekFormTitle");
-  if (title) title.innerHTML = `<span class="booking__step-num">+</span> Book a lesson this week`;
+  if (title) title.innerHTML = `<span class="booking__step-num">+</span> Book another lesson`;
   const submit = document.getElementById("weekSubmit");
   if (submit) submit.textContent = "Lock in this lesson";
   const keep = document.getElementById("keepTime");
@@ -296,7 +344,8 @@ loginForm.addEventListener("submit", async (e) => {
       method: "POST",
       body: JSON.stringify({ email: loginForm.elements.email.value.trim() }),
     });
-    loginStatus.classList.add("booking__status--ok");
+    // Only show it green when a link actually went out.
+    loginStatus.classList.toggle("booking__status--ok", data.sent !== false);
     loginStatus.textContent = data.message || "Check your email for a sign-in link.";
   } catch {
     loginStatus.classList.remove("booking__status--ok");
@@ -345,10 +394,22 @@ weekForm.addEventListener("submit", async (e) => {
 });
 
 dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
-document.getElementById("signOut").addEventListener("click", () => {
+function signOut() {
   clearToken();
+  account = null;
+  const status = document.getElementById("loginStatus");
+  if (status) {
+    status.classList.remove("booking__status--ok");
+    status.textContent = "";
+  }
+  const emailField = document.getElementById("loginEmail");
+  if (emailField) emailField.value = "";
   showLogin();
-});
+}
+
+document.getElementById("signOut").addEventListener("click", signOut);
+// Same thing, worded for someone who didn't expect to be signed in at all.
+document.getElementById("switchUser")?.addEventListener("click", signOut);
 
 (async function init() {
   const params = new URLSearchParams(window.location.search);

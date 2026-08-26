@@ -9,8 +9,48 @@
 //   RESEND_API_KEY     — from resend.com (free tier covers this easily)
 //   FROM_EMAIL         — optional, defaults to bookings@apacademybsb.com
 
-import { LOCATIONS, locationKeyFor } from "../lib/schedule.js";
+import { LOCATIONS, locationKeyFor, LOCATION_KEY } from "../lib/schedule.js";
 import { signMemberToken } from "../lib/memberAuth.js";
+import { MEMBER_CREDITS, MEMBER_PERIOD_DAYS, lastUsableDate } from "../lib/members.js";
+import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
+import { releaseHold } from "../lib/holds.js";
+
+// A .ics of the booked lesson(s), attached to the confirmation. The coach is
+// BCC'd on every one of these, so a booking is one tap away from their phone
+// calendar without waiting on the subscribed feed to refresh.
+function inviteAttachment(meta, sessions, sourceId) {
+  const now = stamp();
+  const player = meta.player || "Lesson";
+  const kind = meta.type === "thirty" ? "30-min" : meta.type === "membership" ? "Membership" : "Private";
+  const events = sessions.map((s, i) => {
+    const place = LOCATIONS[s.loc] || LOCATIONS[LOCATION_KEY] || {};
+    return eventLines({
+      uid: `${sourceId}-${i + 1}@apacademybsb.com`,
+      date: s.date,
+      time: s.time,
+      durationMin: meta.type === "thirty" ? 30 : 60,
+      summary: `${player} — ${kind}${place.name ? ` @ ${place.name}` : ""}`,
+      location: place.address || place.name || "",
+      description: [
+        meta.parent ? `Parent: ${meta.parent}` : "",
+        meta.phone ? `Phone: ${meta.phone}` : "",
+        meta.email ? `Email: ${meta.email}` : "",
+        meta.focus ? `Working on: ${meta.focus}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      alarmMinutes: 60,
+      now,
+    });
+  });
+  if (!events.some((e) => e.length)) return null;
+  const ics = buildCalendar({ name: "AP Academy", events });
+  return {
+    filename: sessions.length > 1 ? "ap-academy-lessons.ics" : "ap-academy-lesson.ics",
+    content: Buffer.from(ics, "utf8").toString("base64"),
+    content_type: "text/calendar; charset=utf-8; method=PUBLISH",
+  };
+}
 
 const COACH = "Elijah Alexander";
 const PHONE = "(405) 819-4401";
@@ -227,8 +267,26 @@ ${REPLY_TO}
 apacademybsb.com`;
 }
 
-function memberEmailHtml(meta, origin) {
+// The membership welcome. This is the one email that has to carry everything:
+// thank you, the first lesson, where to go, how the 4-lesson month works, when
+// the credits die, and — loudly — that nothing auto-renews.
+function memberFacts(meta, sessions, startedAt) {
+  const first = sessions[0] || null;
+  const place = LOCATIONS[(first && first.loc) || LOCATION_KEY] || LOCATIONS[LOCATION_KEY];
+  const periodEnd = (startedAt || Math.floor(Date.now() / 1000)) + MEMBER_PERIOD_DAYS * 86400;
+  return {
+    first,
+    place,
+    lastDayPretty: prettyDate(lastUsableDate(periodEnd)),
+    left: Math.max(0, MEMBER_CREDITS - sessions.length),
+    who: meta.player || "Your player",
+  };
+}
+
+function memberEmailHtml(meta, origin, sessions, startedAt) {
+  const f = memberFacts(meta, sessions, startedAt);
   const link = `${origin}/account.html`;
+  const p = f.place || {};
   return `<!DOCTYPE html>
 <html><body style="margin:0;padding:0;background:#050505;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:28px 12px;">
@@ -238,27 +296,110 @@ function memberEmailHtml(meta, origin) {
       <div style="font-size:26px;font-weight:bold;color:#ffffff;letter-spacing:1px;">AP ACADEMY</div>
       <div style="font-size:11px;color:#a8adb6;letter-spacing:3px;text-transform:uppercase;">Ace Performance</div>
     </td></tr>
+
     <tr><td style="padding-top:22px;">
-      <div style="font-size:21px;color:#ffffff;font-weight:bold;">You're in — 4 lessons over 4 weeks</div>
+      <div style="font-size:21px;color:#ffffff;font-weight:bold;">Thank you for joining AP Academy!</div>
       <p style="color:#a8adb6;font-size:15px;line-height:1.6;margin:10px 0 0;">
-        ${meta.parent ? `Hi ${meta.parent} — ` : ""}${meta.player || "Your player"}'s membership is active.
-        Book <strong style="color:#ffffff;">one lesson each week</strong> when you know you can make it.
-        It does not auto-renew. Unused lessons don't roll over.
+        ${meta.parent ? `Hi ${meta.parent} — ` : ""}${f.who}'s membership is active: <strong style="color:#ffffff;">${MEMBER_CREDITS} one-hour lessons</strong>
+        to use over the next 4 weeks. I'm looking forward to getting to work.
       </p>
     </td></tr>
+
+    ${
+      f.first
+        ? `<tr><td style="padding-top:24px;">
+      <div style="font-size:11px;color:#a8adb6;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:6px;">Your First Lesson</div>
+      <div style="background:#050505;border:1px solid #26262b;border-radius:12px;padding:16px 18px;">
+        <div style="font-size:17px;color:#ffffff;font-weight:bold;">${prettyDate(f.first.date)} at ${f.first.time}</div>
+        <div style="color:#a8adb6;font-size:13px;padding-top:4px;">Lesson 1 of ${MEMBER_CREDITS} · ${f.left} left to book</div>
+      </div>
+    </td></tr>`
+        : ""
+    }
+
     <tr><td style="padding-top:22px;">
-      <a href="${link}" style="display:inline-block;background:#cfd4da;color:#06121c;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 22px;border-radius:99px;">Pick this week's lesson</a>
+      <div style="background:#050505;border:2px solid #cfd4da;border-radius:12px;padding:20px;">
+        <div style="font-size:11px;color:#cfd4da;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Where to Go</div>
+        <div style="font-size:17px;color:#ffffff;font-weight:bold;padding-top:8px;line-height:1.5;">
+          ${p.name || "Mustang High School"}${p.address ? `<br />${p.address}` : ""}
+        </div>
+        <p style="color:#a8adb6;font-size:13px;line-height:1.6;margin:8px 0 0;">
+          ${p.note || "Plan to arrive about 5 minutes early."}
+        </p>
+        ${
+          p.address
+            ? `<a href="${mapUrl(p.address)}" style="display:inline-block;margin-top:14px;background:#cfd4da;color:#06121c;
+               text-decoration:none;font-weight:bold;font-size:14px;padding:11px 22px;border-radius:99px;">Get Directions</a>`
+            : ""
+        }
+      </div>
     </td></tr>
-    <tr><td style="padding-top:22px;">
-      <p style="color:#a8adb6;font-size:14px;line-height:1.7;margin:0;">
-        Sign in with this email. We'll send the training address after you book a day.
-        Questions? Call or text <a href="tel:${PHONE_TEL}" style="color:#cfd4da;text-decoration:none;font-weight:bold;">${PHONE}</a>.
+
+    <tr><td style="padding-top:26px;">
+      <div style="font-size:11px;color:#a8adb6;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:8px;">
+        How Your Membership Works
+      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="color:#f5f6f8;font-size:15px;line-height:1.6;">
+        <tr><td style="padding:0 0 12px;">
+          <strong style="color:#ffffff;">You get ${MEMBER_CREDITS} lessons — pick any ${MEMBER_CREDITS} days you want.</strong><br />
+          <span style="color:#a8adb6;">No set weekly time. Book the days that actually work for you.</span>
+        </td></tr>
+        <tr><td style="padding:0 0 12px;">
+          <strong style="color:#ffffff;">You don't have to book them all now.</strong><br />
+          <span style="color:#a8adb6;">Your first one is set. Come back and book the other ${f.left} one at a time, whenever you know your schedule.</span>
+        </td></tr>
+        <tr><td style="padding:0 0 12px;">
+          <strong style="color:#ffffff;">To book the rest, sign in with this email.</strong><br />
+          <span style="color:#a8adb6;">Go to the Members page and enter this same email address. It'll show you how many lessons you have left and the exact date they expire.</span>
+        </td></tr>
+        <tr><td style="padding:0 0 12px;">
+          <strong style="color:#ffffff;">Use them by ${f.lastDayPretty}.</strong><br />
+          <span style="color:#a8adb6;">That's when this membership ends. Unused lessons don't roll over.</span>
+        </td></tr>
+      </table>
+    </td></tr>
+
+    <tr><td style="padding-top:8px;">
+      <a href="${link}" style="display:inline-block;background:#cfd4da;color:#06121c;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 22px;border-radius:99px;">Book my next lesson</a>
+    </td></tr>
+
+    <tr><td style="padding-top:26px;">
+      <div style="background:#1a1206;border:1px solid #6b4d16;border-radius:12px;padding:18px;">
+        <div style="font-size:11px;color:#e0b457;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Heads Up — This Does Not Auto-Renew</div>
+        <p style="color:#f5f6f8;font-size:15px;line-height:1.6;margin:8px 0 0;">
+          You will <strong>not</strong> be charged again. Nothing renews on its own, and there's no subscription to cancel.
+          When your ${MEMBER_CREDITS} lessons are used up — or ${f.lastDayPretty} passes — the membership simply ends.
+          If you want another month, just buy membership again at
+          <a href="${origin}/book.html?type=membership" style="color:#e0b457;text-decoration:none;font-weight:bold;">apacademybsb.com</a>.
+        </p>
+      </div>
+    </td></tr>
+
+    <tr><td style="padding-top:26px;">
+      <div style="font-size:11px;color:#a8adb6;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:8px;">What to Bring</div>
+      <p style="color:#f5f6f8;font-size:15px;margin:0;">Bat, glove, turfs, and a water bottle.</p>
+    </td></tr>
+
+    <tr><td style="padding-top:26px;">
+      <div style="font-size:11px;color:#a8adb6;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:8px;">Questions?</div>
+      <p style="color:#f5f6f8;font-size:15px;line-height:1.7;margin:0;">
+        Just hit reply to this email and it comes straight to me — or call or text
+        <a href="tel:${PHONE_TEL}" style="color:#cfd4da;text-decoration:none;font-weight:bold;">${PHONE}</a>.
+      </p>
+      <p style="color:#a8adb6;font-size:13px;line-height:1.7;margin:12px 0 0;">
+        Need to cancel or move a lesson? Please give at least 12 hours notice — later than that
+        is subject to a cancellation fee.
       </p>
     </td></tr>
+
     <tr><td style="padding-top:26px;border-top:1px solid #26262b;">
       <p style="color:#a8adb6;font-size:14px;line-height:1.8;margin:16px 0 0;">
         See you at training,<br />
-        <strong style="color:#ffffff;font-size:16px;">${COACH}</strong>
+        <strong style="color:#ffffff;font-size:16px;">${COACH}</strong><br />
+        <span style="color:#a8adb6;">Founder &amp; Head Trainer, AP Academy</span><br />
+        <a href="tel:${PHONE_TEL}" style="color:#cfd4da;text-decoration:none;">${PHONE}</a><br />
+        <a href="mailto:${REPLY_TO}" style="color:#cfd4da;text-decoration:none;">${REPLY_TO}</a><br />
+        <a href="https://www.apacademybsb.com" style="color:#cfd4da;text-decoration:none;">apacademybsb.com</a>
       </p>
     </td></tr>
   </table>
@@ -267,32 +408,64 @@ function memberEmailHtml(meta, origin) {
 </body></html>`;
 }
 
-function memberEmailText(meta, origin) {
-  return `AP ACADEMY — You're in
+function memberEmailText(meta, origin, sessions, startedAt) {
+  const f = memberFacts(meta, sessions, startedAt);
+  const p = f.place || {};
+  return `AP ACADEMY — Thank you for joining!
 
-${meta.parent ? `Hi ${meta.parent} — ` : ""}${meta.player || "Your player"}'s membership is active.
-Book one lesson each week when you know you can make it. It does not auto-renew. Unused lessons don't roll over.
+${meta.parent ? `Hi ${meta.parent} — ` : ""}${f.who}'s membership is active: ${MEMBER_CREDITS} one-hour lessons
+to use over the next 4 weeks.
+${
+  f.first
+    ? `
+YOUR FIRST LESSON
+${prettyDate(f.first.date)} at ${f.first.time}
+Lesson 1 of ${MEMBER_CREDITS} · ${f.left} left to book
+`
+    : ""
+}
+WHERE TO GO
+${p.name || "Mustang High School"}${p.address ? `\n${p.address}` : ""}
+${p.note || "Plan to arrive about 5 minutes early."}${p.address ? `\nDirections: ${mapUrl(p.address)}` : ""}
 
-Pick this week's lesson:
-${origin}/account.html
+HOW YOUR MEMBERSHIP WORKS
+* You get ${MEMBER_CREDITS} lessons — pick any ${MEMBER_CREDITS} days you want. No set weekly time.
+* You don't have to book them all now. Your first one is set; book the other
+  ${f.left} one at a time, whenever you know your schedule.
+* To book the rest, sign in with this email at ${origin}/account.html
+  It shows how many lessons you have left and the exact date they expire.
+* Use them by ${f.lastDayPretty}. Unused lessons don't roll over.
 
-Sign in with this email. We'll send the training address after you book a day.
+HEADS UP — THIS DOES NOT AUTO-RENEW
+You will NOT be charged again. Nothing renews on its own and there's no
+subscription to cancel. When your ${MEMBER_CREDITS} lessons are used up — or ${f.lastDayPretty}
+passes — the membership simply ends. Want another month? Buy membership
+again at ${origin}/book.html?type=membership
 
-Questions? Call or text ${PHONE}.
+WHAT TO BRING
+Bat, glove, turfs, and a water bottle.
+
+QUESTIONS?
+Reply to this email or call/text ${PHONE}.
+Need to cancel or move a lesson? Please give at least 12 hours notice.
 
 See you at training,
-${COACH}`;
+${COACH}
+Founder & Head Trainer, AP Academy
+${PHONE}
+${REPLY_TO}
+apacademybsb.com`;
 }
 
-export default async function handler(req, res) {
-  const key = process.env.STRIPE_SECRET_KEY;
-  const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
-  const id = String(req.query?.session_id || "");
-
-  if (!key || !/^cs_[A-Za-z0-9_]+$/.test(id)) {
-    res.status(400).json({ sent: false, error: "Invalid request." });
-    return;
+// Verifies a paid Checkout session with Stripe and sends its confirmation
+// email exactly once, flagging the payment so it can't go out twice.
+//
+// Two things call this: the success page (/api/confirm) and the Stripe webhook
+// (/api/webhook). The webhook is the reliable one — the success page only runs
+// if the buyer's browser actually gets there.
+export async function deliverConfirmation({ key, resendKey, from, sessionId, origin }) {
+  if (!key || !/^cs_[A-Za-z0-9_]+$/.test(String(sessionId || ""))) {
+    return { status: 400, body: { sent: false, error: "Invalid request." } };
   }
 
   const stripe = (path, opts = {}) =>
@@ -303,15 +476,13 @@ export default async function handler(req, res) {
 
   try {
     // 1. Verify the payment actually went through
-    const sRes = await stripe(`checkout/sessions/${id}`);
+    const sRes = await stripe(`checkout/sessions/${sessionId}`);
     if (!sRes.ok) {
-      res.status(404).json({ sent: false, error: "Booking not found." });
-      return;
+      return { status: 404, body: { sent: false, error: "Booking not found." } };
     }
     const session = await sRes.json();
     if (session.payment_status !== "paid") {
-      res.status(402).json({ sent: false, error: "Payment not completed." });
-      return;
+      return { status: 402, body: { sent: false, error: "Payment not completed." } };
     }
 
     const meta = session.metadata || {};
@@ -324,7 +495,6 @@ export default async function handler(req, res) {
     }));
     const isMember = meta.type === "membership" || Boolean(session.subscription);
     const memberToken = isMember && to ? signMemberToken(to) : "";
-    const origin = `https://${req.headers.host || "www.apacademybsb.com"}`;
     const summary = { player: meta.player || "", sessions, email: to, places, member: isMember, memberToken };
 
     // 2. Don't send twice if they refresh the success page
@@ -334,35 +504,43 @@ export default async function handler(req, res) {
       ? { path: `payment_intents/${session.payment_intent}`, id: session.payment_intent }
       : null;
 
+    // When the membership month started — the clock the 4 lessons run on.
+    let startedAt = session.created || Math.floor(Date.now() / 1000);
+
     if (target) {
       const tRes = await stripe(target.path);
       if (tRes.ok) {
         const obj = await tRes.json();
+        if (obj.created) startedAt = obj.created;
         if (obj.metadata?.confirmation_sent === "1") {
-          res.status(200).json({ sent: true, alreadySent: true, ...summary });
-          return;
+          return { status: 200, body: { sent: true, alreadySent: true, ...summary } };
         }
       }
     }
 
     const canEmail = Boolean(resendKey && to && (sessions.length || isMember));
     if (!canEmail) {
-      res.status(200).json({ sent: false, ...summary });
-      return;
+      return { status: 200, body: { sent: false, ...summary } };
     }
 
     // 3. Send it
-    const mailBody = isMember && !sessions.length
+    // Members always get the membership welcome — it's the one that explains
+    // the 4 lessons, the expiry date and the no-auto-renew rule.
+    const mailBody = isMember
       ? {
-          subject: "You're in — pick this week's lesson | AP Academy",
-          html: memberEmailHtml(meta, origin),
-          text: memberEmailText(meta, origin),
+          subject: "Thank you for joining AP Academy — here's how your membership works",
+          html: memberEmailHtml(meta, origin, sessions, startedAt),
+          text: memberEmailText(meta, origin, sessions, startedAt),
         }
       : {
           subject: `Thank you for booking with AP Academy — ${prettyDate(sessions[0].date)} at ${sessions[0].time}`,
           html: emailHtml(meta, sessions),
           text: emailText(meta, sessions),
         };
+
+    const invite = sessions.length
+      ? inviteAttachment(meta, sessions, session.payment_intent || session.id)
+      : null;
 
     const mail = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -373,16 +551,24 @@ export default async function handler(req, res) {
         bcc: [REPLY_TO],
         reply_to: REPLY_TO,
         ...mailBody,
+        ...(invite ? { attachments: [invite] } : {}),
       }),
     });
 
     if (!mail.ok) {
       const err = await mail.json().catch(() => ({}));
-      res.status(200).json({ sent: false, error: err.message || "Email failed to send.", ...summary });
-      return;
+      console.error("Resend rejected the confirmation email:", mail.status, err);
+      return {
+        status: 200,
+        body: { sent: false, error: err.message || "Email failed to send.", ...summary },
+      };
     }
 
-    // 4. Flag it so refreshes don't re-send
+    // The payment now covers this slot, so the checkout hold is redundant.
+    // It would expire on its own; clearing it frees the slot listing sooner.
+    releaseHold(sessionId).catch(() => {});
+
+    // 4. Flag it so refreshes — and the webhook — don't re-send
     if (target) {
       await stripe(target.path, {
         method: "POST",
@@ -391,8 +577,23 @@ export default async function handler(req, res) {
       });
     }
 
-    res.status(200).json({ sent: true, ...summary });
-  } catch {
-    res.status(200).json({ sent: false, error: "Could not send the confirmation email." });
+    return { status: 200, body: { sent: true, ...summary } };
+  } catch (e) {
+    console.error("Confirmation failed:", e);
+    return {
+      status: 200,
+      body: { sent: false, error: "Could not send the confirmation email." },
+    };
   }
+}
+
+export default async function handler(req, res) {
+  const { status, body } = await deliverConfirmation({
+    key: process.env.STRIPE_SECRET_KEY,
+    resendKey: process.env.RESEND_API_KEY,
+    from: process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>",
+    sessionId: String(req.query?.session_id || ""),
+    origin: `https://${req.headers.host || "www.apacademybsb.com"}`,
+  });
+  res.status(status).json(body);
 }

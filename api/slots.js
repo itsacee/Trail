@@ -5,18 +5,36 @@
 // Bookings store their slots as metadata date1/time1 ... date4/time4
 // (memberships have four). Stripe Search doesn't support OR, so each
 // dateN key is queried separately, in parallel.
+//
+// Three things can occupy a slot: a paid booking in Stripe, a lesson a member
+// booked from the portal (blob storage), and a checkout someone is part-way
+// through (a hold). Coaches can see which by adding their passcode:
+//
+//   /api/slots?date=YYYY-MM-DD&key=COACH_PASS
+//
+// That adds a `sources` list to each entry explaining what is blocking the
+// slot. Without the passcode only times and durations are returned — names and
+// booking ids are never exposed publicly.
 
 import { durationFor } from "../lib/schedule.js";
 import { loadLessons, lessonsOnDate } from "../lib/lessons.js";
+import { loadHolds, holdsOnDate } from "../lib/holds.js";
 
-// Returns [{ time: "5:00 PM", mins: 60 }] — each taken slot with how long it
-// runs, so callers can block overlapping start times (a 1-hour lesson blocks
-// both the hour and the half-hour that follow it).
-export async function bookedTimes(key, date) {
-  const byTime = new Map(); // time label -> longest duration seen at that start
-  const add = (time, mins) => {
+// Returns [{ time: "5:00 PM", mins: 60, sources: [...] }] — each taken slot with
+// how long it runs, so callers can block overlapping start times (a 1-hour
+// lesson blocks both the hour and the half-hour that follow it).
+// `ignoreHold` is the caller's own checkout session. Without it a parent who
+// backs out of payment and tries again is blocked by the hold they just
+// created — the slot they were about to buy reads as taken, to them, for the
+// full hold window.
+export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
+  const byTime = new Map(); // time label -> { mins, sources }
+  const add = (time, mins, source) => {
     if (!time) return;
-    byTime.set(time, Math.max(byTime.get(time) || 0, mins));
+    const cur = byTime.get(time) || { mins: 0, sources: [] };
+    cur.mins = Math.max(cur.mins, mins);
+    if (source) cur.sources.push(source);
+    byTime.set(time, cur);
   };
 
   const search = async (resource, query, pick) => {
@@ -26,7 +44,13 @@ export async function bookedTimes(key, date) {
     ((await res.json()).data || []).forEach((item) => {
       const m = item.metadata || {};
       const { time, mins } = pick(m);
-      add(time, mins);
+      add(time, mins, {
+        kind: "paid",
+        id: item.id,
+        player: m.player || "",
+        type: m.type || "",
+        created: item.created || 0,
+      });
     });
   };
 
@@ -48,12 +72,38 @@ export async function bookedTimes(key, date) {
 
   try {
     const stored = await loadLessons();
-    lessonsOnDate(stored, date).forEach((l) => add(l.time, durationFor(l.type || "membership")));
+    lessonsOnDate(stored, date).forEach((l) =>
+      add(l.time, durationFor(l.type || "membership"), {
+        kind: "member",
+        id: l.id,
+        player: l.player || "",
+        email: l.email || "",
+        createdAt: l.createdAt || 0,
+      })
+    );
   } catch {
     /* blob optional */
   }
 
-  return [...byTime.entries()].map(([time, mins]) => ({ time, mins }));
+  // Slots someone is part-way through paying for. Read straight from storage,
+  // so these are visible immediately — unlike Stripe Search, which lags.
+  try {
+    const holds = await loadHolds();
+    holdsOnDate(holds, date)
+      .filter((h) => !ignoreHold || h.sessionId !== ignoreHold)
+      .forEach((h) =>
+      add(h.time, h.mins || 60, {
+        kind: "hold",
+        id: h.sessionId,
+        expiresAt: h.expiresAt,
+        expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
+      })
+    );
+  } catch {
+    /* holds optional */
+  }
+
+  return [...byTime.entries()].map(([time, v]) => ({ time, mins: v.mins, sources: v.sources }));
 }
 
 export default async function handler(req, res) {
@@ -63,8 +113,18 @@ export default async function handler(req, res) {
     res.status(200).json({ booked: [] });
     return;
   }
+  const pass = process.env.COACH_PASS;
+  const isCoach = Boolean(pass && String(req.query?.key || "") === pass);
+  // The browser passes back the checkout it last started, so someone who
+  // abandoned payment doesn't see their own hold sitting on the slot.
+  const mine = /^cs_[A-Za-z0-9_]+$/.test(String(req.query?.mine || "")) ? String(req.query.mine) : "";
   try {
-    res.status(200).json({ booked: await bookedTimes(key, date) });
+    const booked = await bookedTimes(key, date, { ignoreHold: mine });
+    res.status(200).json({
+      date,
+      // Names and ids stay private unless the coach asked.
+      booked: isCoach ? booked : booked.map(({ time, mins }) => ({ time, mins })),
+    });
   } catch {
     res.status(200).json({ booked: [] });
   }

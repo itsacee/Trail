@@ -201,7 +201,8 @@ const DAYS_AHEAD = 28; // how many days out parents can book
 const SESSIONS = {
   single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1, focus: "full" },
   thirty: { name: "30-Minute Lesson", price: "$50 · 30 min", label: "Pay $50 — Book Lesson", picks: 1, focus: "one" },
-  membership: { name: "Membership", price: "$240 · 4 weeks", label: "Start Membership — $240", picks: 0, focus: "none" },
+  // Members pick lesson 1 of 4 here; the other 3 get booked later from account.html.
+  membership: { name: "Membership", price: "$240 · 4 lessons", label: "Start Membership — $240", picks: 1, focus: "full" },
 };
 
 const form = document.getElementById("bookingForm");
@@ -217,6 +218,17 @@ let selectedType = "single";
 let picked = []; // chosen sessions: [{ date: "2026-08-06", time: "9:00 AM" }]
 const bookedCache = {}; // date -> array of taken times
 
+// Starting checkout reserves the slot so nobody else can pay for it. That
+// reservation must never block the person who created it — otherwise backing
+// out of payment locks them out of the very time they were trying to buy.
+const HOLD_KEY = "ap_checkout_session";
+const myHold = () => {
+  try { return sessionStorage.getItem(HOLD_KEY) || ""; } catch { return ""; }
+};
+const rememberHold = (id) => {
+  try { id ? sessionStorage.setItem(HOLD_KEY, id) : sessionStorage.removeItem(HOLD_KEY); } catch { /* private mode */ }
+};
+
 function maxPicks() {
   return SESSIONS[selectedType].picks;
 }
@@ -231,20 +243,23 @@ function syncTypeTabs() {
 
 function updateMemberCheckout() {
   const isMem = selectedType === "membership";
-  const slotStep = document.getElementById("slotStep");
   const memberNote = document.getElementById("memberNote");
   const bookTitle = document.getElementById("bookTitle");
   const bookLead = document.getElementById("bookLead");
-  if (slotStep) slotStep.hidden = isMem;
+  const slotTitle = document.getElementById("slotStepTitle");
+  // Members pick their first lesson right here, same as a drop-in.
   if (memberNote) memberNote.hidden = !isMem;
   const whoNum = document.getElementById("whoStepNum");
-  if (whoNum) whoNum.textContent = isMem ? "1" : "2";
+  if (whoNum) whoNum.textContent = "2";
+  if (slotTitle) {
+    slotTitle.textContent = isMem ? "Pick your first lesson" : "Pick a day & time";
+  }
   if (bookTitle) {
-    bookTitle.textContent = isMem ? "Join. Then Pick Your Weeks." : "Pick a Day. Grab Your Spot.";
+    bookTitle.textContent = isMem ? "Join. Pick Your First Day." : "Pick a Day. Grab Your Spot.";
   }
   if (bookLead) {
     bookLead.textContent = isMem
-      ? "Pay today. After that you'll sign in and book one lesson each week — when you know you can make it."
+      ? "Pay today and lock in lesson 1 of 4. You book the other 3 whenever you like — any days that work, inside your 4 weeks."
       : "Choose your lesson type, then lock in a time. We'll email the training address after you pay.";
   }
 }
@@ -415,7 +430,8 @@ async function loadTimes(date) {
     timeSelect.append(new Option("Checking open times…", ""));
     timeSelect.disabled = true;
     try {
-      const res = await fetch(`/api/slots?date=${date}`);
+      const mine = myHold();
+      const res = await fetch(`/api/slots?date=${date}${mine ? `&mine=${encodeURIComponent(mine)}` : ""}`);
       bookedCache[date] = res.ok ? (await res.json()).booked || [] : [];
     } catch {
       bookedCache[date] = []; // static preview or offline — show all as open
@@ -476,7 +492,7 @@ if (form) {
     if (picked.length < maxPicks() || !form.elements.player.value.trim()) {
       statusEl.textContent =
         selectedType === "membership"
-          ? "Please enter the player's name and your email."
+          ? "Please pick your first lesson day and time, and enter the player's name."
           : "Please pick a day, a time, and enter the player's name.";
       return;
     }
@@ -499,10 +515,14 @@ if (form) {
           parent: form.elements.parent.value.trim(),
           phone: form.elements.phone.value.trim(),
           email: form.elements.email.value.trim(),
+          // Drop the reservation from an attempt they abandoned, so a retry
+          // isn't rejected as a clash with themselves.
+          previousSession: myHold(),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) {
+        rememberHold(data.sessionId || "");
         window.location.href = data.url;
         return;
       }
@@ -522,9 +542,30 @@ if (form) {
     refreshSubmit();
   });
 
+  // Backed out of Stripe without paying — hand the slot straight back rather
+  // than leaving it reserved against everyone else until the hold expires.
+  const cancelled = params.get("cancelled") || "";
+  if (/^cs_[A-Za-z0-9_]+$/.test(cancelled)) {
+    rememberHold("");
+    Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
+    fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "release", sessionId: cancelled }),
+    })
+      .catch(() => {})
+      .finally(() => loadTimes(dateSelect.value));
+    const url = new URL(window.location.href);
+    url.searchParams.delete("cancelled");
+    history.replaceState({}, "", url.pathname + (url.searchParams.toString() ? "?" + url.searchParams : ""));
+  }
+
   // Back from Stripe: confirm the payment, send the confirmation email,
   // and show the training address on screen.
   if (params.get("booked") === "1") {
+    // Paid, so the reservation has done its job and the booking itself now
+    // covers the slot.
+    rememberHold("");
     statusEl.classList.add("booking__status--ok");
     statusEl.textContent = "✅ You're booked! Getting your details…";
     document.getElementById("book")?.scrollIntoView();

@@ -2,143 +2,275 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Coach Schedule | AP Academy</title>
+  <title>Coach | AP Academy</title>
   <link rel="icon" type="image/png" href="img/logo-mark.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
+    /* Built for a phone held upright, one thumb. Everything readable without
+       rotating: no side-by-side columns, no text under 15px, nothing that
+       needs a precise tap. */
     :root {
-      --bg: #050505; --surface: #111114; --line: #26262b;
+      --bg: #050505; --surface: #111114; --surface2: #17171c; --line: #26262b;
       --text: #f5f6f8; --dim: #a8adb6; --btn: #dfe4ea; --on-btn: #0a0a0c;
+      --good: #9fe8b9; --bad: #ff8d7e; --warn: #e0b457;
+      --pad: env(safe-area-inset-bottom, 0px);
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
-      font-family: "Inter", system-ui, sans-serif;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
       background: var(--bg); color: var(--text);
-      line-height: 1.6; -webkit-font-smoothing: antialiased;
-      padding: 2rem 1rem 4rem;
+      font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+      padding: 1rem 0.9rem calc(2rem + var(--pad));
+      overflow-x: hidden;
     }
-    .wrap { max-width: 640px; margin: 0 auto; }
-    header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 2rem; }
-    header img { height: 46px; border-radius: 8px; }
-    header h1 { font-family: "Bebas Neue", sans-serif; font-weight: 400; font-size: 1.9rem; letter-spacing: 0.04em; }
-    header small { display: block; color: var(--dim); font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase; }
-    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.6rem; margin-bottom: 1.2rem; }
-    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.2rem; }
-    .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 1.2rem; text-align: center; }
-    .stat b { display: block; font-family: "Bebas Neue", sans-serif; font-size: 2.4rem; color: var(--btn); line-height: 1.1; }
-    .stat span { color: var(--dim); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
-    .day-head { font-family: "Bebas Neue", sans-serif; font-size: 1.35rem; letter-spacing: 0.04em; margin: 1.6rem 0 0.6rem; }
+    .wrap { max-width: 680px; margin: 0 auto; }
+
+    header { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1rem; }
+    header img { height: 40px; width: 40px; border-radius: 9px; flex: 0 0 auto; }
+    header h1 { font-family: "Bebas Neue", sans-serif; font-weight: 400; font-size: 1.7rem; letter-spacing: 0.04em; line-height: 1.05; }
+    header small { display: block; color: var(--dim); font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; font-size: 0.85rem; color: var(--dim); margin-bottom: 0.9rem; }
+    .topbar button { background: none; border: none; color: var(--dim); font: inherit; text-decoration: underline; cursor: pointer; padding: 0.4rem 0; min-height: 34px; }
+
+    /* Tabs — sticky so switching never needs a scroll back up */
+    .tabs {
+      position: sticky; top: 0; z-index: 20;
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+      background: var(--bg); padding: 0.5rem 0 0.7rem;
+    }
+    .tabs button {
+      background: var(--surface); border: 1px solid var(--line); color: var(--dim);
+      border-radius: 11px; padding: 0.75rem 0.3rem; font: inherit; font-size: 0.92rem;
+      font-weight: 700; cursor: pointer; min-height: 48px;
+    }
+    .tabs button[aria-selected="true"] { background: var(--btn); border-color: var(--btn); color: var(--on-btn); }
+    .tabs .count { display: block; font-size: 0.68rem; font-weight: 600; opacity: 0.75; letter-spacing: 0.04em; }
+
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 15px; padding: 1.1rem; margin-bottom: 0.9rem; }
+    .card-title { font-family: "Bebas Neue", sans-serif; font-size: 1.3rem; letter-spacing: 0.04em; }
+    .muted { color: var(--dim); font-size: 0.9rem; }
+    .error { color: var(--bad); font-weight: 600; margin-top: 0.6rem; }
+    .ok-msg { color: var(--good); font-weight: 600; margin-top: 0.6rem; }
+    .empty { text-align: center; color: var(--dim); padding: 2.2rem 1rem; }
+
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.9rem; }
+    .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0.9rem 0.6rem; text-align: center; }
+    .stat b { display: block; font-family: "Bebas Neue", sans-serif; font-size: 2.1rem; color: var(--btn); line-height: 1.05; }
+    .stat span { color: var(--dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 700; }
+
+    .status { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.82rem; color: var(--dim); margin-bottom: 0.9rem; }
+    .status .ok { color: var(--good); }
+    .status .off { color: var(--bad); }
+
+    .subscribe {
+      display: flex; align-items: center; gap: 0.8rem;
+      background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+      padding: 0.9rem 1rem; margin-bottom: 0.9rem; text-decoration: none; color: var(--text);
+      min-height: 60px;
+    }
+    .subscribe .ico { font-size: 1.4rem; flex: 0 0 auto; }
+    .subscribe b { display: block; font-size: 0.95rem; }
+    .subscribe small { color: var(--dim); font-size: 0.8rem; }
+
+    /* ---- lessons: stacked, never side-by-side ---- */
+    .day-head {
+      font-family: "Bebas Neue", sans-serif; font-size: 1.25rem; letter-spacing: 0.05em;
+      margin: 1.4rem 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line);
+    }
     .day-head.today { color: var(--btn); }
-    .lesson { display: flex; align-items: center; gap: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem 1.1rem; margin-bottom: 0.5rem; }
-    .lesson time { font-weight: 800; min-width: 76px; }
-    .lesson .who { flex: 1; min-width: 0; }
-    .lesson .who b { display: block; }
-    .lesson .who small { color: var(--dim); }
-    .tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap; }
+    .lesson { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0.95rem 1rem; margin-bottom: 0.6rem; }
+    .lesson__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
+    .lesson__time { font-family: "Bebas Neue", sans-serif; font-size: 1.5rem; letter-spacing: 0.03em; color: var(--btn); line-height: 1.1; }
+    .lesson__who { font-size: 1.12rem; font-weight: 700; margin-top: 0.15rem; overflow-wrap: anywhere; }
+    .lesson__sub { color: var(--dim); font-size: 0.88rem; overflow-wrap: anywhere; }
+    .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.6rem; }
+    .tag {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+      padding: 0.3rem 0.6rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap;
+    }
     .tag.membership { border-color: var(--btn); color: var(--btn); }
     .tag.place { border-color: #6b6b73; color: #e2e4e8; }
-    .lesson a { color: var(--btn); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
-    .contact { text-align: right; line-height: 1.5; word-break: break-all; max-width: 190px; }
-    input {
-      width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
-      color: var(--text); padding: 0.9rem 1rem; font-size: 1rem; font-family: inherit; margin-bottom: 0.9rem;
+    /* Real tap targets instead of tiny links */
+    .actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.8rem; }
+    .actions a {
+      flex: 1 1 auto; min-width: 92px; min-height: 44px;
+      display: flex; align-items: center; justify-content: center; gap: 0.35rem;
+      background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
+      color: var(--text); text-decoration: none; font-size: 0.9rem; font-weight: 600;
     }
-    input:focus { outline: none; border-color: var(--btn); }
-    button {
-      width: 100%; background: var(--btn); color: var(--on-btn); border: none; border-radius: 999px;
-      padding: 0.9rem; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer;
+    .actions a:active { background: var(--line); }
+
+    /* ---- members ---- */
+    .pill {
+      display: inline-block; border-radius: 999px; padding: 0.3rem 0.7rem;
+      font-size: 0.76rem; font-weight: 700; border: 1px solid var(--warn); color: var(--warn); background: #1a1206;
     }
-    .muted { color: var(--dim); font-size: 0.9rem; }
-    .error { color: #ff8d7e; font-weight: 600; margin-top: 0.6rem; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
-    .topbar a { color: var(--dim); font-size: 0.85rem; cursor: pointer; text-decoration: underline; }
-    .empty { text-align: center; color: var(--dim); padding: 2rem 0; }
-    .status { display: flex; gap: 1.4rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--dim); margin-bottom: 0.4rem; }
-    .status b { font-weight: 600; }
-    .status .ok { color: #9fe8b9; }
-    .status .off { color: #ff8d7e; }
-    .subscribe {
-      display: flex; align-items: center; gap: 0.9rem;
-      background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
-      padding: 1rem 1.2rem; margin-bottom: 1.2rem; text-decoration: none; color: var(--text);
+    .pill.done { border-color: var(--bad); color: var(--bad); background: #1d0c0a; }
+    .member__name { font-size: 1.15rem; font-weight: 700; }
+    .member__list { list-style: none; margin: 0.7rem 0 0; padding: 0; }
+    .member__list li { color: #cfd4da; font-size: 0.9rem; padding: 0.2rem 0 0.2rem 1rem; position: relative; }
+    .member__list li::before { content: "•"; position: absolute; left: 0; color: var(--dim); }
+    .member__list li.none { color: #7a7f88; padding-left: 0; }
+    .member__list li.none::before { content: ""; }
+
+    /* ---- availability ---- */
+    .day-row { border: 1px solid var(--line); border-radius: 13px; padding: 0.8rem 0.9rem; margin-bottom: 0.55rem; background: var(--bg); }
+    .day-row.closed { opacity: 0.55; }
+    .day-row__head { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; min-height: 34px; }
+    .day-row__name { font-weight: 700; font-size: 1.02rem; }
+    .day-row__times { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.4rem; align-items: center; margin-top: 0.7rem; }
+    .day-row.closed .day-row__times { display: none; }
+    .day-row__times .to { color: var(--dim); font-size: 0.85rem; }
+    select {
+      width: 100%; background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
+      color: var(--text); font-family: inherit;
+      font-size: 16px; /* under 16px makes iOS zoom the page */
+      min-height: 46px; appearance: none; text-overflow: ellipsis;
+      /* Tight enough that "10:30 AM" still fits beside the arrow on a 320px
+         screen — any more padding and the label clips. */
+      padding: 0.7rem 1.3rem 0.7rem 0.5rem;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23a8adb6' d='M2 4l4 4 4-4z'/></svg>");
+      background-repeat: no-repeat; background-position: right 0.45rem center; background-size: 11px;
     }
-    .subscribe:hover { border-color: var(--btn); }
-    .subscribe span:first-child { font-size: 1.4rem; }
-    .subscribe b { display: block; font-size: 0.95rem; }
-    .subscribe small { color: var(--dim); font-size: 0.82rem; }
-    .card-title { font-family: "Bebas Neue", sans-serif; font-size: 1.35rem; letter-spacing: 0.04em; }
-    .avail-day { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.55rem; flex-wrap: wrap; }
-    .avail-day label { display: flex; align-items: center; gap: 0.5rem; min-width: 118px; margin: 0; cursor: pointer; font-weight: 600; }
-    .avail-day input[type="checkbox"] { width: auto; margin: 0; height: 18px; accent-color: var(--btn); }
-    .avail-day select { width: auto; flex: 0 0 auto; margin: 0; padding: 0.5rem 0.55rem; font-size: 0.95rem; }
-    .avail-day.closed select, .avail-day.closed .to { opacity: 0.35; pointer-events: none; }
-    .avail-day .to { color: var(--dim); }
-    .block-chip { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 0.35rem 0.4rem 0.35rem 0.8rem; margin: 0 0.4rem 0.4rem 0; font-size: 0.9rem; }
-    .block-chip button { width: auto; background: none; color: var(--dim); padding: 0 0.2rem; font-size: 1rem; border-radius: 0; line-height: 1; }
-    .block-chip button:hover { color: #ff8d7e; }
-    .avail-actions { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.8rem; }
-    .avail-actions input { margin: 0; flex: 1; }
-    .avail-actions button, #saveAvail { width: auto; }
-    #saveAvail { padding: 0.8rem 1.4rem; margin-top: 1.1rem; }
-    .ok-msg { color: #9fe8b9; font-weight: 600; margin-top: 0.6rem; }
-    .cal { border: 1px solid var(--line); border-radius: 14px; padding: 0.9rem; background: var(--bg); }
-    .cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
-    .cal__label { font-weight: 700; font-size: 1rem; }
-    .cal__nav { width: auto; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0.3rem 0.9rem; font-size: 1.15rem; line-height: 1; }
-    .cal__nav:hover { border-color: var(--btn); }
-    .cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-    .cal__dow { margin-bottom: 5px; }
-    .cal__dow span { text-align: center; font-size: 0.68rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
-    .cal__day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: var(--surface); border: 1px solid transparent; cursor: pointer; font-size: 0.92rem; font-weight: 600; user-select: none; transition: background 0.12s, border-color 0.12s; }
-    .cal__day:hover { border-color: var(--dim); }
+    /* Switch, because a 13px checkbox is unusable with a thumb */
+    .switch { position: relative; display: inline-block; width: 52px; height: 31px; flex: 0 0 auto; }
+    .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .switch .track {
+      position: absolute; inset: 0; background: #3a3a41; border-radius: 999px; transition: background 0.15s; cursor: pointer;
+    }
+    .switch .track::after {
+      content: ""; position: absolute; top: 3px; left: 3px; width: 25px; height: 25px;
+      background: #fff; border-radius: 50%; transition: transform 0.15s;
+    }
+    .switch input:checked + .track { background: #2f8f52; }
+    .switch input:checked + .track::after { transform: translateX(21px); }
+    .switch input:focus-visible + .track { outline: 2px solid var(--btn); outline-offset: 2px; }
+
+    /* ---- days-off calendar ---- */
+    .cal { border: 1px solid var(--line); border-radius: 14px; padding: 0.7rem 0.5rem; background: var(--bg); }
+    .cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
+    .cal__label { font-weight: 700; font-size: 1.02rem; }
+    .cal__nav {
+      width: 44px; height: 44px; background: var(--surface2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 11px; font-size: 1.3rem; line-height: 1; cursor: pointer;
+    }
+    /* minmax(0,1fr) lets the columns shrink to fit a 375px screen. With plain
+       1fr the cells refuse to go below their content width and the Saturday
+       column spills outside the card. */
+    .cal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+    .cal__dow { margin-bottom: 4px; }
+    .cal__dow span { text-align: center; font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0; font-weight: 700; }
+    .cal__day {
+      aspect-ratio: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
+      border-radius: 10px; background: var(--surface2); border: 1px solid transparent;
+      cursor: pointer; font-size: 0.95rem; font-weight: 600; user-select: none;
+    }
     .cal__day.empty { background: none; cursor: default; }
-    .cal__day.past { color: #48484f; cursor: not-allowed; background: none; }
-    .cal__day.off { background: #c6402f; color: #fff; border-color: #c6402f; }
-    .cal__day.off:hover { background: #d84f3d; border-color: #d84f3d; }
+    .cal__day.past { color: #45454c; cursor: not-allowed; background: none; }
+    .cal__day.off { background: #c6402f; color: #fff; border-color: #e0604e; }
+    .cal__day.today { border-color: var(--btn); }
+
+    .btn {
+      width: 100%; background: var(--btn); color: var(--on-btn); border: none; border-radius: 999px;
+      padding: 0.95rem; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; min-height: 50px;
+    }
+    .btn:active { opacity: 0.85; }
+    input[type="password"] {
+      width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 11px;
+      color: var(--text); padding: 0.9rem 1rem; font-size: 16px; font-family: inherit; margin-bottom: 0.9rem; min-height: 50px;
+    }
+    input[type="password"]:focus { outline: none; border-color: var(--btn); }
+
+    [hidden] { display: none !important; }
+
+    /* iPhone SE and similar. Two time dropdowns side by side is tight at this
+       width, so claw back the padding rather than let "10:30 AM" clip.
+       A select opens a native picker on tap, so dropping below 16px here
+       doesn't trigger iOS zoom the way it would on a text field. */
+    @media (max-width: 360px) {
+      body { padding-left: 0.7rem; padding-right: 0.7rem; }
+      .card { padding: 0.9rem; }
+      .day-row { padding: 0.8rem 0.7rem; }
+      .day-row__times { gap: 0.3rem; }
+      .day-row__times .to { font-size: 0.78rem; }
+      select { font-size: 15px; padding-right: 1.15rem; padding-left: 0.4rem; }
+    }
+
+    @media (min-width: 620px) {
+      body { padding: 2rem 1.5rem 4rem; }
+      .lesson__top { align-items: center; }
+      .actions a { flex: 0 1 auto; padding: 0 1.1rem; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
       <img src="img/logo-mark.png" alt="AP Academy" />
-      <h1>Coach Schedule<small>AP Academy</small></h1>
+      <h1>Coach<small>AP Academy</small></h1>
     </header>
 
     <div id="login" class="card" hidden>
-      <p class="muted" style="margin-bottom:0.9rem">Enter your coach passcode to see your schedule.</p>
+      <p class="muted" style="margin-bottom:0.9rem">Enter your coach passcode.</p>
       <input type="password" id="passInput" placeholder="Passcode" autocomplete="current-password" />
-      <button id="passBtn">View My Schedule</button>
+      <button class="btn" id="passBtn">View My Schedule</button>
       <p class="error" id="loginError"></p>
     </div>
 
     <div id="app" hidden>
       <div class="topbar">
-        <span class="muted" id="updated"></span>
-        <span><a id="refresh">Refresh</a> &nbsp;·&nbsp; <a id="logout">Log out</a></span>
+        <span id="updated"></span>
+        <span><button id="refresh">Refresh</button> · <button id="logout">Log out</button></span>
       </div>
-      <div class="stats">
-        <div class="stat"><b id="weekCount">–</b><span>Lessons this week</span></div>
-        <div class="stat"><b id="upcomingCount">–</b><span>Upcoming total</span></div>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="schedule" aria-selected="true">Lessons<span class="count" id="tabLessons">–</span></button>
+        <button role="tab" data-tab="members" aria-selected="false">Members<span class="count" id="tabMembers">–</span></button>
+        <button role="tab" data-tab="hours" aria-selected="false">Hours<span class="count" id="tabHours">&nbsp;</span></button>
       </div>
-      <div class="status" id="status"></div>
-      <a class="subscribe" id="subscribe" href="#">
-        <span>📅</span>
-        <span><b>Add lessons to your phone calendar</b><small>Bookings appear automatically — set this up once</small></span>
-      </a>
-      <div class="card" id="availCard">
-        <div class="topbar">
-          <span class="card-title">My Availability</span>
-          <span class="muted" id="availHint"></span>
+
+      <!-- ============ LESSONS ============ -->
+      <section id="tab-schedule">
+        <div class="stats">
+          <div class="stat"><b id="weekCount">–</b><span>This week</span></div>
+          <div class="stat"><b id="upcomingCount">–</b><span>Upcoming</span></div>
         </div>
-        <p class="muted" style="margin:0.2rem 0 1rem">Set the days and hours parents can book. Uncheck a day to close it.</p>
-        <div id="availDays"></div>
-        <div style="margin-top:1.4rem">
-          <b style="display:block;margin-bottom:0.4rem">Days off</b>
-          <p class="muted" style="margin-bottom:0.7rem">Tap any day to mark it off — holidays, travel, high-school games. Tap again to clear it. Off days can't be booked.</p>
+        <div class="status" id="status"></div>
+        <a class="subscribe" id="subscribe" href="#">
+          <span class="ico">📅</span>
+          <span><b>Add lessons to your phone calendar</b><small>Set this up once — bookings appear on their own</small></span>
+        </a>
+        <div id="schedule"></div>
+      </section>
+
+      <!-- ============ MEMBERS ============ -->
+      <section id="tab-members" hidden>
+        <p class="muted" style="margin-bottom:0.9rem">Everyone on an active membership, how many lessons they have left, and when those expire.</p>
+        <div id="membersList"><p class="empty">Loading…</p></div>
+      </section>
+
+      <!-- ============ HOURS ============ -->
+      <section id="tab-hours" hidden>
+        <div class="card">
+          <div class="topbar" style="margin-bottom:0.3rem">
+            <span class="card-title">Weekly hours</span>
+            <span class="muted" id="availHint"></span>
+          </div>
+          <p class="muted" style="margin:0 0 1rem">Turn a day off to close it completely.</p>
+          <div id="availDays"></div>
+        </div>
+
+        <div class="card">
+          <span class="card-title">Days off</span>
+          <p class="muted" style="margin:0.3rem 0 0.9rem">Tap a date to block it — holidays, travel, games. Tap again to clear.</p>
           <div class="cal">
             <div class="cal__head">
               <button type="button" id="calPrev" class="cal__nav" aria-label="Previous month">‹</button>
@@ -150,12 +282,12 @@
             </div>
             <div class="cal__grid" id="calDays"></div>
           </div>
-          <p class="muted" id="offSummary" style="margin-top:0.7rem"></p>
+          <p class="muted" id="offSummary" style="margin-top:0.8rem"></p>
         </div>
-        <button id="saveAvail">Save availability</button>
+
+        <button class="btn" id="saveAvail">Save changes</button>
         <p class="error" id="availMsg"></p>
-      </div>
-      <div id="schedule"></div>
+      </section>
     </div>
   </div>
 
@@ -165,9 +297,14 @@
     const loginError = document.getElementById("loginError");
 
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const TYPE_LABEL = { single: "Private", thirty: "30-min", membership: "Membership" };
     const PLACE_LABEL = { mustang: "Mustang HS", delcity: "Del City", mojo: "Mojo Yard" };
+
+    const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const tel = (p) => String(p || "").replace(/[^\d+]/g, "");
 
     function toMinutes(t) {
       const m = /(\d{1,2}):(\d{2}) (AM|PM)/.exec(t);
@@ -176,13 +313,10 @@
       if (m[3] === "PM") h += 12;
       return h * 60 + parseInt(m[2], 10);
     }
-
     function todayISO() {
       const d = new Date();
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
-
-    // Monday–Sunday week containing today
     function weekRange() {
       const d = new Date();
       const day = (d.getDay() + 6) % 7; // 0 = Monday
@@ -191,7 +325,26 @@
       const iso = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
       return [iso(mon), iso(sun)];
     }
+    function prettyDay(iso) {
+      const d = new Date(iso + "T12:00:00");
+      if (isNaN(d)) return iso;
+      return `${DAYS_SHORT[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+    }
 
+    /* ---------- tabs ---------- */
+    document.querySelectorAll(".tabs button").forEach((b) => {
+      b.addEventListener("click", () => {
+        document.querySelectorAll(".tabs button").forEach((x) =>
+          x.setAttribute("aria-selected", String(x === b)));
+        ["schedule", "members", "hours"].forEach((name) => {
+          document.getElementById("tab-" + name).hidden = name !== b.dataset.tab;
+        });
+        window.scrollTo({ top: 0 });
+        if (b.dataset.tab === "members") loadMembers();
+      });
+    });
+
+    /* ---------- schedule ---------- */
     async function load(pass) {
       loginError.textContent = "";
       const res = await fetch(`/api/schedule?key=${encodeURIComponent(pass)}`);
@@ -204,7 +357,7 @@
         return;
       }
       localStorage.setItem("coachPass", pass);
-      // webcal:// makes iPhone/Mac offer to subscribe instead of downloading once
+      // webcal:// makes iPhone offer to subscribe instead of downloading once
       document.getElementById("subscribe").href =
         `webcal://${window.location.host}/api/calendar?key=${encodeURIComponent(pass)}`;
       login.hidden = true;
@@ -212,13 +365,15 @@
       renderStatus(data.status || {});
       render(data.sessions || []);
       loadAvail();
+      // Fetched up front so the tab shows a real count, not a dash.
+      loadMembers();
     }
 
     function renderStatus(s) {
       const dot = (on, label) =>
-        `<span><b class="${on ? "ok" : "off"}">${on ? "●" : "○"}</b> ${label} ${on ? "connected" : "not set up"}</span>`;
+        `<span><b class="${on ? "ok" : "off"}">${on ? "●" : "○"}</b> ${label} ${on ? "on" : "off"}</span>`;
       document.getElementById("status").innerHTML =
-        dot(s.payments, "Payments") + dot(s.email, "Confirmation emails");
+        dot(s.payments, "Payments") + dot(s.email, "Emails");
     }
 
     function render(sessions) {
@@ -228,15 +383,17 @@
         .sort((a, b) => (a.date === b.date ? toMinutes(a.time) - toMinutes(b.time) : a.date < b.date ? -1 : 1));
 
       const [mon, sun] = weekRange();
-      const weekCount = sessions.filter((s) => s.date >= mon && s.date <= sun).length;
-      document.getElementById("weekCount").textContent = weekCount;
+      document.getElementById("weekCount").textContent =
+        sessions.filter((s) => s.date >= mon && s.date <= sun).length;
       document.getElementById("upcomingCount").textContent = upcoming.length;
-      document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      document.getElementById("tabLessons").textContent = upcoming.length;
+      document.getElementById("updated").textContent =
+        "Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
       const wrap = document.getElementById("schedule");
       wrap.innerHTML = "";
       if (!upcoming.length) {
-        wrap.innerHTML = '<p class="empty">No upcoming lessons booked yet. They\'ll show up here the moment a parent pays.</p>';
+        wrap.innerHTML = '<p class="empty">No upcoming lessons yet. They show up here the moment a parent pays.</p>';
         return;
       }
 
@@ -247,25 +404,80 @@
           const d = new Date(s.date + "T12:00:00");
           const h = document.createElement("h2");
           h.className = "day-head" + (s.date === today ? " today" : "");
-          h.textContent = (s.date === today ? "Today — " : "") + `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+          h.textContent = (s.date === today ? "Today · " : "") + `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
           wrap.appendChild(h);
         }
+        const place = PLACE_LABEL[s.loc] || "";
         const row = document.createElement("div");
         row.className = "lesson";
-        const contact = [
-          s.phone ? `<a href="tel:${s.phone.replace(/[^\d+]/g, "")}">${s.phone}</a>` : "",
-          s.email ? `<a href="mailto:${s.email}">${s.email}</a>` : "",
-        ].filter(Boolean).join("<br />");
-        const place = PLACE_LABEL[s.loc] || "";
         row.innerHTML = `
-          <time>${s.time}</time>
-          <div class="who"><b>${s.player || "—"}</b><small>${s.parent ? "Parent: " + s.parent : ""}</small></div>
-          <div class="contact">${contact}</div>
-          ${s.focus ? `<span class="tag">${s.focus}</span>` : ""}
-          ${place ? `<span class="tag place">${place}</span>` : ""}
-          <span class="tag ${s.type}">${TYPE_LABEL[s.type] || s.type || ""}</span>`;
+          <div class="lesson__top">
+            <span class="lesson__time">${esc(s.time)}</span>
+            <span class="tag ${esc(s.type)}">${esc(TYPE_LABEL[s.type] || s.type || "")}</span>
+          </div>
+          <div class="lesson__who">${esc(s.player || "—")}</div>
+          ${s.parent ? `<div class="lesson__sub">Parent: ${esc(s.parent)}</div>` : ""}
+          <div class="chips">
+            ${s.focus ? `<span class="tag">${esc(s.focus)}</span>` : ""}
+            ${place ? `<span class="tag place">${esc(place)}</span>` : ""}
+          </div>
+          <div class="actions">
+            ${s.phone ? `<a href="tel:${esc(tel(s.phone))}">📞 Call</a>` : ""}
+            ${s.phone ? `<a href="sms:${esc(tel(s.phone))}">💬 Text</a>` : ""}
+            ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ Email</a>` : ""}
+          </div>`;
         wrap.appendChild(row);
       });
+    }
+
+    /* ---------- members ---------- */
+    let membersLoaded = false;
+    async function loadMembers(force) {
+      if (membersLoaded && !force) return;
+      const pass = localStorage.getItem("coachPass");
+      const box = document.getElementById("membersList");
+      if (!pass) return;
+      box.innerHTML = '<p class="empty">Loading…</p>';
+      let members = [];
+      try {
+        const r = await fetch(`/api/member-links?key=${encodeURIComponent(pass)}&format=json`);
+        if (!r.ok) throw new Error();
+        members = (await r.json()).members || [];
+      } catch {
+        box.innerHTML = '<p class="empty">Couldn\'t load memberships. Pull to refresh or tap Refresh above.</p>';
+        return;
+      }
+      membersLoaded = true;
+      document.getElementById("tabMembers").textContent = members.length;
+      if (!members.length) {
+        box.innerHTML = '<p class="empty">No active memberships right now.</p>';
+        return;
+      }
+      box.innerHTML = members.map((m) => {
+        const left = m.remaining || 0;
+        const lessons = (m.lessons || []).length
+          ? m.lessons.map((l) => `<li>${esc(prettyDay(l.date))} · ${esc(l.time)}</li>`).join("")
+          : '<li class="none">Nothing booked yet</li>';
+        const note = `Hey${m.parent ? " " + m.parent : ""}! Here's your AP Academy membership link — it shows your lessons left and lets you book: ${m.link}`;
+        return `<div class="card">
+          <div class="member__name">${esc(m.player || "(no name)")}</div>
+          <div class="lesson__sub">${esc(m.parent || "")}${m.parent && m.phone ? " · " : ""}${esc(m.phone || "")}</div>
+          <div class="lesson__sub">${esc(m.email || "")}</div>
+          <p style="margin-top:0.7rem">
+            <span class="pill ${left ? "" : "done"}">${left} of ${m.credits || 4} lessons left</span>
+          </p>
+          <div class="lesson__sub" style="margin-top:0.45rem">
+            ${left ? `Use by ${esc(m.lastDayPretty || "")}` : "Membership used up"}
+            ${typeof m.daysLeft === "number" && left ? ` · ${m.daysLeft} day${m.daysLeft === 1 ? "" : "s"} left` : ""}
+          </div>
+          <ul class="member__list">${lessons}</ul>
+          <div class="actions">
+            ${m.phone ? `<a href="sms:${esc(tel(m.phone))}?&body=${encodeURIComponent(note)}">💬 Text link</a>` : ""}
+            ${m.email ? `<a href="mailto:${esc(m.email)}?subject=${encodeURIComponent("Your AP Academy membership link")}&body=${encodeURIComponent(note)}">✉️ Email link</a>` : ""}
+            ${m.phone ? `<a href="tel:${esc(tel(m.phone))}">📞 Call</a>` : ""}
+          </div>
+        </div>`;
+      }).join("");
     }
 
     document.getElementById("passBtn").addEventListener("click", () => {
@@ -277,7 +489,7 @@
     });
     document.getElementById("refresh").addEventListener("click", () => {
       const p = localStorage.getItem("coachPass");
-      if (p) load(p);
+      if (p) { load(p); loadMembers(true); }
     });
     document.getElementById("logout").addEventListener("click", () => {
       localStorage.removeItem("coachPass");
@@ -285,7 +497,7 @@
       login.hidden = false;
     });
 
-    /* ---------- Availability editor ---------- */
+    /* ---------- availability ---------- */
     let availState = null;
     let availEditable = false;
 
@@ -299,9 +511,8 @@
       }
       return out;
     })();
-    function timeOptionsHtml(sel) {
-      return TIME_OPTS.map((o) => `<option value="${o.v}"${o.v === sel ? " selected" : ""}>${o.label}</option>`).join("");
-    }
+    const timeOptionsHtml = (sel) =>
+      TIME_OPTS.map((o) => `<option value="${o.v}"${o.v === sel ? " selected" : ""}>${o.label}</option>`).join("");
 
     async function loadAvail() {
       try {
@@ -322,29 +533,34 @@
       for (let i = 0; i < 7; i++) {
         const c = (availState.days && availState.days[i]) || { open: false, start: "17:00", end: "21:00" };
         const row = document.createElement("div");
-        row.className = "avail-day" + (c.open ? "" : " closed");
-        row.innerHTML =
-          `<label><input type="checkbox" data-day="${i}"${c.open ? " checked" : ""} /> ${DAYS[i]}</label>` +
-          `<select data-start="${i}">${timeOptionsHtml(c.start)}</select>` +
-          `<span class="to">to</span>` +
-          `<select data-end="${i}">${timeOptionsHtml(c.end)}</select>`;
+        row.className = "day-row" + (c.open ? "" : " closed");
+        row.innerHTML = `
+          <div class="day-row__head">
+            <span class="day-row__name">${DAYS[i]}</span>
+            <label class="switch">
+              <input type="checkbox" data-day="${i}"${c.open ? " checked" : ""} aria-label="${DAYS[i]} open" />
+              <span class="track"></span>
+            </label>
+          </div>
+          <div class="day-row__times">
+            <select data-start="${i}" aria-label="${DAYS[i]} opens">${timeOptionsHtml(c.start)}</select>
+            <span class="to">to</span>
+            <select data-end="${i}" aria-label="${DAYS[i]} closes">${timeOptionsHtml(c.end)}</select>
+          </div>`;
         wrap.appendChild(row);
       }
       wrap.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-        cb.addEventListener("change", () => cb.closest(".avail-day").classList.toggle("closed", !cb.checked));
+        cb.addEventListener("change", () =>
+          cb.closest(".day-row").classList.toggle("closed", !cb.checked));
       });
       ensureCalMonth();
       renderCal();
       renderOffSummary();
-      document.getElementById("availHint").textContent = availEditable ? "" : "not turned on yet — see setup";
+      document.getElementById("availHint").textContent = availEditable ? "" : "not set up yet";
     }
 
-    // ----- Days-off calendar -----
-    let calMonth = null; // first day of the displayed month
-
-    function isoOf(d) {
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    }
+    let calMonth = null;
+    const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     function ensureCalMonth() {
       if (!calMonth) { const n = new Date(); calMonth = new Date(n.getFullYear(), n.getMonth(), 1); }
     }
@@ -368,17 +584,16 @@
         const cell = document.createElement("div");
         cell.className = "cal__day";
         cell.textContent = d;
+        if (iso === todayIso) cell.classList.add("today");
         if (iso < todayIso) {
           cell.classList.add("past");
         } else {
           if ((availState.blocked || []).includes(iso)) cell.classList.add("off");
           cell.addEventListener("click", () => {
             availState.blocked = availState.blocked || [];
-            if (availState.blocked.includes(iso)) {
-              availState.blocked = availState.blocked.filter((x) => x !== iso);
-            } else {
-              availState.blocked = [...availState.blocked, iso].sort();
-            }
+            availState.blocked = availState.blocked.includes(iso)
+              ? availState.blocked.filter((x) => x !== iso)
+              : [...availState.blocked, iso].sort();
             renderCal();
             renderOffSummary();
           });
@@ -387,9 +602,10 @@
       }
     }
     function renderOffSummary() {
-      const n = (availState.blocked || []).length;
-      document.getElementById("offSummary").textContent =
-        n ? `${n} day${n === 1 ? "" : "s"} marked off` : "No days off marked.";
+      const upcoming = (availState.blocked || []).filter((d) => d >= isoOf(new Date()));
+      document.getElementById("offSummary").textContent = upcoming.length
+        ? `${upcoming.length} upcoming day${upcoming.length === 1 ? "" : "s"} off: ${upcoming.slice(0, 4).map(prettyDay).join(", ")}${upcoming.length > 4 ? "…" : ""}`
+        : "No days off marked.";
     }
     document.getElementById("calPrev").addEventListener("click", () => {
       calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
@@ -409,7 +625,11 @@
           end: document.querySelector(`select[data-end="${i}"]`).value,
         };
       }
-      return { slotMinutes: (availState && availState.slotMinutes) || 60, days, blocked: (availState && availState.blocked) || [] };
+      return {
+        slotMinutes: (availState && availState.slotMinutes) || 60,
+        days,
+        blocked: (availState && availState.blocked) || [],
+      };
     }
 
     document.getElementById("saveAvail").addEventListener("click", async () => {

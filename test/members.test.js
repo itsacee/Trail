@@ -1,17 +1,19 @@
-// Membership rules: week math, the 12-hour cutoff, credit counting, and the
-// booking/reschedule gate. The clock is frozen so date-relative rules are
-// deterministic. Frozen "now" = Wednesday 2026-08-26 17:00 America/Chicago.
+// Membership rules: the 12-hour cutoff, credit counting, expiry, and the
+// booking/reschedule gate. Members spend 4 lessons on any 4 days inside their
+// paid month — one lesson per day, none in the past, none past the expiry.
+// The clock is frozen so date-relative rules are deterministic:
+// frozen "now" = Wednesday 2026-08-26 17:00 America/Chicago.
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  weekKey,
   inPeriod,
   chicagoDate,
   lessonStartMs,
   canCancelLesson,
   todayChicago,
   daysAhead,
+  lastUsableDate,
   membershipSummary,
   bookingBlocked,
   MEMBER_CREDITS,
@@ -39,27 +41,21 @@ function lesson(id, date, time, extra = {}) {
   return { id, date, time, source: "member", type: "membership", email: "sam@example.com", ...extra };
 }
 
-test("weekKey groups a Sun–Sat week under its Sunday", () => {
-  // 2026-08-23 is a Sunday; 08-27 (Thu) and 08-29 (Sat) share that week.
-  assert.equal(weekKey("2026-08-23"), "2026-08-23");
-  assert.equal(weekKey("2026-08-27"), "2026-08-23");
-  assert.equal(weekKey("2026-08-29"), "2026-08-23");
-  // 08-30 is the next Sunday → a new week.
-  assert.equal(weekKey("2026-08-30"), "2026-08-30");
-});
-
 test("inPeriod uses the membership window, end-exclusive", () => {
   assert.equal(inPeriod("2026-08-27", SUB.current_period_start, SUB.current_period_end), true);
   assert.equal(inPeriod("2026-08-19", SUB.current_period_start, SUB.current_period_end), false);
 });
 
+test("lastUsableDate is the day before the period end", () => {
+  // Period ends 2026-09-17 → last trainable day is 2026-09-16.
+  assert.equal(lastUsableDate(SUB.current_period_end), "2026-09-16");
+});
+
 test("lessonStartMs respects Chicago DST offset", () => {
   // Late August is CDT (-05:00).
-  const summer = lessonStartMs("2026-08-27", "5:00 PM");
-  assert.equal(summer, Date.parse("2026-08-27T17:00:00-05:00"));
+  assert.equal(lessonStartMs("2026-08-27", "5:00 PM"), Date.parse("2026-08-27T17:00:00-05:00"));
   // Late December is CST (-06:00).
-  const winter = lessonStartMs("2026-12-27", "5:00 PM");
-  assert.equal(winter, Date.parse("2026-12-27T17:00:00-06:00"));
+  assert.equal(lessonStartMs("2026-12-27", "5:00 PM"), Date.parse("2026-12-27T17:00:00-06:00"));
 });
 
 test("todayChicago / daysAhead are anchored to the frozen clock", () => {
@@ -80,54 +76,76 @@ test("canCancelLesson enforces a 12-hour cutoff before the lesson", () => {
   atTime("2026-08-27T05:00:00-05:00", () => assert.equal(canCancelLesson("2026-08-27", "5:00 PM"), true));
 });
 
-test("membershipSummary counts only lessons inside the period", () => {
+test("membershipSummary counts lessons in the period and reports expiry", () => {
   atTime(NOW, () => {
     const scheduled = [
       lesson("a", "2026-08-27", "5:00 PM"), // in period
-      lesson("b", "2026-09-03", "5:00 PM"), // in period, next week
+      lesson("b", "2026-09-03", "5:00 PM"), // in period
       lesson("c", "2026-09-20", "5:00 PM"), // AFTER period end → not counted
     ];
     const s = membershipSummary(SUB, scheduled);
     assert.equal(s.credits, MEMBER_CREDITS);
     assert.equal(s.used, 2);
     assert.equal(s.remaining, MEMBER_CREDITS - 2);
+    assert.equal(s.lastDay, "2026-09-16");
+    assert.equal(s.expired, false);
     assert.equal(s.player, "Sam");
   });
 });
 
-test("bookingBlocked enforces the booking window and one-per-week", () => {
+test("membershipSummary flags an expired membership", () => {
+  atTime(NOW, () => {
+    const past = {
+      metadata: { player: "Sam", email: "sam@example.com" },
+      current_period_start: Math.floor(Date.parse("2026-07-01T12:00:00Z") / 1000),
+      current_period_end: Math.floor(Date.parse("2026-07-29T12:00:00Z") / 1000), // last day 07-28
+    };
+    assert.equal(membershipSummary(past, []).expired, true);
+  });
+});
+
+test("bookingBlocked enforces the window, credit cap, and one-per-day", () => {
   atTime(NOW, () => {
     const summary = membershipSummary(SUB, []);
     // Today or earlier is rejected.
     assert.match(bookingBlocked(summary, "2026-08-26", []), /tomorrow onward/);
-    // More than 10 days out is rejected.
-    assert.match(bookingBlocked(summary, "2026-09-10", []), /next 10 days/);
-    // A valid day in an empty week passes.
+    // Past the expiry date is rejected.
+    assert.match(bookingBlocked(summary, "2026-09-20", []), /have to be used by/);
+    // A valid, open day passes.
     assert.equal(bookingBlocked(summary, "2026-08-28", []), null);
   });
 });
 
-test("bookingBlocked stops a second lesson in a week already booked", () => {
+test("bookingBlocked stops a second lesson on a day already booked", () => {
   atTime(NOW, () => {
-    const existing = [lesson("a", "2026-08-27", "5:00 PM")]; // Thu
+    const existing = [lesson("a", "2026-08-27", "5:00 PM")];
     const summary = membershipSummary(SUB, existing);
-    // 08-28 (Fri) is the same week → blocked.
-    assert.match(bookingBlocked(summary, "2026-08-28", existing), /already have a lesson this week/);
+    assert.match(bookingBlocked(summary, "2026-08-27", existing), /already have a lesson that day/);
+  });
+});
+
+test("bookingBlocked refuses a 5th lesson once all credits are used", () => {
+  atTime(NOW, () => {
+    const all = [
+      lesson("a", "2026-08-27", "5:00 PM"),
+      lesson("b", "2026-08-28", "5:00 PM"),
+      lesson("c", "2026-08-29", "5:00 PM"),
+      lesson("d", "2026-08-30", "5:00 PM"),
+    ];
+    assert.match(bookingBlocked(membershipSummary(SUB, all), "2026-08-31", all), /used all 4/);
   });
 });
 
 // The reschedule feature hinges on judging the new slot as if the lesson being
 // moved weren't on the calendar. These two tests pin that behavior.
-test("reschedule: excluding the moved lesson frees its week", () => {
+test("reschedule: excluding the moved lesson frees its day", () => {
   atTime(NOW, () => {
     const all = [lesson("a", "2026-08-27", "5:00 PM")];
-    // With the lesson present, moving it to another day the same week is blocked...
-    const blocked = bookingBlocked(membershipSummary(SUB, all), "2026-08-28", all);
-    assert.match(blocked, /already have a lesson this week/);
-    // ...but once excluded (as the reschedule action does), the same move is allowed.
+    // Moving it to another time the same day is blocked while it still counts...
+    assert.match(bookingBlocked(membershipSummary(SUB, all), "2026-08-27", all), /already have a lesson that day/);
+    // ...but once excluded (as the reschedule action does), the move is allowed.
     const others = all.filter((l) => l.id !== "a");
-    const ok = bookingBlocked(membershipSummary(SUB, others), "2026-08-28", others);
-    assert.equal(ok, null);
+    assert.equal(bookingBlocked(membershipSummary(SUB, others), "2026-08-27", others), null);
   });
 });
 
@@ -135,15 +153,15 @@ test("reschedule: a fully-used membership can still move an existing lesson", ()
   atTime(NOW, () => {
     const all = [
       lesson("a", "2026-08-27", "5:00 PM"),
-      lesson("b", "2026-09-03", "5:00 PM"),
-      lesson("c", "2026-09-10", "5:00 PM"),
-      lesson("d", "2026-09-16", "5:00 PM"),
+      lesson("b", "2026-08-28", "5:00 PM"),
+      lesson("c", "2026-08-29", "5:00 PM"),
+      lesson("d", "2026-08-30", "5:00 PM"),
     ];
     // All 4 credits used → a brand-new booking is refused.
-    assert.match(bookingBlocked(membershipSummary(SUB, all), "2026-08-28", all), /used all 4/);
+    assert.match(bookingBlocked(membershipSummary(SUB, all), "2026-08-31", all), /used all 4/);
     // Moving lesson "a" excludes it, so remaining is 1 and the move is allowed.
     const others = all.filter((l) => l.id !== "a");
-    assert.equal(bookingBlocked(membershipSummary(SUB, others), "2026-08-28", others), null);
+    assert.equal(bookingBlocked(membershipSummary(SUB, others), "2026-08-31", others), null);
   });
 });
 

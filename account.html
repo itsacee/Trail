@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#050505" />
   <title>Member Login | AP Academy</title>
-  <meta name="description" content="AP Academy members: sign in to pick this week's lesson." />
+  <meta name="description" content="AP Academy members: sign in to book your next lesson and see how many you have left." />
   <link rel="icon" type="image/png" href="img/logo-mark.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,7 +38,7 @@
   <section class="section book-page" id="account">
     <div class="container container--narrow">
       <p class="eyebrow center">Members</p>
-      <h1 class="center" id="acctTitle">Pick This Week's Lesson</h1>
+      <h1 class="center" id="acctTitle">Book Your Next Lesson</h1>
       <p class="section__sub center" id="acctLead">Sign in with the email on your membership. We'll send a link — no password to remember.</p>
 
       <div class="booking" id="loginCard">
@@ -62,12 +62,18 @@
           <button type="button" class="booking__change" id="signOut">Sign out</button>
         </div>
 
+        <p class="acct__whoami" id="acctWhoami">
+          Signed in as <strong id="acctWhoName">this member</strong>
+          <button type="button" id="switchUser">Not you? Use a different email</button>
+        </p>
+
+        <p class="booking__where" id="acctExpiry" hidden></p>
         <p class="booking__where" id="acctWhere" hidden></p>
 
         <div class="acct__lessons" id="acctLessons"></div>
 
         <form id="weekForm" hidden>
-          <h3 class="booking__step-title" id="weekFormTitle"><span class="booking__step-num">+</span> Book a lesson this week</h3>
+          <h3 class="booking__step-title" id="weekFormTitle"><span class="booking__step-num">+</span> Book another lesson</h3>
           <div class="booking__field" style="margin-bottom:1.1rem">
             <label for="memFocus">What should we work on?</label>
             <select id="memFocus">
@@ -91,7 +97,7 @@
             </div>
           </div>
           <button type="submit" class="btn btn--primary btn--lg booking__submit" id="weekSubmit">Lock in this lesson</button>
-          <p class="booking__note">One lesson per week · 4 per month · unused lessons don't roll over</p>
+          <p class="booking__note">4 lessons per membership · pick any days that work · unused lessons don't roll over · does not auto-renew</p>
           <p class="booking__status" id="weekStatus" role="status"></p>
         </form>
 

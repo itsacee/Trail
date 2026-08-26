@@ -11,7 +11,7 @@ Open `index.html` in your browser, or in Cursor right-click it and choose
 ## Tests
 
 The booking rules — date math, the 12-hour cancel/reschedule cutoff, credit
-counting, and the one-lesson-per-week gate — are covered by automated tests
+counting, expiry, and the one-lesson-per-day gate — are covered by automated tests
 that run offline, with **nothing to install** (they use Node's built-in test
 runner). Run them any time with:
 

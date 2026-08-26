@@ -3,18 +3,20 @@ import { allowedTimes, getAvailability, durationFor, labelToMin, LOCATIONS } fro
 import {
   loadLessons,
   saveLessons,
-  lessonsForEmail,
   makeMemberLesson,
   removeLesson,
-  lessonFromStripeMeta,
+  scheduledFor,
 } from "../lib/lessons.js";
 import {
   findMembership,
   membershipSummary,
   bookingBlocked,
   canCancelLesson,
+  prettyDate,
 } from "../lib/members.js";
 import { tokenFromRequest } from "../lib/memberAuth.js";
+import { buildCalendar, stamp } from "../lib/ics.js";
+import { bookingEvent } from "./calendar.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -34,12 +36,32 @@ function publicAccount(acct) {
   };
 }
 
-async function emailWeeklyBook(to, lesson, player) {
+async function emailMemberBooking(to, lesson, summary) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey || !to) return;
   const loc = LOCATIONS.mustang || {};
   const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
-  const when = `${lesson.date} at ${lesson.time}`;
+  // Same tap-to-add invite the paid confirmations carry — the coach is BCC'd,
+  // so a member booking reaches their calendar immediately too.
+  const events = bookingEvent(lesson, stamp());
+  const invite = events.length
+    ? {
+        filename: "ap-academy-lesson.ics",
+        content: Buffer.from(
+          buildCalendar({ name: "AP Academy", events: [events] }),
+          "utf8"
+        ).toString("base64"),
+        content_type: "text/calendar; charset=utf-8; method=PUBLISH",
+      }
+    : null;
+  const when = `${prettyDate(lesson.date)} at ${lesson.time}`;
+  const left = summary.remaining || 0;
+  const player = lesson.player;
+  const leftLine = left
+    ? `You have ${left} lesson${left === 1 ? "" : "s"} left on this membership. ` +
+      `They have to be used by ${summary.lastDayPretty} — book them anytime at apacademybsb.com/account.html.`
+    : `That was the last of your ${summary.credits} lessons. This membership does not auto-renew — ` +
+      `buy another month at apacademybsb.com/book.html?type=membership whenever you're ready for 4 more.`;
   try {
     await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -52,9 +74,11 @@ async function emailWeeklyBook(to, lesson, player) {
         subject: `Lesson booked — ${when}`,
         text:
           `${player ? player + "'s" : "Your"} lesson is set for ${when}.\n\n` +
-          (loc.address ? `Where: ${loc.address}\n${loc.note || ""}\n` : "") +
-          `\nNeed to change it? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
-          `Questions? (405) 819-4401`,
+          (loc.address ? `WHERE\n${loc.name}\n${loc.address}\n${loc.note || ""}\n\n` : "") +
+          `${leftLine}\n\n` +
+          `Need to change it? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
+          `Questions? Call or text (405) 819-4401.`,
+        ...(invite ? { attachments: [invite] } : {}),
       }),
     });
   } catch {
@@ -62,13 +86,31 @@ async function emailWeeklyBook(to, lesson, player) {
   }
 }
 
-async function emailWeeklyReschedule(to, from_, to_, player) {
+async function emailMemberReschedule(to, oldLesson, newLesson, summary) {
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey || !to) return;
   const loc = LOCATIONS.mustang || {};
   const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
-  const was = `${from_.date} at ${from_.time}`;
-  const now = `${to_.date} at ${to_.time}`;
+  // Fresh calendar invite for the new time — the coach is BCC'd, so their
+  // calendar picks up the moved lesson in one tap, same as a new booking.
+  const events = bookingEvent(newLesson, stamp());
+  const invite = events.length
+    ? {
+        filename: "ap-academy-lesson.ics",
+        content: Buffer.from(
+          buildCalendar({ name: "AP Academy", events: [events] }),
+          "utf8"
+        ).toString("base64"),
+        content_type: "text/calendar; charset=utf-8; method=PUBLISH",
+      }
+    : null;
+  const was = `${prettyDate(oldLesson.date)} at ${oldLesson.time}`;
+  const now = `${prettyDate(newLesson.date)} at ${newLesson.time}`;
+  const player = newLesson.player;
+  const left = summary.remaining || 0;
+  const leftLine = left
+    ? `You still have ${left} lesson${left === 1 ? "" : "s"} left on this membership, good through ${summary.lastDayPretty}.`
+    : `That's all ${summary.credits} lessons spent for this membership.`;
   try {
     await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -81,31 +123,17 @@ async function emailWeeklyReschedule(to, from_, to_, player) {
         subject: `Lesson moved — now ${now}`,
         text:
           `${player ? player + "'s" : "Your"} lesson has been moved.\n\n` +
-          `Was: ${was}\nNow: ${now}\n\n` +
-          (loc.address ? `Where: ${loc.address}\n${loc.note || ""}\n` : "") +
-          `\nNeed to change it again? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
-          `Questions? (405) 819-4401`,
+          `WAS: ${was}\nNOW: ${now}\n\n` +
+          (loc.address ? `WHERE\n${loc.name}\n${loc.address}\n${loc.note || ""}\n\n` : "") +
+          `${leftLine}\n\n` +
+          `Need to change it again? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
+          `Questions? Call or text (405) 819-4401.`,
+        ...(invite ? { attachments: [invite] } : {}),
       }),
     });
   } catch {
     /* the move still stands */
   }
-}
-
-function scheduledFor(sub, stored) {
-  const email = String(sub.metadata?.email || "").toLowerCase();
-  const fromBlob = lessonsForEmail(stored, email);
-  const fromStripe = lessonFromStripeMeta(sub.id, sub.metadata || {}, "membership");
-  const seen = new Set(fromBlob.map((l) => `${l.date}|${l.time}`));
-  const merged = [...fromBlob];
-  fromStripe.forEach((l) => {
-    const k = `${l.date}|${l.time}`;
-    if (!seen.has(k)) {
-      seen.add(k);
-      merged.push(l);
-    }
-  });
-  return merged;
 }
 
 async function loadAccount(key, email) {
@@ -210,7 +238,7 @@ export default async function handler(req, res) {
     }
 
     // Judge the new slot as if the lesson being moved weren't on the calendar,
-    // so the one-per-week and remaining-credit rules don't count it twice.
+    // so the one-per-day and remaining-credit rules don't count it twice.
     const others = acct.scheduled.filter((l) => l.id !== id);
     const summaryWithout = membershipSummary(acct.sub, others);
     const blocked = bookingBlocked(summaryWithout, newDate, others);
@@ -258,7 +286,7 @@ export default async function handler(req, res) {
 
     acct.scheduled = scheduledFor(acct.sub, acct.stored);
     acct.summary = membershipSummary(acct.sub, acct.scheduled);
-    emailWeeklyReschedule(email, lesson, moved, moved.player);
+    emailMemberReschedule(email, lesson, moved, acct.summary);
     res.status(200).json({ ok: true, lesson: moved, ...publicAccount(acct) });
     return;
   }
@@ -316,6 +344,6 @@ export default async function handler(req, res) {
 
   acct.scheduled = scheduledFor(acct.sub, acct.stored);
   acct.summary = membershipSummary(acct.sub, acct.scheduled);
-  emailWeeklyBook(email, lesson, lesson.player);
+  emailMemberBooking(email, lesson, acct.summary);
   res.status(200).json({ ok: true, lesson, ...publicAccount(acct) });
 }

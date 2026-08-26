@@ -31,6 +31,19 @@ export default async function handler(req, res) {
     return;
   }
 
+  // If email isn't wired up we can't send anything — say so plainly instead of
+  // telling them to watch an inbox nothing will ever arrive in. Answered before
+  // the membership lookup so it reads the same either way and doesn't reveal
+  // whether an address has a membership.
+  if (!resendKey) {
+    res.status(200).json({
+      sent: false,
+      message:
+        "Sign-in links are down right now. Text (405) 819-4401 and I'll send your booking link straight over.",
+    });
+    return;
+  }
+
   const sub = await findMembership(key, email);
   if (!sub) {
     res.status(200).json({ sent: true, message: okMsg });
@@ -40,11 +53,6 @@ export default async function handler(req, res) {
   const token = signMemberToken(email);
   const link = `${originFrom(req)}/account.html?k=${encodeURIComponent(token)}`;
   const player = sub.metadata?.player || "your player";
-
-  if (!resendKey) {
-    res.status(200).json({ sent: false, message: "Email isn't connected yet. Call or text (405) 819-4401 and we'll get you in." });
-    return;
-  }
 
   const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
   const mail = await fetch("https://api.resend.com/emails", {
@@ -57,18 +65,28 @@ export default async function handler(req, res) {
       reply_to: REPLY_TO,
       subject: "Your AP Academy member sign-in",
       text:
-        `Sign in to pick ${player}'s next lesson:\n\n${link}\n\n` +
-        `This link works for 30 days. One lesson a week, 4 per month.\n\n` +
+        `Sign in to book ${player}'s next lesson:\n\n${link}\n\n` +
+        `This link works for 30 days. Your membership page shows how many lessons\n` +
+        `you have left and the date they expire.\n\n` +
         `Questions? Call or text (405) 819-4401.`,
-      html: `<p>Sign in to pick ${player}'s next lesson:</p>
+      html: `<p>Sign in to book ${player}'s next lesson:</p>
         <p><a href="${link}" style="display:inline-block;background:#cfd4da;color:#06121c;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:99px;">Open my membership</a></p>
-        <p style="color:#555;font-size:13px;">This link works for 30 days. One lesson a week, 4 per month.</p>
+        <p style="color:#555;font-size:13px;">This link works for 30 days. Your membership page shows how many lessons you have left and the date they expire.</p>
         <p>Questions? Call or text (405) 819-4401.</p>`,
     }),
   });
 
   if (!mail.ok) {
-    res.status(200).json({ sent: false, message: "Couldn't send the email. Call or text (405) 819-4401." });
+    // Keep the provider's reason — "domain not verified", a bad from-address —
+    // out of the member's way but visible to us. The page only renders
+    // `message`; without this a send failure is impossible to diagnose.
+    const err = await mail.json().catch(() => ({}));
+    console.error("Resend rejected the sign-in email:", mail.status, err);
+    res.status(200).json({
+      sent: false,
+      message: "Couldn't send the email. Call or text (405) 819-4401.",
+      error: err.message || err.name || `Resend returned ${mail.status}`,
+    });
     return;
   }
 
