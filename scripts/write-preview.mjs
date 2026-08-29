@@ -1,0 +1,572 @@
+// Writes /preview/*.html — a look-alike of the site where nav tabs are real pages.
+// The live homepage is not rewritten. Run: node scripts/write-preview.mjs
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const outDir = join(root, "preview");
+mkdirSync(outDir, { recursive: true });
+
+const TABS = [
+  ["coaching.html", "Coaching"],
+  ["work.html", "Work"],
+  ["about.html", "Coach"],
+  ["pricing.html", "Pricing"],
+  ["faq.html", "FAQ"],
+  ["camps.html", "Camps"],
+  ["/account.html", "Members"],
+  ["contact.html", "Contact"],
+];
+
+function nav(current) {
+  return TABS.map(([href, label]) => {
+    const here =
+      (current === "coaching.html" && href === "coaching.html") ||
+      (current === "work.html" && href === "work.html") ||
+      (current === "about.html" && href === "about.html") ||
+      (current === "pricing.html" && href === "pricing.html") ||
+      (current === "faq.html" && href === "faq.html") ||
+      (current === "camps.html" && href === "camps.html") ||
+      (current === "contact.html" && href === "contact.html");
+    return `        <a href="${href}"${here ? ' aria-current="page"' : ""}>${label}</a>`;
+  }).join("\n");
+}
+
+function page({ file, title, desc, current, home, main }) {
+  const bodyClass = home ? "has-preview-banner" : "page-book has-preview-banner";
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>${title}</title>
+  <meta name="description" content="${desc}" />
+  <link rel="icon" type="image/png" href="/img/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body class="${bodyClass}">
+
+  <div class="preview-banner">
+    This is a preview — the live homepage is unchanged.
+    <a href="/">Back to the live site</a>
+  </div>
+
+  <header class="nav" id="top">
+    <div class="nav__inner container">
+      <a class="nav__brand" href="index.html">
+        <span class="nav__logo">
+          <img src="/img/logo-mark.png" alt="AP Academy logo" />
+        </span>
+        <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+      </a>
+      <nav class="nav__links" id="navLinks">
+${nav(current)}
+      </nav>
+      <a class="btn btn--primary nav__cta" href="/book.html">Book Training</a>
+      <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+${main}
+
+  <footer class="footer" id="contact">
+    <div class="container footer__grid">
+      <div>
+        <a class="nav__brand" href="index.html">
+          <span class="nav__logo">
+            <img src="/img/logo-mark.png" alt="AP Academy logo" />
+          </span>
+          <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+        </a>
+        <p class="footer__blurb">Private 1-on-1 baseball training in Oklahoma City.</p>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul class="footer__list">
+          <li><a href="tel:+14058194401">(405) 819-4401</a></li>
+          <li><a href="mailto:Apacademybsb@gmail.com">Apacademybsb@gmail.com</a></li>
+          <li>Mustang, OK</li>
+          <li>Evenings &amp; weekends · <a href="/book.html">see open times</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Follow</h4>
+        <ul class="footer__list">
+          <li><a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a></li>
+          <li><a href="https://instagram.com/elijahalexanderrrr" target="_blank" rel="noopener">@elijahalexanderrrr</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Pages</h4>
+        <ul class="footer__list">
+          <li><a href="coaching.html">Coaching</a></li>
+          <li><a href="work.html">Work</a></li>
+          <li><a href="about.html">Coach</a></li>
+          <li><a href="pricing.html">Pricing</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="camps.html">Camps</a></li>
+          <li><a href="/account.html">Member login</a></li>
+          <li><a href="/apply.html">3 days a week</a></li>
+          <li><a href="/book.html">Book a Lesson</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year"></span> AP Academy · Ace Performance. All rights reserved.</p>
+      <p>Preview — not the live homepage</p>
+    </div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>
+`;
+  writeFileSync(join(outDir, file), html);
+}
+
+page({
+  file: "index.html",
+  title: "AP Academy | Preview",
+  desc: "Preview of AP Academy with real pages for each tab.",
+  current: "index.html",
+  home: true,
+  main: `  <section class="hero">
+    <div class="hero__media" aria-hidden="true">
+      <img src="/img/hero.jpg" alt="" width="2400" height="1600" fetchpriority="high" />
+    </div>
+    <div class="hero__shade" aria-hidden="true"></div>
+    <div class="hero__grain" aria-hidden="true"></div>
+    <div class="container hero__inner">
+      <div class="hero__copy">
+        <p class="eyebrow eyebrow--line reveal">Private Baseball Training · Oklahoma City</p>
+        <h1 class="hero__title reveal">
+          Train With Purpose.<br />
+          <span class="accent">Play With Confidence.</span>
+        </h1>
+        <p class="hero__sub reveal">
+          1-on-1 hitting and fielding with a D1 hitter who coaches kids every day.
+        </p>
+        <div class="hero__actions reveal">
+          <a class="btn btn--primary btn--lg" href="/book.html?type=single">Book a Lesson — $70</a>
+        </div>
+      </div>
+    </div>
+    <div class="hero__proof">
+      <div class="container hero__stats">
+        <div class="stat">
+          <span class="stat__num">D1</span>
+          <span class="stat__label">Oklahoma State '24–25</span>
+        </div>
+        <div class="stat">
+          <span class="stat__num">.434</span>
+          <span class="stat__label">JUCO Batting Avg</span>
+        </div>
+        <div class="stat">
+          <span class="stat__num">26</span>
+          <span class="stat__label">College Home Runs</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--alt partners-band" id="partners">
+    <div class="container">
+      <p class="eyebrow center reveal">On staff</p>
+      <h2 class="center reveal">He coaches for a living</h2>
+      <p class="section__sub center reveal">Mustang High School, Risin' Baseball, and Mojo — then your player, one-on-one.</p>
+      <div class="partners reveal">
+        <a class="partner" href="https://www.instagram.com/mustangbroncosbaseball/" target="_blank" rel="noopener noreferrer" aria-label="Mustang High School Baseball on Instagram">
+          <div class="partner__logo"><img src="/img/partners/mustang.jpg" alt="Mustang High School Broncos" loading="lazy" /></div>
+          <b class="partner__name">Mustang High School</b>
+          <span class="partner__role">Assistant Coach — Fielding &amp; Hitting</span>
+          <span class="partner__cta">View on Instagram ↗</span>
+        </a>
+        <a class="partner" href="https://www.instagram.com/risinbaseball/" target="_blank" rel="noopener noreferrer" aria-label="Risin' Baseball on Instagram">
+          <div class="partner__logo"><img src="/img/partners/risin.png" alt="Risin' Baseball" loading="lazy" /></div>
+          <b class="partner__name">Risin' Baseball</b>
+          <span class="partner__role">Coach</span>
+          <span class="partner__cta">View on Instagram ↗</span>
+        </a>
+        <a class="partner" href="https://www.instagram.com/okmojobaseball/" target="_blank" rel="noopener noreferrer" aria-label="Mojo Baseball on Instagram">
+          <div class="partner__logo"><img src="/img/partners/mojo.jpg" alt="Mojo Baseball" loading="lazy" /></div>
+          <b class="partner__name">Mojo Baseball</b>
+          <span class="partner__role">Coach</span>
+          <span class="partner__cta">View on Instagram ↗</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="work">
+    <div class="container">
+      <p class="eyebrow center reveal">From the field</p>
+      <h2 class="center reveal">See the work</h2>
+    </div>
+    <div class="film reveal">
+      <video muted playsinline preload="metadata" poster="/img/work/DcH1f6csW4H.jpg" src="/img/work/DcH1f6csW4H.mp4" aria-label="Training clip"></video>
+      <video muted playsinline preload="metadata" poster="/img/work/DcMGqr2ua5P.jpg" src="/img/work/DcMGqr2ua5P.mp4" aria-label="Training clip"></video>
+    </div>
+    <p class="center film__more reveal">
+      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a>
+    </p>
+  </section>
+
+  <section class="section section--alt" id="coach">
+    <div class="container coach">
+      <div class="coach__photo reveal">
+        <img src="/img/coach.jpg" alt="Elijah Alexander, founder of AP Academy" />
+        <div class="coach__badge">Founder &amp; Head Trainer</div>
+      </div>
+      <div class="coach__bio">
+        <p class="eyebrow reveal">Meet Your Coach</p>
+        <h2 class="reveal">Elijah Alexander</h2>
+        <div class="reveal">
+          <p>
+            I hit <em>.434 with 17 homers</em> at Connors State, played at
+            <em>Oklahoma State</em>, then <em>.333 with 9 homers</em> at UCO.
+            Now I coach at Mustang High School and train players one-on-one here.
+          </p>
+          <p>
+            Every lesson is built around your kid — not a cookie-cutter plan.
+            We find what's holding them back and fix it.
+          </p>
+        </div>
+        <a class="btn btn--primary reveal" href="/book.html">Train With Me</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="programs">
+    <div class="container">
+      <p class="eyebrow center reveal">Pricing</p>
+      <h2 class="center reveal">Pick Your Path</h2>
+      <p class="section__sub center reveal">Tap a plan to book. Members pick their first day at checkout, then book the rest whenever suits them.</p>
+
+      <div class="grid grid--3 pricing">
+        <a class="price-card reveal" href="/book.html?type=single">
+          <h3>Single Lesson</h3>
+          <div class="price-card__price">$70<span>/ session</span></div>
+          <ul>
+            <li>One hour, 1-on-1</li>
+            <li>Hitting, fielding, or both</li>
+            <li>Ages 11 through college</li>
+          </ul>
+          <span class="btn btn--ghost">Book a Lesson</span>
+        </a>
+        <a class="price-card price-card--featured reveal" href="/book.html?type=membership">
+          <div class="price-card__tag">Most Popular</div>
+          <h3>Membership</h3>
+          <div class="price-card__price">$240<span>/ month</span></div>
+          <ul>
+            <li>4 one-hour lessons</li>
+            <li>Pick any 4 days that work for you</li>
+            <li>Ages 11 through college</li>
+            <li>Does not auto-renew — buy again next month</li>
+          </ul>
+          <span class="btn btn--primary">Become a Member</span>
+        </a>
+        <a class="price-card reveal" href="/book.html?type=thirty">
+          <h3>30-Minute Lesson</h3>
+          <div class="price-card__price">$50<span>/ session</span></div>
+          <ul>
+            <li>A focused half-hour, 1-on-1</li>
+            <li>Hitting or fielding</li>
+            <li>Ages 11 through college</li>
+          </ul>
+          <span class="btn btn--ghost">Book a 30-Min</span>
+        </a>
+      </div>
+
+      <div class="camp-note reveal">
+        <h3>3 days a week?</h3>
+        <p>
+          For a serious player 14U through college who wants to work with me three times a week for a month —
+          same days, same time, 12 lessons. $700. This isn't something you buy online.
+          Answer a few questions and I'll review it. If it's a fit, I'll reach out.
+        </p>
+        <a class="btn btn--primary" href="/apply.html">Apply — no payment</a>
+      </div>
+    </div>
+  </section>
+`,
+});
+
+page({
+  file: "coaching.html",
+  title: "Coaching | AP Academy",
+  desc: "Elijah Alexander coaches at Mustang High School, Risin' Baseball, and Mojo.",
+  current: "coaching.html",
+  main: `  <section class="section book-page">
+    <div class="container">
+      <p class="eyebrow center reveal">On staff</p>
+      <h1 class="center reveal">He coaches for a living</h1>
+      <p class="section__sub center reveal">Mustang High School, Risin' Baseball, and Mojo — then your player, one-on-one. This page can grow with more coaching news, photos, or a camps schedule later.</p>
+      <div class="partners reveal" style="margin-top:2.4rem">
+        <a class="partner" href="https://www.instagram.com/mustangbroncosbaseball/" target="_blank" rel="noopener noreferrer" aria-label="Mustang High School Baseball on Instagram">
+          <div class="partner__logo"><img src="/img/partners/mustang.jpg" alt="Mustang High School Broncos" loading="lazy" /></div>
+          <b class="partner__name">Mustang High School</b>
+          <span class="partner__role">Assistant Coach — Fielding &amp; Hitting</span>
+          <span class="partner__cta">View on Instagram ↗</span>
+        </a>
+        <a class="partner" href="https://www.instagram.com/risinbaseball/" target="_blank" rel="noopener noreferrer" aria-label="Risin' Baseball on Instagram">
+          <div class="partner__logo"><img src="/img/partners/risin.png" alt="Risin' Baseball" loading="lazy" /></div>
+          <b class="partner__name">Risin' Baseball</b>
+          <span class="partner__role">Coach</span>
+          <span class="partner__cta">View on Instagram ↗</span>
+        </a>
+        <a class="partner" href="https://www.instagram.com/okmojobaseball/" target="_blank" rel="noopener noreferrer" aria-label="Mojo Baseball on Instagram">
+          <div class="partner__logo"><img src="/img/partners/mojo.jpg" alt="Mojo Baseball" loading="lazy" /></div>
+          <b class="partner__name">Mojo Baseball</b>
+          <span class="partner__role">Coach</span>
+          <span class="partner__cta">View on Instagram ↗</span>
+        </a>
+      </div>
+    </div>
+  </section>
+`,
+});
+
+page({
+  file: "work.html",
+  title: "See the Work | AP Academy",
+  desc: "Training clips from AP Academy.",
+  current: "work.html",
+  main: `  <section class="section book-page">
+    <div class="container">
+      <p class="eyebrow center reveal">From the field</p>
+      <h1 class="center reveal">See the work</h1>
+      <p class="section__sub center reveal">Tap a clip for sound. This page can hold more videos whenever you send them.</p>
+    </div>
+    <div class="film reveal">
+      <video muted playsinline preload="metadata" poster="/img/work/DcH1f6csW4H.jpg" src="/img/work/DcH1f6csW4H.mp4" aria-label="Training clip"></video>
+      <video muted playsinline preload="metadata" poster="/img/work/DcMGqr2ua5P.jpg" src="/img/work/DcMGqr2ua5P.mp4" aria-label="Training clip"></video>
+    </div>
+    <p class="center film__more reveal">
+      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a>
+    </p>
+  </section>
+`,
+});
+
+page({
+  file: "about.html",
+  title: "Coach | AP Academy",
+  desc: "Meet Elijah Alexander, founder of AP Academy.",
+  current: "about.html",
+  main: `  <section class="section book-page section--alt">
+    <div class="container coach">
+      <div class="coach__photo reveal">
+        <img src="/img/coach.jpg" alt="Elijah Alexander, founder of AP Academy" />
+        <div class="coach__badge">Founder &amp; Head Trainer</div>
+      </div>
+      <div class="coach__bio">
+        <p class="eyebrow reveal">Meet Your Coach</p>
+        <h1 class="reveal">Elijah Alexander</h1>
+        <div class="reveal">
+          <p>
+            I hit <em>.434 with 17 homers</em> at Connors State, played at
+            <em>Oklahoma State</em>, then <em>.333 with 9 homers</em> at UCO.
+            Now I coach at Mustang High School and train players one-on-one here.
+          </p>
+          <p>
+            Every lesson is built around your kid — not a cookie-cutter plan.
+            We find what's holding them back and fix it.
+          </p>
+        </div>
+        <a class="btn btn--primary reveal" href="/book.html">Train With Me</a>
+      </div>
+    </div>
+  </section>
+`,
+});
+
+page({
+  file: "pricing.html",
+  title: "Pricing | AP Academy",
+  desc: "Private baseball lessons and memberships in Oklahoma City. Ages 11 through college.",
+  current: "pricing.html",
+  main: `  <section class="section book-page">
+    <div class="container">
+      <p class="eyebrow center reveal">Pricing</p>
+      <h1 class="center reveal">Pick Your Path</h1>
+      <p class="section__sub center reveal">Tap a plan to book. Members pick their first day at checkout, then book the rest whenever suits them.</p>
+
+      <div class="grid grid--3 pricing">
+        <a class="price-card reveal" href="/book.html?type=single">
+          <h3>Single Lesson</h3>
+          <div class="price-card__price">$70<span>/ session</span></div>
+          <ul>
+            <li>One hour, 1-on-1</li>
+            <li>Hitting, fielding, or both</li>
+            <li>Ages 11 through college</li>
+          </ul>
+          <span class="btn btn--ghost">Book a Lesson</span>
+        </a>
+        <a class="price-card price-card--featured reveal" href="/book.html?type=membership">
+          <div class="price-card__tag">Most Popular</div>
+          <h3>Membership</h3>
+          <div class="price-card__price">$240<span>/ month</span></div>
+          <ul>
+            <li>4 one-hour lessons</li>
+            <li>Pick any 4 days that work for you</li>
+            <li>Ages 11 through college</li>
+            <li>Does not auto-renew — buy again next month</li>
+          </ul>
+          <span class="btn btn--primary">Become a Member</span>
+        </a>
+        <a class="price-card reveal" href="/book.html?type=thirty">
+          <h3>30-Minute Lesson</h3>
+          <div class="price-card__price">$50<span>/ session</span></div>
+          <ul>
+            <li>A focused half-hour, 1-on-1</li>
+            <li>Hitting or fielding</li>
+            <li>Ages 11 through college</li>
+          </ul>
+          <span class="btn btn--ghost">Book a 30-Min</span>
+        </a>
+      </div>
+
+      <div class="camp-note reveal">
+        <h3>3 days a week?</h3>
+        <p>
+          For a serious player 14U through college who wants to work with me three times a week for a month —
+          same days, same time, 12 lessons. $700. This isn't something you buy online.
+          Answer a few questions and I'll review it. If it's a fit, I'll reach out.
+        </p>
+        <a class="btn btn--primary" href="/apply.html">Apply — no payment</a>
+      </div>
+    </div>
+  </section>
+`,
+});
+
+page({
+  file: "faq.html",
+  title: "FAQ | AP Academy",
+  desc: "How AP Academy memberships, booking, and lessons work.",
+  current: "faq.html",
+  main: `  <section class="section book-page section--alt">
+    <div class="container container--narrow">
+      <p class="eyebrow center reveal">FAQ</p>
+      <h1 class="center reveal">Quick Answers</h1>
+      <div class="faq reveal">
+        <details>
+          <summary>What's the 3 days a week option?</summary>
+          <p>
+            For a serious player <strong>14U through college</strong> who wants to train with me 3 times a week for a month —
+            same days, same time every week. That's 12 one-hour lessons, $700.
+            You don't pay online. Fill out the
+            <a href="/apply.html">short application</a> and I'll review it. If it's a fit, I'll reach out.
+          </p>
+        </details>
+        <details>
+          <summary>How does the membership work?</summary>
+          <p>
+            $240 for one month — 4 one-hour lessons. It does <strong>not</strong> auto-renew; buy again when you want another month.
+            You pick your first day at checkout, then book the other three
+            <strong>on any days that work for you</strong> inside that month — one at a time, whenever you know your
+            schedule. Sign in at <a href="/account.html">Member login</a> with the same email to book them, reschedule a day, and to see how
+            many you have left and the date they expire. Unused lessons don't roll over.
+          </p>
+        </details>
+        <details>
+          <summary>What days and times can we book?</summary>
+          <p>Weeknight evenings and weekend afternoons. Hours change with the season, so the
+            <a href="/book.html">booking page</a> always shows what's actually open — pick a day and the free times appear.</p>
+        </details>
+        <details>
+          <summary>What ages do you train?</summary>
+          <p>
+            Drop-in and membership lessons: <strong>ages 11 through college</strong>.
+            The 3 days a week block is <strong>14U through college</strong>.
+            Lessons are built around your player's age and skill — not a one-size program.
+          </p>
+        </details>
+        <details>
+          <summary>Where are lessons held?</summary>
+          <p>Mustang High School baseball field. The address and directions come in your confirmation email. Questions? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
+        </details>
+        <details>
+          <summary>What should my player bring?</summary>
+          <p>Bat, glove, turfs, and a water bottle.</p>
+        </details>
+        <details>
+          <summary>What's your cancellation policy?</summary>
+          <p>
+            <strong>Members:</strong> sign in at <a href="/account.html">Member login</a> and tap Reschedule or Cancel at least 12 hours before the lesson. That credit stays on the membership so they can pick another day. Less than 12 hours notice may be charged a fee.
+          </p>
+          <p>
+            <strong>Drop-in (single or 30-min):</strong> those can't be changed online. Text or call <a href="tel:+14058194401">(405) 819-4401</a> at least 12 hours ahead.
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
+`,
+});
+
+page({
+  file: "camps.html",
+  title: "Camps | AP Academy",
+  desc: "AP Academy camps — details coming soon.",
+  current: "camps.html",
+  main: `  <section class="section book-page">
+    <div class="container container--narrow">
+      <p class="eyebrow center reveal">Camps</p>
+      <h1 class="center reveal">This page is ready.</h1>
+      <p class="section__sub center reveal">
+        This is what a Camps tab looks like as its own page — not stuck under the homepage.
+        Tell me dates, ages, price, and what to say, and I'll fill this in.
+      </p>
+      <div class="booking reveal" style="margin-top:2rem">
+        <div class="booking__member-note">
+          <strong>Nothing is listed yet</strong>
+          <ul>
+            <li>The 3 days a week intensive (14U–college, $700, application only) already lives at <a href="/apply.html">Apply</a>.</li>
+            <li>A real camp — weekend, holiday, or summer — can go here when you're ready.</li>
+          </ul>
+        </div>
+        <p class="center" style="margin-top:1.4rem">
+          <a class="btn btn--primary" href="sms:+14058194401">Text (405) 819-4401</a>
+        </p>
+      </div>
+    </div>
+  </section>
+`,
+});
+
+page({
+  file: "contact.html",
+  title: "Contact | AP Academy",
+  desc: "Call or text Elijah Alexander at AP Academy.",
+  current: "contact.html",
+  main: `  <section class="section book-page">
+    <div class="container container--narrow">
+      <p class="eyebrow center reveal">Contact</p>
+      <h1 class="center reveal">Let's talk.</h1>
+      <p class="section__sub center reveal">Call, text, or email. The training address comes after you book.</p>
+      <div class="booking reveal">
+        <ul class="footer__list" style="font-size:1.05rem;line-height:2">
+          <li><a href="tel:+14058194401">(405) 819-4401</a></li>
+          <li><a href="mailto:Apacademybsb@gmail.com">Apacademybsb@gmail.com</a></li>
+          <li>Mustang, OK</li>
+          <li><a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a></li>
+        </ul>
+        <p style="margin-top:1.6rem">
+          <a class="btn btn--primary btn--lg" href="/book.html">Book Training</a>
+        </p>
+      </div>
+    </div>
+  </section>
+`,
+});
+
+console.log("Wrote preview pages to", outDir);

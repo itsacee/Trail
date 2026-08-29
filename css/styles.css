@@ -1177,3 +1177,26 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 .partner:hover .partner__name { color: #fff; }
 .partner:hover .partner__cta { color: var(--btn); }
 .partner:focus-visible { outline: 2px solid var(--btn); outline-offset: 5px; }
+
+/* Preview site — only used under /preview/. Live homepage is unchanged. */
+.preview-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  background: #1a1206;
+  border-bottom: 1px solid #6b4d16;
+  color: #e0b457;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  padding-top: max(0.55rem, env(safe-area-inset-top));
+}
+.preview-banner a { color: #f5f6f8; font-weight: 700; }
+.has-preview-banner .nav { top: 2.45rem; }
+.has-preview-banner.page-book .book-page { padding-top: 8.8rem; }
+@media (max-width: 900px) {
+  .has-preview-banner .nav { top: 2.7rem; }
+}

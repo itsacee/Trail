@@ -42,12 +42,12 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
 const FILM_PAIRS = [
   [
-    { src: "img/work/DcH1f6csW4H.mp4", poster: "img/work/DcH1f6csW4H.jpg" },
-    { src: "img/work/DcMGqr2ua5P.mp4", poster: "img/work/DcMGqr2ua5P.jpg" },
+    { src: "/img/work/DcH1f6csW4H.mp4", poster: "/img/work/DcH1f6csW4H.jpg" },
+    { src: "/img/work/DcMGqr2ua5P.mp4", poster: "/img/work/DcMGqr2ua5P.jpg" },
   ],
   [
-    { src: "img/work/DbgWOhvuin5.mp4", poster: "img/work/DbgWOhvuin5.jpg" },
-    { src: "img/work/DbqzZQuKHbs.mp4", poster: "img/work/DbqzZQuKHbs.jpg" },
+    { src: "/img/work/DbgWOhvuin5.mp4", poster: "/img/work/DbgWOhvuin5.jpg" },
+    { src: "/img/work/DbqzZQuKHbs.mp4", poster: "/img/work/DbqzZQuKHbs.jpg" },
   ],
 ];
 const filmPlayers = [...document.querySelectorAll(".film video")];
