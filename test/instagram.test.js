@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeItem, prettyAgo, permalink, fetchAllPosts } from "../lib/instagram.js";
+import { normalizeItem, prettyAgo, permalink, fetchAllPosts, postsFromProfileHtml, SEED_POSTS } from "../lib/instagram.js";
 
 test("normalizeItem maps a clip and a photo", () => {
   const clip = normalizeItem({
@@ -84,4 +84,56 @@ test("fetchAllPosts walks pages and de-dupes", async () => {
   const posts = await fetchAllPosts({ getJson });
   assert.deepEqual(posts.map((p) => p.code), ["AAA", "BBB", "CCC"]);
   assert.equal(calls.filter((u) => u.includes("feed/user")).length, 2);
+});
+
+test("postsFromProfileHtml pulls posts out of JSON script tags", () => {
+  const html = `<html><script type="application/json">${JSON.stringify({
+    require: [
+      {
+        shortcode: "HtmlPost",
+        display_url: "https://img/h.jpg",
+        is_video: false,
+        taken_at_timestamp: 1700000000,
+        edge_media_to_caption: { edges: [{ node: { text: "From page" } }] },
+      },
+    ],
+  })}</script></html>`;
+  const posts = postsFromProfileHtml(html);
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].code, "HtmlPost");
+  assert.equal(posts[0].image, "https://img/h.jpg");
+  assert.equal(posts[0].caption, "From page");
+});
+
+test("fetchAllPosts uses profile media when the feed endpoint fails", async () => {
+  const profile = {
+    data: {
+      user: {
+        id: "405",
+        edge_owner_to_timeline_media: {
+          edges: [
+            {
+              node: {
+                shortcode: "FALL1",
+                display_url: "https://img/f.jpg",
+                is_video: false,
+                taken_at_timestamp: 9,
+              },
+            },
+          ],
+        },
+      },
+    },
+  };
+  const getJson = async (url) => {
+    if (url.includes("web_profile_info")) return profile;
+    throw new Error("Instagram returned 429");
+  };
+  const posts = await fetchAllPosts({ getJson, getText: async () => { throw new Error("no html"); } });
+  assert.equal(posts[0].code, "FALL1");
+});
+
+test("seed posts cover known academy clips", () => {
+  assert.ok(SEED_POSTS.length >= 4);
+  assert.ok(SEED_POSTS.every((p) => p.code && p.url.includes(p.code)));
 });

@@ -23,6 +23,18 @@ if (root) {
   };
 
   const card = (post) => {
+    const top = `<a class="ig-card__top" href="${esc(post.url)}" target="_blank" rel="noopener">
+        <img src="/img/logo-mark.png" alt="" />
+        <span class="ig-card__who">AP Academy<small>@${HANDLE}</small></span>
+        <span class="ig-card__open">Open ↗</span>
+      </a>`;
+    if (!post.image && !post.video && post.code) {
+      const kind = (post.url || "").includes("/p/") ? "p" : "reel";
+      return `<article class="ig-card">
+      ${top}
+      <iframe class="ig-card__embed" src="https://www.instagram.com/${kind}/${esc(post.code)}/embed/captioned/" loading="lazy" title="Instagram post from @${HANDLE}"></iframe>
+    </article>`;
+    }
     const media = post.video
       ? `<video muted playsinline loop preload="metadata" poster="${esc(post.image)}" src="${esc(post.video)}"></video>
          <span class="ig-card__sound">Tap for sound</span>`
@@ -31,11 +43,7 @@ if (root) {
       ? `<p class="ig-card__cap">${esc(post.caption)}</p>`
       : "";
     return `<article class="ig-card">
-      <a class="ig-card__top" href="${esc(post.url)}" target="_blank" rel="noopener">
-        <img src="/img/logo-mark.png" alt="" />
-        <span class="ig-card__who">AP Academy<small>@${HANDLE}</small></span>
-        <span class="ig-card__open">Open ↗</span>
-      </a>
+      ${top}
       <div class="ig-card__media">${media}</div>
       ${cap}
       <p class="ig-card__time">${esc(ago(post.takenAt))}</p>

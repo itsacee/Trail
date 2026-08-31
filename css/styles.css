@@ -1225,6 +1225,13 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
   font-size: 0.8rem;
   font-weight: 700;
 }
+.ig-card__embed {
+  display: block;
+  width: 100%;
+  min-height: 720px;
+  border: 0;
+  background: #000;
+}
 .ig-card__media { background: #000; position: relative; }
 .ig-card__media img,
 .ig-card__media video {

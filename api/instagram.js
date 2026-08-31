@@ -1,7 +1,25 @@
-import { fetchAllPosts } from "../lib/instagram.js";
+import { fetchAllPosts, SEED_POSTS } from "../lib/instagram.js";
+import { blobRead, blobWrite, storeConfigured } from "../lib/store.js";
 
-let cache = { at: 0, posts: null, error: "" };
+let cache = { at: 0, posts: null };
 const TTL_MS = 5 * 60 * 1000;
+const FEED_FILE = "instagram.json";
+
+async function savedPosts() {
+  const raw = await blobRead(FEED_FILE);
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw);
+    return Array.isArray(data.posts) && data.posts.length ? data.posts : null;
+  } catch {
+    return null;
+  }
+}
+
+async function remember(posts) {
+  if (!posts?.length || !storeConfigured()) return;
+  await blobWrite(FEED_FILE, JSON.stringify({ at: Date.now(), posts }));
+}
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -18,18 +36,16 @@ export default async function handler(req, res) {
 
   try {
     const posts = await fetchAllPosts();
-    cache = { at: now, posts, error: "" };
+    if (!posts.length) throw new Error("Instagram returned no posts.");
+    cache = { at: now, posts };
+    remember(posts).catch(() => {});
     res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
     res.status(200).json({ posts, cached: false });
   } catch (err) {
     console.error("Instagram feed failed:", err);
-    if (cache.posts) {
-      res.status(200).json({ posts: cache.posts, cached: true });
-      return;
-    }
-    res.status(502).json({
-      error: "Couldn't load Instagram right now.",
-      posts: [],
-    });
+    const fallback = cache.posts || (await savedPosts()) || SEED_POSTS;
+    cache = { at: now, posts: fallback };
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+    res.status(200).json({ posts: fallback, cached: true });
   }
 }
