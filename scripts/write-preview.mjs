@@ -211,17 +211,13 @@ page({
 
   <section class="section" id="work">
     <div class="container">
-      <p class="eyebrow center reveal">From the field</p>
-      <h2 class="center reveal">See the work</h2>
+      <p class="eyebrow center reveal">Latest</p>
+      <h2 class="center reveal">From the field</h2>
+      <p class="section__sub center reveal">A few recent clips. More on Instagram.</p>
     </div>
-    <div class="film reveal">
-      <video muted playsinline preload="metadata" poster="/img/work/DcH1f6csW4H.jpg" src="/img/work/DcH1f6csW4H.mp4" aria-label="Training clip"></video>
-      <video muted playsinline preload="metadata" poster="/img/work/DcMGqr2ua5P.jpg" src="/img/work/DcMGqr2ua5P.mp4" aria-label="Training clip"></video>
-    </div>
+    <div id="igNews" class="ig-news reveal"></div>
     <p class="center film__more reveal">
-      <a href="instagram.html">See every post</a>
-      ·
-      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a>
+      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow on Instagram</a>
     </p>
   </section>
 
@@ -303,6 +299,7 @@ page({
     </div>
   </section>
 `,
+  extraScripts: `  <script src="/js/feed.js"></script>`,
 });
 
 page({
@@ -343,22 +340,18 @@ page({
 page({
   file: "work.html",
   title: "See the Work | AP Academy",
-  desc: "Training clips from AP Academy.",
+  desc: "Every Instagram post from AP Academy.",
   current: "work.html",
+  extraScripts: `  <script src="/js/feed.js"></script>`,
   main: `  <section class="section book-page">
     <div class="container">
-      <p class="eyebrow center reveal">From the field</p>
-      <h1 class="center reveal">See the work</h1>
-      <p class="section__sub center reveal">Tap a clip for sound. This page can hold more videos whenever you send them.</p>
+      <p class="eyebrow center reveal">Latest</p>
+      <h1 class="center reveal">From the field</h1>
+      <p class="section__sub center reveal">A few recent clips. More on Instagram.</p>
     </div>
-    <div class="film reveal">
-      <video muted playsinline preload="metadata" poster="/img/work/DcH1f6csW4H.jpg" src="/img/work/DcH1f6csW4H.mp4" aria-label="Training clip"></video>
-      <video muted playsinline preload="metadata" poster="/img/work/DcMGqr2ua5P.jpg" src="/img/work/DcMGqr2ua5P.mp4" aria-label="Training clip"></video>
-    </div>
+    <div id="igNews" class="ig-news reveal"></div>
     <p class="center film__more reveal">
-      <a href="instagram.html">See every post</a>
-      ·
-      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a>
+      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow on Instagram</a>
     </p>
   </section>
 `,
@@ -369,23 +362,19 @@ page({
   title: "Instagram | AP Academy",
   desc: "See everything AP Academy posts on Instagram.",
   current: "instagram.html",
-  extraScripts: `  <script async src="https://www.instagram.com/embed.js"></script>`,
+  extraScripts: `  <script src="/js/feed.js"></script>`,
   main: `  <section class="section book-page">
     <div class="container">
-      <p class="eyebrow center reveal">@apacademybsb</p>
+      <p class="eyebrow center reveal">Latest</p>
       <h1 class="center reveal">From the Field.</h1>
       <p class="section__sub center reveal">
-        Everything I post on Instagram lives here too — clips, work, and what we're training that week.
+        A few recent clips so you can see the work. Follow for the rest.
       </p>
       <p class="center reveal" style="margin-top:1.2rem">
         <a class="btn btn--primary" href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow @apacademybsb</a>
       </p>
-      <div class="ig-feed reveal">
-        <blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/apacademybsb/" data-instgrm-version="14">
-          <a href="https://www.instagram.com/apacademybsb/">View @apacademybsb on Instagram</a>
-        </blockquote>
-      </div>
     </div>
+    <div id="igNews" class="ig-news reveal"></div>
   </section>
 `,
 });
