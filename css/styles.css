@@ -967,11 +967,18 @@ a.price-card .btn { text-align: center; }
 .footer__bottom {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   flex-wrap: wrap;
   gap: 0.5rem;
   padding-top: 1.5rem;
   color: var(--text-dim);
   font-size: 0.82rem;
+}
+.footer__credit {
+  margin-left: auto;
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 /* ---------- scroll reveal ----------
