@@ -1179,21 +1179,90 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 }
 .film__more a:hover { color: var(--text); }
 
-.ig-feed {
-  display: flex;
-  justify-content: center;
-  width: min(540px, 94%);
-  margin: 2.2rem auto 0;
+.ig-news {
+  width: min(430px, 100%);
+  margin: 1.5rem auto 0;
+  display: grid;
+  gap: 1.35rem;
+  padding: 0 4vw;
 }
-.ig-feed blockquote.instagram-media {
-  margin: 0 auto !important;
-  min-width: 0 !important;
-  width: 100% !important;
-  max-width: 540px !important;
-  background: #fff !important;
-  border: 1px solid var(--line) !important;
-  border-radius: 16px !important;
-  box-shadow: none !important;
+.ig-news__status {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 1.4rem 0;
+}
+.ig-news__status a { color: var(--btn); font-weight: 700; }
+.ig-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.ig-card__top {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.75rem 0.9rem;
+  text-decoration: none;
+  color: inherit;
+}
+.ig-card__top img {
+  height: 34px;
+  width: 34px;
+  border-radius: 50%;
+  background: #111;
+}
+.ig-card__who { font-weight: 700; font-size: 0.92rem; line-height: 1.2; }
+.ig-card__who small {
+  display: block;
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+.ig-card__open {
+  margin-left: auto;
+  color: var(--btn);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.ig-card__media { background: #000; position: relative; }
+.ig-card__media img,
+.ig-card__media video {
+  display: block;
+  width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+  background: #000;
+}
+.ig-card__sound {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 0.7rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+.ig-card__media video { cursor: pointer; }
+.ig-card__media video.is-live {
+  outline: 2px solid var(--btn);
+  outline-offset: -2px;
+}
+.ig-card__cap {
+  padding: 0.85rem 0.95rem 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.ig-card__time {
+  padding: 0.45rem 0.95rem 0.95rem;
+  color: var(--text-dim);
+  font-size: 0.76rem;
 }
 
 /* Clickable partner tiles */
