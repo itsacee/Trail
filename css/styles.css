@@ -154,15 +154,58 @@ h3 { font-size: 1.6rem; }
   color: var(--text-dim);
   margin-top: 3px;
 }
-.nav__links { display: flex; gap: 1.4rem; }
-.nav__links a {
+.nav__links { display: flex; align-items: center; gap: 1.4rem; }
+.nav__links a,
+.nav__more-btn {
   color: var(--text-dim);
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 600;
   transition: color 0.15s;
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
 }
-.nav__links a:hover { color: var(--text); }
+.nav__links a:hover,
+.nav__more-btn:hover { color: var(--text); }
+.nav__links a[aria-current="page"] { color: var(--text); }
+.nav__more { position: relative; }
+.nav__more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.nav__more-btn::after {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.7;
+}
+.nav__more-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.7rem);
+  right: 0;
+  min-width: 200px;
+  padding: 0.45rem 0;
+  background: #0d0d10;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.nav__more-menu a {
+  display: block;
+  padding: 0.65rem 1rem;
+  white-space: nowrap;
+}
+.nav__more-menu a:hover { background: rgba(255, 255, 255, 0.04); }
+.nav__more.is-open .nav__more-menu,
+.nav__more:hover .nav__more-menu { display: block; }
 .nav__burger {
   display: none;
   background: none;
@@ -1066,6 +1109,21 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
     display: none;
   }
   .nav__links.is-open { display: flex; }
+  .nav__more { width: 100%; }
+  .nav__more-btn { display: none; }
+  .nav__more-menu {
+    display: flex;
+    flex-direction: column;
+    position: static;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    gap: 1rem;
+  }
+  .nav__more-menu a { padding: 0; }
   .nav__burger { display: flex; }
   .nav__cta {
     display: inline-flex;
@@ -1307,10 +1365,9 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 
 @media (min-width: 1100px) {
   .ig-news {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: min(860px, 92%);
     gap: 1.6rem;
   }
-  .ig-card__embed { min-height: 600px; }
 }
 
 /* Clickable partner tiles */

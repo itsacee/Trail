@@ -29,13 +29,18 @@
       </a>
       <nav class="nav__links" id="navLinks">
         <a href="#partners">Coaching</a>
-        <a href="#work">Work</a>
-        <a href="instagram.html">Instagram</a>
-        <a href="#coach">Coach</a>
         <a href="#programs">Pricing</a>
-        <a href="#faq">FAQ</a>
-        <a href="account.html">Members</a>
-        <a href="#contact">Contact</a>
+        <div class="nav__more">
+          <button type="button" class="nav__more-btn" aria-expanded="false" aria-haspopup="true">More</button>
+          <div class="nav__more-menu">
+            <a href="about.html">Coach</a>
+            <a href="instagram.html">Instagram</a>
+            <a href="faq.html">FAQ</a>
+            <a href="account.html">Members</a>
+            <a href="contact.html">Contact</a>
+            <a href="apply.html">3 days a week</a>
+          </div>
+        </div>
       </nav>
       <a class="btn btn--primary nav__cta" href="book.html">Book Training</a>
       <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
@@ -113,49 +118,6 @@
     </div>
   </section>
 
-  <!-- ================= INSTAGRAM NEWS FEED ================= -->
-  <section class="section" id="work">
-    <div class="container">
-      <p class="eyebrow center reveal">Latest</p>
-      <h2 class="center reveal">From the field</h2>
-      <p class="section__sub center reveal">A few recent clips. More on Instagram.</p>
-    </div>
-    <div id="igNews" class="ig-news reveal"></div>
-    <p class="center film__more reveal">
-      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow on Instagram</a>
-    </p>
-  </section>
-
-  <!-- ================= MEET THE COACH ================= -->
-  <section class="section section--alt" id="coach">
-    <div class="container coach">
-      <div class="coach__photo reveal">
-        <img src="img/coach.jpg" alt="Elijah Alexander, founder of AP Academy"
-             onerror="this.nextElementSibling.style.display='flex'; this.remove();" />
-        <div class="photo-placeholder" style="display:none">
-          <span>Photo coming soon<br /><small>upload img/coach.jpg</small></span>
-        </div>
-        <div class="coach__badge">Founder &amp; Head Trainer</div>
-      </div>
-      <div class="coach__bio">
-        <p class="eyebrow reveal">Meet Your Coach</p>
-        <h2 class="reveal">Elijah Alexander</h2>
-        <div class="reveal">
-          <p>
-            I hit <em>.434 with 17 homers</em> at Connors State, played at
-            <em>Oklahoma State</em>, then <em>.333 with 9 homers</em> at UCO.
-            Now I coach at Mustang High School and train players one-on-one here.
-          </p>
-          <p>
-            Every lesson is built around your kid — not a cookie-cutter plan.
-            We find what's holding them back and fix it.
-          </p>
-        </div>
-        <a class="btn btn--primary reveal" href="book.html">Train With Me</a>
-      </div>
-    </div>
-  </section>
-
   <!-- ================= PROGRAMS & PRICING ================= -->
   <section class="section" id="programs">
     <div class="container">
@@ -212,66 +174,17 @@
     </div>
   </section>
 
-  <!-- ================= FAQ ================= -->
-  <section class="section section--alt" id="faq">
-    <div class="container container--narrow">
-      <p class="eyebrow center reveal">FAQ</p>
-      <h2 class="center reveal">Quick Answers</h2>
-
-      <div class="faq reveal">
-        <details>
-          <summary>What's the 3 days a week option?</summary>
-          <p>
-            For a serious player <strong>14U through college</strong> who wants to train with me 3 times a week for a month —
-            same days, same time every week. That's 12 one-hour lessons, $700.
-            You don't pay online. Fill out the
-            <a href="apply.html">short application</a> and I'll review it. If it's a fit, I'll reach out.
-          </p>
-        </details>
-        <details>
-          <summary>How does the membership work?</summary>
-          <p>
-            $240 for one month — 4 one-hour lessons. It does <strong>not</strong> auto-renew; buy again when you want another month.
-            You pick your first day at checkout, then book the other three
-            <strong>on any days that work for you</strong> inside that month — one at a time, whenever you know your
-            schedule. Sign in at <a href="account.html">Member login</a> with the same email to book them, reschedule a day, and to see how
-            many you have left and the date they expire. Unused lessons don't roll over.
-          </p>
-        </details>
-        <details>
-          <summary>What days and times can we book?</summary>
-          <!-- Deliberately not listing exact hours: they're editable from the
-               coach page, so anything hardcoded here goes stale silently. -->
-          <p>Weeknight evenings and weekend afternoons. Hours change with the season, so the
-            <a href="book.html">booking page</a> always shows what's actually open — pick a day and the free times appear.</p>
-        </details>
-        <details>
-          <summary>What ages do you train?</summary>
-          <p>
-            Drop-in and membership lessons: <strong>ages 11 through college</strong>.
-            The 3 days a week block is <strong>14U through college</strong>.
-            Lessons are built around your player's age and skill — not a one-size program.
-          </p>
-        </details>
-        <details>
-          <summary>Where are lessons held?</summary>
-          <p>Mustang High School baseball field. The address and directions come in your confirmation email. Questions? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
-        </details>
-        <details>
-          <summary>What should my player bring?</summary>
-          <p>Bat, glove, turfs, and a water bottle.</p>
-        </details>
-        <details>
-          <summary>What's your cancellation policy?</summary>
-          <p>
-            <strong>Members:</strong> sign in at <a href="account.html">Member login</a> and tap Reschedule or Cancel at least 12 hours before the lesson. That credit stays on the membership so they can pick another day. Less than 12 hours notice may be charged a fee.
-          </p>
-          <p>
-            <strong>Drop-in (single or 30-min):</strong> those can't be changed online. Text or call <a href="tel:+14058194401">(405) 819-4401</a> at least 12 hours ahead.
-          </p>
-        </details>
-      </div>
+  <!-- ================= LATEST FROM INSTAGRAM ================= -->
+  <section class="section section--alt" id="work">
+    <div class="container">
+      <p class="eyebrow center reveal">Latest</p>
+      <h2 class="center reveal">From the field</h2>
+      <p class="section__sub center reveal">A couple recent clips. More on Instagram.</p>
     </div>
+    <div id="igNews" class="ig-news reveal"></div>
+    <p class="center film__more reveal">
+      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow on Instagram</a>
+    </p>
   </section>
 
   <!-- ================= CONTACT / FOOTER ================= -->
@@ -298,17 +211,19 @@
       <div>
         <h4>Follow</h4>
         <ul class="footer__list">
-          <li><a href="instagram.html">Instagram feed</a></li>
+          <li><a href="#work">Latest clips</a></li>
+          <li><a href="instagram.html">Instagram</a></li>
           <li><a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a></li>
           <li><a href="https://instagram.com/elijahalexanderrrr" target="_blank" rel="noopener">@elijahalexanderrrr</a></li>
         </ul>
       </div>
       <div>
-        <h4>Train</h4>
+        <h4>Pages</h4>
         <ul class="footer__list">
-          <li><a href="#work">See the work</a></li>
           <li><a href="#programs">Pricing</a></li>
-          <li><a href="#faq">FAQ</a></li>
+          <li><a href="about.html">Coach</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="contact.html">Contact</a></li>
           <li><a href="account.html">Member login</a></li>
           <li><a href="apply.html">3 days a week</a></li>
           <li><a href="book.html">Book a Lesson</a></li>
