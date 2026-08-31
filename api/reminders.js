@@ -1,4 +1,4 @@
-// Daily emails (and texts, when Twilio is set):
+// Daily emails:
 //   - memberships that expire soon, or just ended
 //   - after a drop-in (single) lesson: pitch the $240 month
 //   - after a membership lesson: remind them to book the next one
@@ -6,7 +6,7 @@
 // Runs once a day from Vercel Cron (see vercel.json).
 //
 // Expiring / ended sends are flagged on the Stripe payment. Lesson follow-ups
-// are recorded in followups.json so a re-run can't email or text anyone twice.
+// are recorded in followups.json so a re-run can't email anyone twice.
 //
 //   Cron:   Vercel sends Authorization: Bearer $CRON_SECRET
 //   Manual: /api/reminders?key=COACH_PASS          (sends for real)
@@ -31,13 +31,6 @@ import {
   pickMembershipPitches,
   saveFollowups,
 } from "../lib/followups.js";
-import {
-  bookAgainSms,
-  membershipPitchSms,
-  sendSms,
-  smsConfigured,
-  toE164,
-} from "../lib/sms.js";
 
 const PHONE = "(405) 819-4401";
 const REPLY_TO = "Apacademybsb@gmail.com";
@@ -317,82 +310,36 @@ export default async function handler(req, res) {
   const followupActions = [];
   let followupsDirty = false;
 
-  const twilio = {
-    sid: process.env.TWILIO_ACCOUNT_SID,
-    token: process.env.TWILIO_AUTH_TOKEN,
-    from: process.env.TWILIO_FROM,
-  };
-  const canText = smsConfigured();
-
   for (const item of followupItems) {
     const mail =
       item.kind === KIND_PITCH ? membershipPitchMail(item, origin) : bookAgainMail(item, origin);
-    const smsBody =
-      item.kind === KIND_PITCH ? membershipPitchSms(item, origin) : bookAgainSms(item, origin);
-    const phone = toE164(item.phone);
     const record = {
       kind: item.kind,
       player: item.player,
       email: item.email,
-      phone: phone || "",
       remaining: item.remaining,
       date: item.date,
       subject: mail.subject,
     };
 
     if (dry) {
-      followupActions.push({
-        ...record,
-        dryRun: true,
-        sms: smsBody,
-        willEmail: Boolean(resendKey),
-        willText: Boolean(canText && phone),
-      });
+      followupActions.push({ ...record, dryRun: true });
+      continue;
+    }
+    if (!resendKey) {
+      followupActions.push({ ...record, skipped: "email not configured" });
       continue;
     }
 
-    if (!resendKey && !(canText && phone)) {
-      followupActions.push({ ...record, skipped: "email and text not configured" });
-      continue;
-    }
-
-    let emailed = false;
-    let texted = false;
-    let error;
-
-    if (resendKey) {
-      const result = await send(resendKey, from, item.email, mail);
-      if (result.ok) emailed = true;
-      else {
-        error = result.error;
-        console.error("Follow-up email failed for", item.email, result.error);
-      }
-    }
-
-    if (canText && phone) {
-      const result = await sendSms({
-        sid: twilio.sid,
-        token: twilio.token,
-        from: twilio.from,
-        to: phone,
-        body: smsBody,
-      });
-      if (result.ok) texted = true;
-      else {
-        error = result.error;
-        console.error("Follow-up text failed for", phone, result.error);
-      }
-    } else if (canText && !phone) {
-      error = error || "no phone number";
-    }
-
-    if (emailed || texted) {
+    const result = await send(resendKey, from, item.email, mail);
+    if (result.ok) {
       const ids = item.alsoMark?.length ? item.alsoMark : [item.id];
       ids.forEach((id) => markSent(followups, { kind: item.kind, id, email: item.email }));
       followupsDirty = true;
-      followupActions.push({ ...record, sent: true, emailed, texted, error });
+      followupActions.push({ ...record, sent: true });
     } else {
-      followupActions.push({ ...record, sent: false, error: error || "send failed" });
+      console.error("Follow-up failed for", item.email, result.error);
+      followupActions.push({ ...record, sent: false, error: result.error });
     }
   }
 
@@ -404,7 +351,6 @@ export default async function handler(req, res) {
   res.status(200).json({
     ok: true,
     dryRun: dry,
-    smsReady: canText,
     memberships: seen.size,
     actioned: actions.length,
     actions,
