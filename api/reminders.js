@@ -1,11 +1,12 @@
-// Daily nudges for members: "your lessons expire soon" and "your membership
-// ended". Runs once a day from Vercel Cron (see vercel.json).
+// Daily emails:
+//   - memberships that expire soon, or just ended
+//   - after a drop-in (single) lesson: pitch the $240 month
+//   - after a membership lesson: remind them to book the next one
 //
-// Unused lessons don't roll over and nothing auto-renews, so without this a
-// parent who loses track simply stops coming and never hears from us again.
+// Runs once a day from Vercel Cron (see vercel.json).
 //
-// Every send is flagged in the payment's Stripe metadata, so re-running the
-// job — or running it by hand — can't email anyone twice.
+// Expiring / ended sends are flagged on the Stripe payment. Lesson follow-ups
+// are recorded in followups.json so a re-run can't email anyone twice.
 //
 //   Cron:   Vercel sends Authorization: Bearer $CRON_SECRET
 //   Manual: /api/reminders?key=COACH_PASS          (sends for real)
@@ -15,11 +16,21 @@ import {
   MEMBER_PERIOD_DAYS,
   MEMBER_CREDITS,
   membershipSummary,
-  prettyDate,
+  todayChicago,
 } from "../lib/members.js";
 import { loadLessons, scheduledFor } from "../lib/lessons.js";
 import { signMemberToken } from "../lib/memberAuth.js";
 import { LOCATIONS, LOCATION_KEY } from "../lib/schedule.js";
+import {
+  KIND_PITCH,
+  bookAgainMail,
+  loadFollowups,
+  markSent,
+  membershipPitchMail,
+  pickBookAgainNudges,
+  pickMembershipPitches,
+  saveFollowups,
+} from "../lib/followups.js";
 
 const PHONE = "(405) 819-4401";
 const REPLY_TO = "Apacademybsb@gmail.com";
@@ -197,8 +208,9 @@ export default async function handler(req, res) {
   const since = Math.floor(Date.now() / 1000) - (MEMBER_PERIOD_DAYS + NUDGE_WITHIN_DAYS + 2) * 86400;
 
   const list = await stripeGet(key, `payment_intents?limit=100&created[gte]=${since}`);
-  const payments = (list?.data || [])
-    .filter((p) => p.status === "succeeded" && String(p.metadata?.type || "") === "membership")
+  const allPaid = (list?.data || []).filter((p) => p.status === "succeeded");
+  const payments = allPaid
+    .filter((p) => String(p.metadata?.type || "") === "membership")
     .sort((a, b) => b.created - a.created);
 
   const stored = await loadLessons();
@@ -206,6 +218,8 @@ export default async function handler(req, res) {
   // Newest payment per email is their current membership; older ones are past.
   const seen = new Set();
   const actions = [];
+  const memberEmails = new Set();
+  const memberRows = [];
 
   for (const pi of payments) {
     const email = String(pi.metadata?.email || "").trim().toLowerCase();
@@ -213,7 +227,20 @@ export default async function handler(req, res) {
     seen.add(email);
 
     const sub = subFromPayment(pi);
-    const summary = { ...membershipSummary(sub, scheduledFor(sub, stored)), email };
+    const scheduled = scheduledFor(sub, stored);
+    const summary = { ...membershipSummary(sub, scheduled), email };
+    if (!summary.expired) memberEmails.add(email);
+    memberRows.push({
+      email,
+      player: summary.player,
+      parent: summary.parent,
+      phone: summary.phone || scheduled[0]?.phone || "",
+      remaining: summary.remaining,
+      lastDayPretty: summary.lastDayPretty,
+      expired: summary.expired,
+      scheduled,
+    });
+
     const meta = pi.metadata || {};
     const endedDaysAgo = summary.expired
       ? Math.round(
@@ -262,11 +289,71 @@ export default async function handler(req, res) {
     }
   }
 
+  const followups = await loadFollowups();
+  const today = todayChicago();
+  const now = Date.now();
+  const followupItems = [
+    ...pickMembershipPitches({
+      payments: allPaid,
+      memberEmails,
+      followups,
+      today,
+      now,
+    }),
+    ...pickBookAgainNudges({
+      members: memberRows,
+      followups,
+      today,
+      now,
+    }),
+  ];
+  const followupActions = [];
+  let followupsDirty = false;
+
+  for (const item of followupItems) {
+    const mail =
+      item.kind === KIND_PITCH ? membershipPitchMail(item, origin) : bookAgainMail(item, origin);
+    const record = {
+      kind: item.kind,
+      player: item.player,
+      email: item.email,
+      remaining: item.remaining,
+      date: item.date,
+      subject: mail.subject,
+    };
+
+    if (dry) {
+      followupActions.push({ ...record, dryRun: true });
+      continue;
+    }
+    if (!resendKey) {
+      followupActions.push({ ...record, skipped: "email not configured" });
+      continue;
+    }
+
+    const result = await send(resendKey, from, item.email, mail);
+    if (result.ok) {
+      const ids = item.alsoMark?.length ? item.alsoMark : [item.id];
+      ids.forEach((id) => markSent(followups, { kind: item.kind, id, email: item.email }));
+      followupsDirty = true;
+      followupActions.push({ ...record, sent: true });
+    } else {
+      console.error("Follow-up failed for", item.email, result.error);
+      followupActions.push({ ...record, sent: false, error: result.error });
+    }
+  }
+
+  if (followupsDirty) {
+    const saved = await saveFollowups(followups);
+    if (!saved) console.error("Could not persist follow-up send flags");
+  }
+
   res.status(200).json({
     ok: true,
     dryRun: dry,
     memberships: seen.size,
     actioned: actions.length,
     actions,
+    followups: followupActions,
   });
 }
