@@ -5,6 +5,7 @@
 import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
+import { toE164 } from "../lib/sms.js";
 
 const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 
@@ -59,15 +60,19 @@ export default async function handler(req, res) {
   }
   const isMember = type === "membership";
   const emailOk = email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  const phoneOk = Boolean(toE164(phone));
   const valid =
     session &&
     player &&
+    phoneOk &&
     (!isMember || emailOk) &&
     sessions.length === session.picks &&
     sessions.every((s) => DATE_RE.test(String(s?.date || "")) && TIME_RE.test(String(s?.time || "")));
   if (!valid) {
     res.status(400).json({
-      error: isMember
+      error: !phoneOk
+        ? "Please enter a phone number — that's how we text you after the lesson."
+        : isMember
         ? "Please pick your first lesson day and time, the player's name, and a valid email — that email is how you sign in to book the other 3."
         : "Please pick your lesson day, time and enter the player's name.",
     });

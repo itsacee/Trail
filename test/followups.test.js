@@ -38,6 +38,7 @@ function singlePayment(id, extra = {}) {
       email: "parent@example.com",
       player: "Sam",
       parent: "Maria",
+      phone: "(405) 555-0199",
       date1: "2026-08-26",
       time1: "5:00 PM",
       ...extra,
@@ -84,6 +85,7 @@ test("pickMembershipPitches sends after a completed single", () => {
   assert.equal(picks[0].kind, KIND_PITCH);
   assert.equal(picks[0].email, "parent@example.com");
   assert.equal(picks[0].id, "pi_1");
+  assert.equal(picks[0].phone, "(405) 555-0199");
 });
 
 test("pickMembershipPitches skips 30-min drop-ins and memberships", () => {
@@ -133,6 +135,7 @@ test("pickBookAgainNudges writes after a done lesson with credits left and nothi
         email: "parent@example.com",
         player: "Sam",
         parent: "Maria",
+        phone: "(405) 555-0199",
         remaining: 3,
         lastDayPretty: "Wednesday, September 16",
         expired: false,
@@ -148,6 +151,7 @@ test("pickBookAgainNudges writes after a done lesson with credits left and nothi
   assert.equal(picks.length, 1);
   assert.equal(picks[0].kind, KIND_BOOK_AGAIN);
   assert.equal(picks[0].remaining, 3);
+  assert.equal(picks[0].phone, "(405) 555-0199");
   assert.deepEqual(picks[0].alsoMark, ["lsn_1"]);
 });
 

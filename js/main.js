@@ -444,6 +444,12 @@ if (form) {
       form.elements.email.focus();
       return;
     }
+    const phoneDigits = String(form.elements.phone.value || "").replace(/\D/g, "");
+    if (phoneDigits.length < 10) {
+      statusEl.textContent = "Please enter a phone number — that's how we text you after the lesson.";
+      form.elements.phone.focus();
+      return;
+    }
     submitBtn.disabled = true;
     submitBtn.textContent = "Setting up secure checkout…";
     try {
