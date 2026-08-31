@@ -1179,6 +1179,23 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 }
 .film__more a:hover { color: var(--text); }
 
+.ig-feed {
+  display: flex;
+  justify-content: center;
+  width: min(540px, 94%);
+  margin: 2.2rem auto 0;
+}
+.ig-feed blockquote.instagram-media {
+  margin: 0 auto !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: 540px !important;
+  background: #fff !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
+}
+
 /* Clickable partner tiles */
 .partner { text-decoration: none; color: inherit; cursor: pointer; border-radius: var(--radius); }
 .partner__cta {

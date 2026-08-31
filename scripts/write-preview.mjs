@@ -11,6 +11,7 @@ mkdirSync(outDir, { recursive: true });
 const TABS = [
   ["coaching.html", "Coaching"],
   ["work.html", "Work"],
+  ["instagram.html", "Instagram"],
   ["about.html", "Coach"],
   ["pricing.html", "Pricing"],
   ["faq.html", "FAQ"],
@@ -24,6 +25,7 @@ function nav(current) {
     const here =
       (current === "coaching.html" && href === "coaching.html") ||
       (current === "work.html" && href === "work.html") ||
+      (current === "instagram.html" && href === "instagram.html") ||
       (current === "about.html" && href === "about.html") ||
       (current === "pricing.html" && href === "pricing.html") ||
       (current === "faq.html" && href === "faq.html") ||
@@ -33,7 +35,7 @@ function nav(current) {
   }).join("\n");
 }
 
-function page({ file, title, desc, current, home, main }) {
+function page({ file, title, desc, current, home, main, extraScripts = "" }) {
   const bodyClass = home ? "has-preview-banner" : "page-book has-preview-banner";
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -112,6 +114,7 @@ ${main}
           <li><a href="about.html">Coach</a></li>
           <li><a href="pricing.html">Pricing</a></li>
           <li><a href="faq.html">FAQ</a></li>
+          <li><a href="instagram.html">Instagram</a></li>
           <li><a href="camps.html">Camps</a></li>
           <li><a href="/account.html">Member login</a></li>
           <li><a href="/apply.html">3 days a week</a></li>
@@ -126,6 +129,7 @@ ${main}
   </footer>
 
   <script src="/js/main.js"></script>
+${extraScripts}
 </body>
 </html>
 `;
@@ -215,6 +219,8 @@ page({
       <video muted playsinline preload="metadata" poster="/img/work/DcMGqr2ua5P.jpg" src="/img/work/DcMGqr2ua5P.mp4" aria-label="Training clip"></video>
     </div>
     <p class="center film__more reveal">
+      <a href="instagram.html">See every post</a>
+      ·
       <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a>
     </p>
   </section>
@@ -350,8 +356,36 @@ page({
       <video muted playsinline preload="metadata" poster="/img/work/DcMGqr2ua5P.jpg" src="/img/work/DcMGqr2ua5P.mp4" aria-label="Training clip"></video>
     </div>
     <p class="center film__more reveal">
+      <a href="instagram.html">See every post</a>
+      ·
       <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">@apacademybsb</a>
     </p>
+  </section>
+`,
+});
+
+page({
+  file: "instagram.html",
+  title: "Instagram | AP Academy",
+  desc: "See everything AP Academy posts on Instagram.",
+  current: "instagram.html",
+  extraScripts: `  <script async src="https://www.instagram.com/embed.js"></script>`,
+  main: `  <section class="section book-page">
+    <div class="container">
+      <p class="eyebrow center reveal">@apacademybsb</p>
+      <h1 class="center reveal">From the Field.</h1>
+      <p class="section__sub center reveal">
+        Everything I post on Instagram lives here too — clips, work, and what we're training that week.
+      </p>
+      <p class="center reveal" style="margin-top:1.2rem">
+        <a class="btn btn--primary" href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow @apacademybsb</a>
+      </p>
+      <div class="ig-feed reveal">
+        <blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/apacademybsb/" data-instgrm-version="14">
+          <a href="https://www.instagram.com/apacademybsb/">View @apacademybsb on Instagram</a>
+        </blockquote>
+      </div>
+    </div>
   </section>
 `,
 });
