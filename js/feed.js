@@ -97,7 +97,7 @@ if (root) {
   fetch("/api/instagram")
     .then((r) => r.json())
     .then((data) => {
-      const posts = (Array.isArray(data.posts) ? data.posts : []).slice(0, 3);
+      const posts = (Array.isArray(data.posts) ? data.posts : []).slice(0, 2);
       if (!posts.length) {
         root.innerHTML = `<p class="ig-news__status">Couldn't load the feed. <a href="https://instagram.com/${HANDLE}">Open Instagram</a></p>`;
         return;
