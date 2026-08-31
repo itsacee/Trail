@@ -121,7 +121,7 @@ ${main}
     </div>
     <div class="container footer__bottom">
       <p>&copy; <span id="year"></span> AP Academy · Ace Performance. All rights reserved.</p>
-      <p class="footer__credit">Powered by AP</p>
+      <p class="footer__credit"><img src="/img/logo-mark.png" alt="" />Powered by AP</p>
     </div>
   </footer>
 

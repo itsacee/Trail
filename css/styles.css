@@ -967,7 +967,7 @@ a.price-card .btn { text-align: center; }
 .footer__bottom {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
   padding-top: 1.5rem;
@@ -975,10 +975,17 @@ a.price-card .btn { text-align: center; }
   font-size: 0.82rem;
 }
 .footer__credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   margin-left: auto;
   color: var(--text);
   font-weight: 700;
   letter-spacing: 0.06em;
+}
+.footer__credit img {
+  height: 22px;
+  width: auto;
 }
 
 /* ---------- scroll reveal ----------
