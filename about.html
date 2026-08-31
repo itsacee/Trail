@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <title>Coach | AP Academy</title>
+  <meta name="description" content="Meet Elijah Alexander, founder of AP Academy — former Oklahoma State Cowboy and Mustang High School coach." />
+
+  <link rel="icon" type="image/png" href="img/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="page-book">
+
+  <header class="nav" id="top">
+    <div class="nav__inner container">
+      <a class="nav__brand" href="index.html">
+        <span class="nav__logo">
+          <img src="img/logo-mark.png" alt="AP Academy logo" />
+        </span>
+        <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+      </a>
+      <nav class="nav__links" id="navLinks">
+        <a href="index.html#partners">Coaching</a>
+        <a href="index.html#programs">Pricing</a>
+        <div class="nav__more">
+          <button type="button" class="nav__more-btn" aria-expanded="false" aria-haspopup="true">More</button>
+          <div class="nav__more-menu">
+            <a href="about.html" aria-current="page">Coach</a>
+            <a href="instagram.html">Instagram</a>
+            <a href="faq.html">FAQ</a>
+            <a href="account.html">Members</a>
+            <a href="contact.html">Contact</a>
+            <a href="apply.html">3 days a week</a>
+          </div>
+        </div>
+      </nav>
+      <a class="btn btn--primary nav__cta" href="book.html">Book Training</a>
+      <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <section class="section book-page section--alt">
+    <div class="container coach">
+      <div class="coach__photo reveal">
+        <img src="img/coach.jpg" alt="Elijah Alexander, founder of AP Academy"
+             onerror="this.nextElementSibling.style.display='flex'; this.remove();" />
+        <div class="photo-placeholder" style="display:none">
+          <span>Photo coming soon<br /><small>upload img/coach.jpg</small></span>
+        </div>
+        <div class="coach__badge">Founder &amp; Head Trainer</div>
+      </div>
+      <div class="coach__bio">
+        <p class="eyebrow reveal">Meet Your Coach</p>
+        <h1 class="reveal">Elijah Alexander</h1>
+        <div class="reveal">
+          <p>
+            I hit <em>.434 with 17 homers</em> at Connors State, played at
+            <em>Oklahoma State</em>, then <em>.333 with 9 homers</em> at UCO.
+            Now I coach at Mustang High School and train players one-on-one here.
+          </p>
+          <p>
+            Every lesson is built around your kid — not a cookie-cutter plan.
+            We find what's holding them back and fix it.
+          </p>
+        </div>
+        <a class="btn btn--primary reveal" href="book.html">Train With Me</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year"></span> AP Academy · Ace Performance. All rights reserved.</p>
+      <p class="footer__credit"><img src="img/logo-mark.png" alt="" />Powered by AP</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

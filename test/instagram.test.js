@@ -141,6 +141,7 @@ test("latestPosts keeps only the newest few", () => {
     { code: "older", takenAt: 5 },
   ];
   assert.deepEqual(latestPosts(posts, 3).map((p) => p.code), ["new", "mid", "old"]);
+  assert.deepEqual(latestPosts(posts).map((p) => p.code), ["new", "mid"]);
 });
 
 test("seed posts cover known academy clips", () => {

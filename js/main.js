@@ -11,8 +11,31 @@ if (burger && links) {
     burger.setAttribute("aria-expanded", open);
   });
   links.querySelectorAll("a").forEach((a) =>
-    a.addEventListener("click", () => links.classList.remove("is-open"))
+    a.addEventListener("click", () => {
+      links.classList.remove("is-open");
+      burger.setAttribute("aria-expanded", "false");
+    })
   );
+}
+
+const more = document.querySelector(".nav__more");
+const moreBtn = more?.querySelector(".nav__more-btn");
+if (more && moreBtn) {
+  moreBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = more.classList.toggle("is-open");
+    moreBtn.setAttribute("aria-expanded", open);
+  });
+  document.addEventListener("click", () => {
+    more.classList.remove("is-open");
+    moreBtn.setAttribute("aria-expanded", "false");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      more.classList.remove("is-open");
+      moreBtn.setAttribute("aria-expanded", "false");
+    }
+  });
 }
 
 const nav = document.querySelector(".nav");
