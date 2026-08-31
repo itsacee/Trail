@@ -1,6 +1,7 @@
 const root = document.getElementById("igNews");
 if (root) {
   const HANDLE = "apacademybsb";
+  const soundHint = `<span class="ig-card__sound-phone">Tap for sound</span><span class="ig-card__sound-desk">Click for sound</span>`;
 
   const esc = (s) =>
     String(s || "")
@@ -37,7 +38,7 @@ if (root) {
     }
     const media = post.video
       ? `<video muted playsinline loop preload="metadata" poster="${esc(post.image)}" src="${esc(post.video)}"></video>
-         <span class="ig-card__sound">Tap for sound</span>`
+         <span class="ig-card__sound">${soundHint}</span>`
       : `<img src="${esc(post.image)}" alt="" loading="lazy" />`;
     const cap = post.caption
       ? `<p class="ig-card__cap">${esc(post.caption)}</p>`
@@ -62,7 +63,7 @@ if (root) {
             e.target.muted = true;
             e.target.classList.remove("is-live");
             const badge = e.target.parentElement?.querySelector(".ig-card__sound");
-            if (badge) badge.textContent = "Tap for sound";
+            if (badge) badge.innerHTML = soundHint;
           }
         });
       },
@@ -77,7 +78,7 @@ if (root) {
           other.muted = true;
           other.classList.remove("is-live");
           const otherBadge = other.parentElement?.querySelector(".ig-card__sound");
-          if (otherBadge) otherBadge.textContent = "Tap for sound";
+          if (otherBadge) otherBadge.innerHTML = soundHint;
         });
         const badge = v.parentElement?.querySelector(".ig-card__sound");
         if (live) {
@@ -86,7 +87,7 @@ if (root) {
           v.play().catch(() => {});
           if (badge) badge.textContent = "Sound on";
         } else if (badge) {
-          badge.textContent = "Tap for sound";
+          badge.innerHTML = soundHint;
         }
       });
     });

@@ -213,7 +213,7 @@ page({
     <div class="container">
       <p class="eyebrow center reveal">@apacademybsb</p>
       <h2 class="center reveal">From the field</h2>
-      <p class="section__sub center reveal">Every post, right here. Tap a clip for sound.</p>
+      <p class="section__sub center reveal">Every post, right here. Tap or click a clip for sound.</p>
     </div>
     <div id="igNews" class="ig-news reveal"></div>
     <p class="center film__more reveal">
@@ -347,7 +347,7 @@ page({
     <div class="container">
       <p class="eyebrow center reveal">@apacademybsb</p>
       <h1 class="center reveal">From the field</h1>
-      <p class="section__sub center reveal">Every post, right here. Tap a clip for sound.</p>
+      <p class="section__sub center reveal">Every post, right here. Tap or click a clip for sound.</p>
     </div>
     <div id="igNews" class="ig-news reveal"></div>
     <p class="center film__more reveal">
