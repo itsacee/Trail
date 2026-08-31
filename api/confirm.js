@@ -186,6 +186,20 @@ function emailHtml(meta, sessions) {
       <p style="color:#f5f6f8;font-size:15px;margin:0;">Bat, glove, turfs, and a water bottle.</p>
     </td></tr>
 
+    ${
+      meta.type === "single"
+        ? `<tr><td style="padding-top:26px;">
+      <div style="background:#11180f;border:1px solid #3d5a2a;border-radius:12px;padding:18px;">
+        <div style="font-size:11px;color:#b7d59a;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Want to keep this going?</div>
+        <p style="color:#f5f6f8;font-size:15px;line-height:1.6;margin:8px 0 0;">
+          Four singles are $280. A month of four hour lessons is $240, and nothing auto-renews — you pay once.
+          I'll check in after the lesson if you want to start a month.
+        </p>
+      </div>
+    </td></tr>`
+        : ""
+    }
+
     <tr><td style="padding-top:26px;">
       <div style="font-size:11px;color:#a8adb6;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:8px;">
         Questions?
@@ -251,7 +265,14 @@ ${where}
 
 WHAT TO BRING
 Bat, glove, turfs, and a water bottle.
-
+${
+  meta.type === "single"
+    ? `
+WANT TO KEEP THIS GOING?
+Four singles are $280. A month of four hour lessons is $240, and nothing auto-renews — you pay once. I'll check in after the lesson if you want to start a month.
+`
+    : ""
+}
 QUESTIONS?
 Just reply to this email and it comes straight to me — or call or text ${PHONE}.
 Happy to answer anything before the first session.
