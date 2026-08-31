@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeItem, prettyAgo, permalink, fetchAllPosts, postsFromProfileHtml, SEED_POSTS } from "../lib/instagram.js";
+import { normalizeItem, prettyAgo, permalink, fetchAllPosts, postsFromProfileHtml, latestPosts, SEED_POSTS } from "../lib/instagram.js";
 
 test("normalizeItem maps a clip and a photo", () => {
   const clip = normalizeItem({
@@ -131,6 +131,16 @@ test("fetchAllPosts uses profile media when the feed endpoint fails", async () =
   };
   const posts = await fetchAllPosts({ getJson, getText: async () => { throw new Error("no html"); } });
   assert.equal(posts[0].code, "FALL1");
+});
+
+test("latestPosts keeps only the newest few", () => {
+  const posts = [
+    { code: "old", takenAt: 10 },
+    { code: "new", takenAt: 30 },
+    { code: "mid", takenAt: 20 },
+    { code: "older", takenAt: 5 },
+  ];
+  assert.deepEqual(latestPosts(posts, 3).map((p) => p.code), ["new", "mid", "old"]);
 });
 
 test("seed posts cover known academy clips", () => {

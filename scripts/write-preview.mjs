@@ -211,9 +211,9 @@ page({
 
   <section class="section" id="work">
     <div class="container">
-      <p class="eyebrow center reveal">@apacademybsb</p>
+      <p class="eyebrow center reveal">Latest</p>
       <h2 class="center reveal">From the field</h2>
-      <p class="section__sub center reveal">Every post, right here. Tap or click a clip for sound.</p>
+      <p class="section__sub center reveal">A few recent clips. More on Instagram.</p>
     </div>
     <div id="igNews" class="ig-news reveal"></div>
     <p class="center film__more reveal">
@@ -345,9 +345,9 @@ page({
   extraScripts: `  <script src="/js/feed.js"></script>`,
   main: `  <section class="section book-page">
     <div class="container">
-      <p class="eyebrow center reveal">@apacademybsb</p>
+      <p class="eyebrow center reveal">Latest</p>
       <h1 class="center reveal">From the field</h1>
-      <p class="section__sub center reveal">Every post, right here. Tap or click a clip for sound.</p>
+      <p class="section__sub center reveal">A few recent clips. More on Instagram.</p>
     </div>
     <div id="igNews" class="ig-news reveal"></div>
     <p class="center film__more reveal">
@@ -365,10 +365,10 @@ page({
   extraScripts: `  <script src="/js/feed.js"></script>`,
   main: `  <section class="section book-page">
     <div class="container">
-      <p class="eyebrow center reveal">@apacademybsb</p>
+      <p class="eyebrow center reveal">Latest</p>
       <h1 class="center reveal">From the Field.</h1>
       <p class="section__sub center reveal">
-        Everything I post on Instagram lives here too — clips, work, and what we're training that week.
+        A few recent clips so you can see the work. Follow for the rest.
       </p>
       <p class="center reveal" style="margin-top:1.2rem">
         <a class="btn btn--primary" href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow @apacademybsb</a>

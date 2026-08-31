@@ -1,4 +1,4 @@
-import { fetchAllPosts, SEED_POSTS } from "../lib/instagram.js";
+import { fetchAllPosts, latestPosts, SEED_POSTS } from "../lib/instagram.js";
 import { blobRead, blobWrite, storeConfigured } from "../lib/store.js";
 
 let cache = { at: 0, posts: null };
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   const now = Date.now();
   if (cache.posts && now - cache.at < TTL_MS) {
     res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
-    res.status(200).json({ posts: cache.posts, cached: true });
+    res.status(200).json({ posts: latestPosts(cache.posts), cached: true });
     return;
   }
 
@@ -40,12 +40,12 @@ export default async function handler(req, res) {
     cache = { at: now, posts };
     remember(posts).catch(() => {});
     res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
-    res.status(200).json({ posts, cached: false });
+    res.status(200).json({ posts: latestPosts(posts), cached: false });
   } catch (err) {
     console.error("Instagram feed failed:", err);
     const fallback = cache.posts || (await savedPosts()) || SEED_POSTS;
     cache = { at: now, posts: fallback };
     res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
-    res.status(200).json({ posts: fallback, cached: true });
+    res.status(200).json({ posts: latestPosts(fallback), cached: true });
   }
 }
