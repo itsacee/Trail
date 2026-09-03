@@ -1,7 +1,8 @@
 const TOKEN_KEY = "ap_member_token";
 // Safety net only — the real cutoff is the membership's own expiry date,
 // which the server sends back as `lastDay`.
-const MAX_AHEAD = 60;
+// Only about a week ahead — keep in sync with BOOK_AHEAD_DAYS in lib/members.js
+const MAX_AHEAD = 7;
 
 const loginCard = document.getElementById("loginCard");
 const dashCard = document.getElementById("dashCard");
@@ -197,8 +198,7 @@ function renderDash(data) {
   showDash();
 }
 
-// Every open day from tomorrow through the day the membership expires — they
-// can spend their remaining lessons on any of them.
+// Open days from tomorrow through about a week ahead (and not past expiry).
 function renderDays() {
   dateSelect.length = 1;
   const lastDay = (account && account.lastDay) || "";
