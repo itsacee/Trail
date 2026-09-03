@@ -16,7 +16,9 @@ import {
   lastUsableDate,
   membershipSummary,
   bookingBlocked,
+  bookWindowBlocked,
   MEMBER_CREDITS,
+  BOOK_AHEAD_DAYS,
 } from "../lib/members.js";
 
 const NOW = "2026-08-26T17:00:00-05:00"; // Chicago afternoon, CDT
@@ -109,10 +111,32 @@ test("bookingBlocked enforces the window, credit cap, and one-per-day", () => {
     const summary = membershipSummary(SUB, []);
     // Today or earlier is rejected.
     assert.match(bookingBlocked(summary, "2026-08-26", []), /tomorrow onward/);
-    // Past the expiry date is rejected.
-    assert.match(bookingBlocked(summary, "2026-09-20", []), /have to be used by/);
-    // A valid, open day passes.
+    // Past the expiry date is rejected even when that day is still inside the week window.
+    const endingSoon = membershipSummary(
+      {
+        metadata: { player: "Sam", email: "sam@example.com" },
+        current_period_start: Math.floor(Date.parse("2026-08-20T12:00:00Z") / 1000),
+        current_period_end: Math.floor(Date.parse("2026-08-29T12:00:00Z") / 1000), // last day 08-28
+      },
+      []
+    );
+    assert.match(bookingBlocked(endingSoon, "2026-08-29", []), /have to be used by/);
+    // A valid, open day this week passes.
     assert.equal(bookingBlocked(summary, "2026-08-28", []), null);
+    // A week out is the last open day.
+    assert.equal(bookingBlocked(summary, "2026-09-02", []), null);
+    // Further than a week is closed.
+    assert.match(bookingBlocked(summary, "2026-09-03", []), /week ahead/);
+  });
+});
+
+test("bookWindowBlocked only opens tomorrow through a week out", () => {
+  atTime(NOW, () => {
+    assert.match(bookWindowBlocked("2026-08-26"), /tomorrow onward/);
+    assert.equal(bookWindowBlocked("2026-08-27"), null);
+    assert.equal(bookWindowBlocked("2026-09-02"), null);
+    assert.equal(BOOK_AHEAD_DAYS, 7);
+    assert.match(bookWindowBlocked("2026-09-03"), /week ahead/);
   });
 });
 

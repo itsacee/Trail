@@ -5,6 +5,7 @@
 import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
+import { bookWindowBlocked } from "../lib/members.js";
 
 const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 
@@ -76,6 +77,12 @@ export default async function handler(req, res) {
 
   // The time has to be one we actually offer on that day, per the coach's
   // current availability — and a lesson of this length must fit before close.
+  const tooFar = sessions.find((s) => bookWindowBlocked(s.date));
+  if (tooFar) {
+    res.status(400).json({ error: bookWindowBlocked(tooFar.date) });
+    return;
+  }
+
   const availability = await getAvailability();
   const lessonMins = durationFor(type);
   const offSchedule = sessions.find((s) => !allowedTimes(s.date, availability, lessonMins).includes(s.time));
