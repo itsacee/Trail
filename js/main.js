@@ -90,6 +90,34 @@ const PLACE_BLURB = {
   "Mustang": "Lessons train at <strong>Mustang High School</strong>'s baseball field in Mustang, OK.",
 };
 
+// Mirror lib/schedule.js SLOT_CAPACITY — two players can share a start time.
+const SLOT_CAPACITY = 2;
+function slotIsBlocked(booked, label, dur) {
+  const start = labelToMin(label);
+  if (start === null) return true;
+  const end = start + dur;
+  for (const b of booked || []) {
+    const bs = labelToMin(b.time);
+    if (bs === null) continue;
+    const be = bs + (b.mins || 60);
+    if (!(start < be && bs < end)) continue;
+    const n = Number(b.count) > 0 ? Number(b.count) : 1;
+    if (b.time === label && (b.mins || 60) === dur) {
+      if (n >= SLOT_CAPACITY) return true;
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+function spotsLeft(booked, label, dur) {
+  const hit = (booked || []).find((b) => b.time === label);
+  if (!hit) return SLOT_CAPACITY;
+  if ((hit.mins || 60) !== dur) return 0;
+  const n = Number(hit.count) > 0 ? Number(hit.count) : 1;
+  return Math.max(0, SLOT_CAPACITY - n);
+}
+
 function toMinutes(hhmm) {
   const [h, m] = String(hhmm).split(":").map(Number);
   return h * 60 + m;
@@ -326,10 +354,7 @@ function renderTimeOptions() {
   }
   const dur = durationFor(selectedType);
   const starts = startsForDate(date, dur); // start times where this lesson fits
-  const booked = bookedCache[date] || []; // [{ time, mins }]
-  const bookedRanges = booked
-    .map((b) => { const s = labelToMin(b.time); return s === null ? null : [s, s + (b.mins || 60)]; })
-    .filter(Boolean);
+  const booked = bookedCache[date] || []; // [{ time, mins, count }]
   // Slots already added to THIS order block overlapping picks too
   const mineRanges = picked
     .filter((p) => p.date === date)
@@ -344,12 +369,19 @@ function renderTimeOptions() {
     const s = toMinutes(t);
     const e = s + dur;
     const thisPick = picked.some((p) => p.date === date && p.time === label);
-    const isBooked = overlaps(bookedRanges, s, e);
+    const isBooked = slotIsBlocked(booked, label, dur);
     const mineHit = !thisPick && overlaps(mineRanges, s, e);
-    const opt = new Option(
-      isBooked ? `${label} — booked` : thisPick ? `${label} — added` : mineHit ? `${label} — overlaps a pick` : label,
-      label
-    );
+    const left = spotsLeft(booked, label, dur);
+    const name = isBooked
+      ? `${label} — booked`
+      : thisPick
+      ? `${label} — added`
+      : mineHit
+      ? `${label} — overlaps a pick`
+      : left === 1
+      ? `${label} · 1 spot left`
+      : label;
+    const opt = new Option(name, label);
     opt.disabled = isBooked || thisPick || mineHit;
     if (!opt.disabled) open++;
     timeSelect.append(opt);

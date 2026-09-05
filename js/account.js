@@ -57,6 +57,33 @@ function isoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+const SLOT_CAPACITY = 2;
+function slotIsBlocked(booked, label, dur) {
+  const start = labelToMinutes(label);
+  if (start === null) return true;
+  const end = start + dur;
+  for (const b of booked || []) {
+    const bs = labelToMinutes(b.time);
+    if (bs === null) continue;
+    const be = bs + (b.mins || 60);
+    if (!(start < be && bs < end)) continue;
+    const n = Number(b.count) > 0 ? Number(b.count) : 1;
+    if (b.time === label && (b.mins || 60) === dur) {
+      if (n >= SLOT_CAPACITY) return true;
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+function spotsLeft(booked, label, dur) {
+  const hit = (booked || []).find((b) => b.time === label);
+  if (!hit) return SLOT_CAPACITY;
+  if ((hit.mins || 60) !== dur) return 0;
+  const n = Number(hit.count) > 0 ? Number(hit.count) : 1;
+  return Math.max(0, SLOT_CAPACITY - n);
+}
+
 function toMinutes(hhmm) {
   const [h, m] = String(hhmm).split(":").map(Number);
   return h * 60 + m;
@@ -233,25 +260,15 @@ async function loadTimes(date) {
     }
   }
   const taken = bookedCache[date] || [];
-  // Lessons run an hour, so a booking at 5:00 also rules out 5:30 — compare
-  // ranges, not just identical start times, or the server rejects the pick
-  // only after they've clicked.
-  const bookedRanges = taken
-    .map((b) => {
-      const s = labelToMinutes(b.time);
-      return s === null ? null : [s, s + (b.mins || 60)];
-    })
-    .filter(Boolean);
   const starts = startsForDate(date);
   timeSelect.innerHTML = "";
   timeSelect.append(new Option("Choose a time", ""));
   let open = 0;
   starts.forEach((t) => {
     const label = fmtTime(t);
-    const s = toMinutes(t);
-    const e = s + 60;
-    const hit = bookedRanges.some(([bs, be]) => s < be && bs < e);
-    const opt = new Option(hit ? `${label} — booked` : label, label);
+    const hit = slotIsBlocked(taken, label, 60);
+    const left = spotsLeft(taken, label, 60);
+    const opt = new Option(hit ? `${label} — booked` : left === 1 ? `${label} · 1 spot left` : label, label);
     opt.disabled = hit;
     if (!hit) open++;
     timeSelect.append(opt);

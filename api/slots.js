@@ -111,7 +111,12 @@ export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
     /* holds optional */
   }
 
-  return [...byTime.entries()].map(([time, v]) => ({ time, mins: v.mins, sources: v.sources }));
+  return [...byTime.entries()].map(([time, v]) => ({
+    time,
+    mins: v.mins,
+    count: v.sources.length,
+    sources: v.sources,
+  }));
 }
 
 export default async function handler(req, res) {
@@ -131,7 +136,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       date,
       // Names and ids stay private unless the coach asked.
-      booked: isCoach ? booked : booked.map(({ time, mins }) => ({ time, mins })),
+      booked: isCoach ? booked : booked.map(({ time, mins, count }) => ({ time, mins, count })),
     });
   } catch {
     res.status(200).json({ booked: [] });

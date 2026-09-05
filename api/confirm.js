@@ -184,6 +184,7 @@ function emailHtml(meta, sessions) {
         What to Bring
       </div>
       <p style="color:#f5f6f8;font-size:15px;margin:0;">Bat, glove, turfs, and a water bottle.</p>
+      <p style="color:#a8adb6;font-size:14px;line-height:1.6;margin:10px 0 0;">This time can have two players. You may be training with one other player — same price either way.</p>
     </td></tr>
 
     ${
@@ -265,6 +266,7 @@ ${where}
 
 WHAT TO BRING
 Bat, glove, turfs, and a water bottle.
+This time can have two players. You may be training with one other player — same price either way.
 ${
   meta.type === "single"
     ? `
@@ -399,6 +401,7 @@ function memberEmailHtml(meta, origin, sessions, startedAt) {
     <tr><td style="padding-top:26px;">
       <div style="font-size:11px;color:#a8adb6;letter-spacing:2px;text-transform:uppercase;font-weight:bold;padding-bottom:8px;">What to Bring</div>
       <p style="color:#f5f6f8;font-size:15px;margin:0;">Bat, glove, turfs, and a water bottle.</p>
+      <p style="color:#a8adb6;font-size:14px;line-height:1.6;margin:10px 0 0;">This time can have two players. You may be training with one other player — same price either way.</p>
     </td></tr>
 
     <tr><td style="padding-top:26px;">
@@ -465,6 +468,7 @@ month? Rejoin at ${origin}/book.html?type=membership
 
 WHAT TO BRING
 Bat, glove, turfs, and a water bottle.
+This time can have two players. You may be training with one other player — same price either way.
 
 QUESTIONS?
 Reply to this email or call/text ${PHONE}.
