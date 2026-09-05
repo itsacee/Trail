@@ -3,7 +3,7 @@
 // environment variable to be set in the Vercel project settings.
 
 import { bookedTimes } from "./slots.js";
-import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
+import { allowedTimes, locationKeyFor, getAvailability, durationFor, slotBlocked } from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
 import { bookWindowBlocked } from "../lib/members.js";
 
@@ -107,19 +107,12 @@ export default async function handler(req, res) {
     const takenByDate = Object.fromEntries(
       await Promise.all(dates.map(async (d) => [d, await bookedTimes(key, d)]))
     );
-    // A slot conflicts if this lesson's time range overlaps any booked range.
-    const conflict = sessions.find((s) => {
-      const start = labelToMin(s.time);
-      if (start === null) return false;
-      const endMin = start + lessonMins;
-      return (takenByDate[s.date] || []).some((b) => {
-        const bStart = labelToMin(b.time);
-        return bStart !== null && start < bStart + b.mins && bStart < endMin;
-      });
-    });
+    // Two players can share a start time. A third, or a different overlapping
+    // start, is blocked.
+    const conflict = sessions.find((s) => slotBlocked(takenByDate[s.date] || [], s.time, lessonMins));
     if (conflict) {
       res.status(409).json({
-        error: `Sorry — ${conflict.date} at ${conflict.time} was just booked. Please pick another time for that lesson.`,
+        error: `Sorry — ${conflict.date} at ${conflict.time} just filled up. Please pick another time.`,
       });
       return;
     }

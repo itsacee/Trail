@@ -12,6 +12,8 @@ import {
   allowedTimes,
   isOpenOn,
   locationKeyFor,
+  slotBlocked,
+  SLOT_CAPACITY,
   DEFAULT_AVAILABILITY,
 } from "../lib/schedule.js";
 
@@ -77,4 +79,15 @@ test("normalizeAvailability fills gaps and drops malformed blocked dates", () =>
   assert.equal(a.days[1].start, DEFAULT_AVAILABILITY.days[1].start); // bad start replaced
   assert.deepEqual(a.blocked, ["2026-01-01"]);
   assert.equal(a.slotMinutes, 60);
+});
+
+test("slotBlocked lets a second player join the same start time", () => {
+  assert.equal(SLOT_CAPACITY, 2);
+  const one = [{ time: "5:00 PM", mins: 60, count: 1 }];
+  assert.equal(slotBlocked(one, "5:00 PM", 60), false);
+  assert.equal(slotBlocked(one, "5:30 PM", 60), true);
+  assert.equal(slotBlocked([{ time: "5:00 PM", mins: 60, count: 2 }], "5:00 PM", 60), true);
+  assert.equal(slotBlocked(one, "5:00 PM", 30), true);
+  assert.equal(slotBlocked([{ time: "5:00 PM", mins: 30, count: 1 }], "5:30 PM", 30), false);
+  assert.equal(slotBlocked([], "5:00 PM", 60), false);
 });

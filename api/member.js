@@ -1,5 +1,5 @@
 import { bookedTimes } from "./slots.js";
-import { allowedTimes, getAvailability, durationFor, labelToMin, LOCATIONS } from "../lib/schedule.js";
+import { allowedTimes, getAvailability, durationFor, slotBlocked, LOCATIONS } from "../lib/schedule.js";
 import {
   loadLessons,
   saveLessons,
@@ -280,16 +280,16 @@ export default async function handler(req, res) {
 
     try {
       const taken = await bookedTimes(key, newDate);
-      const start = labelToMin(newTime);
       const dur = durationFor("membership");
-      const conflict = start !== null && taken.some((b) => {
-        // Don't collide with the slot we're moving away from.
-        if (newDate === lesson.date && b.time === lesson.time) return false;
-        const bStart = labelToMin(b.time);
-        return bStart !== null && start < bStart + b.mins && bStart < start + dur;
-      });
-      if (conflict) {
-        res.status(409).json({ error: "Sorry — that time was just booked. Pick another." });
+      const others = taken.map((b) => {
+        if (newDate === lesson.date && b.time === lesson.time) {
+          const n = Math.max(0, (Number(b.count) > 0 ? Number(b.count) : 1) - 1);
+          return n ? { ...b, count: n } : null;
+        }
+        return b;
+      }).filter(Boolean);
+      if (slotBlocked(others, newTime, dur)) {
+        res.status(409).json({ error: "Sorry — that time just filled up. Pick another." });
         return;
       }
     } catch {
@@ -338,14 +338,9 @@ export default async function handler(req, res) {
 
   try {
     const taken = await bookedTimes(key, date);
-    const start = labelToMin(time);
     const dur = durationFor("membership");
-    const conflict = start !== null && taken.some((b) => {
-      const bStart = labelToMin(b.time);
-      return bStart !== null && start < bStart + b.mins && bStart < start + dur;
-    });
-    if (conflict) {
-      res.status(409).json({ error: "Sorry — that time was just booked. Pick another." });
+    if (slotBlocked(taken, time, dur)) {
+      res.status(409).json({ error: "Sorry — that time just filled up. Pick another." });
       return;
     }
   } catch {
