@@ -15,6 +15,7 @@ import {
   slotBlocked,
   SLOT_CAPACITY,
   DEFAULT_AVAILABILITY,
+  migrateSavedAvailability,
 } from "../lib/schedule.js";
 
 test("labelToMin parses 12-hour labels, including noon/midnight", () => {
@@ -40,19 +41,49 @@ test("durationFor knows each session type, defaults to 60", () => {
   assert.equal(durationFor("mystery"), 60);
 });
 
-test("a 60-minute lesson can't start in the last half hour before close", () => {
+test("Mon–Wed 6–8 PM offers two hour starts", () => {
   const av = normalizeAvailability(DEFAULT_AVAILABILITY);
-  // Wednesday 2026-08-26, hours 17:00–21:00. Last 60-min start is 20:00.
-  const starts = startTimesForDate("2026-08-26", av, 60);
-  assert.equal(starts[0], "17:00");
-  assert.equal(starts[starts.length - 1], "20:00");
-  assert.ok(!starts.includes("20:30"));
+  // Wednesday 2026-08-26, hours 18:00–20:00. Starts at 6:00 and 7:00.
+  assert.deepEqual(startTimesForDate("2026-08-26", av, 60), ["18:00", "19:00"]);
+  assert.deepEqual(allowedTimes("2026-08-26", av, 60), ["6:00 PM", "7:00 PM"]);
+  assert.equal(isOpenOn("2026-08-27", av), false); // Thursday closed
 });
 
-test("a 30-minute lesson can use the later slot a 60-minute one can't", () => {
-  const av = normalizeAvailability(DEFAULT_AVAILABILITY);
-  const starts = startTimesForDate("2026-08-26", av, 30);
-  assert.equal(starts[starts.length - 1], "20:30");
+test("a 30-minute lesson can use a later start when slots are 30 minutes", () => {
+  const av = normalizeAvailability({
+    slotMinutes: 30,
+    days: { 3: { open: true, start: "17:00", end: "21:00" } },
+  });
+  const hour = startTimesForDate("2026-08-26", av, 60);
+  const half = startTimesForDate("2026-08-26", av, 30);
+  assert.equal(hour[hour.length - 1], "20:00");
+  assert.equal(half[half.length - 1], "20:30");
+});
+
+test("migrateSavedAvailability swaps old 5–9 weeknights for Mon–Wed 6–8", () => {
+  const old = normalizeAvailability({
+    slotMinutes: 60,
+    days: {
+      0: { open: true, start: "09:00", end: "19:00" },
+      1: { open: true, start: "17:00", end: "21:00" },
+      2: { open: true, start: "17:00", end: "21:00" },
+      3: { open: true, start: "17:00", end: "21:00" },
+      4: { open: true, start: "17:00", end: "21:00" },
+      5: { open: true, start: "17:00", end: "21:00" },
+      6: { open: true, start: "09:00", end: "19:00" },
+    },
+    blocked: ["2026-09-07"],
+  });
+  const next = migrateSavedAvailability(old);
+  assert.equal(next.days[1].start, "18:00");
+  assert.equal(next.days[1].end, "20:00");
+  assert.equal(next.days[1].open, true);
+  assert.equal(next.days[4].open, false);
+  assert.deepEqual(next.blocked, ["2026-09-07"]);
+  const custom = migrateSavedAvailability(
+    normalizeAvailability({ days: { 1: { open: true, start: "16:00", end: "20:00" } } })
+  );
+  assert.equal(custom.days[1].start, "16:00");
 });
 
 test("blocked dates and closed days offer nothing", () => {

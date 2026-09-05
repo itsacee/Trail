@@ -19,14 +19,15 @@ const dateSelect = document.getElementById("memDate");
 const timeSelect = document.getElementById("memTime");
 const bookedCache = {};
 let AVAIL = {
+  slotMinutes: 60,
   days: {
-    0: { open: true, start: "09:00", end: "19:00" },
-    1: { open: true, start: "17:00", end: "21:00" },
-    2: { open: true, start: "17:00", end: "21:00" },
-    3: { open: true, start: "17:00", end: "21:00" },
-    4: { open: true, start: "17:00", end: "21:00" },
-    5: { open: true, start: "17:00", end: "21:00" },
-    6: { open: true, start: "09:00", end: "19:00" },
+    0: { open: false, start: "18:00", end: "20:00" },
+    1: { open: true, start: "18:00", end: "20:00" },
+    2: { open: true, start: "18:00", end: "20:00" },
+    3: { open: true, start: "18:00", end: "20:00" },
+    4: { open: false, start: "18:00", end: "20:00" },
+    5: { open: false, start: "18:00", end: "20:00" },
+    6: { open: false, start: "18:00", end: "20:00" },
   },
   blocked: [],
 };
@@ -114,7 +115,8 @@ function startsForDate(iso) {
   const start = toMinutes(cfg.start);
   const end = toMinutes(cfg.end);
   const out = [];
-  for (let t = start; t + 60 <= end; t += 30) {
+  const step = (AVAIL && AVAIL.slotMinutes) || 60;
+  for (let t = start; t + 60 <= end; t += step) {
     out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
   }
   return out;

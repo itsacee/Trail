@@ -68,19 +68,20 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 // Availability defaults — MIRROR lib/schedule.js. The live values are fetched
 // from /api/availability on load (the coach can edit them from the coach page);
 // these defaults are only the fallback if that request fails.
-const STEP_MINUTES = 30; // start times offered every 30 minutes
+const STEP_MINUTES = 60; // hourly starts — keep in sync with lib/schedule.js
 const DURATIONS = { single: 60, thirty: 30, membership: 60 };
 function durationFor(type) { return DURATIONS[type] || 60; }
 
 const DEFAULT_AVAILABILITY = {
+  slotMinutes: 60,
   days: {
-    0: { open: true, start: "09:00", end: "19:00" }, // Sun
-    1: { open: true, start: "17:00", end: "21:00" }, // Mon
-    2: { open: true, start: "17:00", end: "21:00" }, // Tue
-    3: { open: true, start: "17:00", end: "21:00" }, // Wed
-    4: { open: true, start: "17:00", end: "21:00" }, // Thu
-    5: { open: true, start: "17:00", end: "21:00" }, // Fri
-    6: { open: true, start: "09:00", end: "19:00" }, // Sat
+    0: { open: false, start: "18:00", end: "20:00" },
+    1: { open: true, start: "18:00", end: "20:00" }, // Mon 6–8
+    2: { open: true, start: "18:00", end: "20:00" },
+    3: { open: true, start: "18:00", end: "20:00" },
+    4: { open: false, start: "18:00", end: "20:00" },
+    5: { open: false, start: "18:00", end: "20:00" },
+    6: { open: false, start: "18:00", end: "20:00" },
   },
   blocked: [],
 };
@@ -143,8 +144,9 @@ function startsForDate(iso, durationMin) {
   const start = toMinutes(cfg.start);
   const end = toMinutes(cfg.end);
   const dur = durationMin || STEP_MINUTES;
+  const step = (AVAIL && AVAIL.slotMinutes) || STEP_MINUTES;
   const out = [];
-  for (let t = start; t + dur <= end; t += STEP_MINUTES) {
+  for (let t = start; t + dur <= end; t += step) {
     out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
   }
   return out;
