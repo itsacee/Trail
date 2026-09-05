@@ -88,7 +88,7 @@ ${main}
           </span>
           <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
         </a>
-        <p class="footer__blurb">Private 1-on-1 baseball training in Oklahoma City.</p>
+        <p class="footer__blurb">Private baseball training in Oklahoma City.</p>
       </div>
       <div>
         <h4>Contact</h4>
@@ -156,7 +156,7 @@ page({
           <span class="accent">Play With Confidence.</span>
         </h1>
         <p class="hero__sub reveal">
-          1-on-1 hitting and fielding with a D1 hitter who coaches kids every day.
+          Hitting and fielding with a D1 hitter who coaches kids every day.
         </p>
         <div class="hero__actions reveal">
           <a class="btn btn--primary btn--lg" href="/book.html?type=single">Book a Lesson — $70</a>
@@ -185,7 +185,7 @@ page({
     <div class="container">
       <p class="eyebrow center reveal">On staff</p>
       <h2 class="center reveal">He coaches for a living</h2>
-      <p class="section__sub center reveal">Mustang High School, Risin' Baseball, and Mojo — then your player, one-on-one.</p>
+      <p class="section__sub center reveal">Mustang High School, Risin' Baseball, and Mojo — then your player.</p>
       <div class="partners reveal">
         <a class="partner" href="https://www.instagram.com/mustangbroncosbaseball/" target="_blank" rel="noopener noreferrer" aria-label="Mustang High School Baseball on Instagram">
           <div class="partner__logo"><img src="/img/partners/mustang.jpg" alt="Mustang High School Broncos" loading="lazy" /></div>
@@ -234,7 +234,7 @@ page({
           <p>
             I hit <em>.434 with 17 homers</em> at Connors State, played at
             <em>Oklahoma State</em>, then <em>.333 with 9 homers</em> at UCO.
-            Now I coach at Mustang High School and train players one-on-one here.
+            Now I coach at Mustang High School and train players here.
           </p>
           <p>
             Every lesson is built around your kid — not a cookie-cutter plan.
@@ -257,7 +257,7 @@ page({
           <h3>Single Lesson</h3>
           <div class="price-card__price">$70<span>/ session</span></div>
           <ul>
-            <li>One hour, 1-on-1</li>
+            <li>One hour</li>
             <li>Hitting, fielding, or both</li>
             <li>Ages 11 through college</li>
           </ul>
@@ -279,7 +279,7 @@ page({
           <h3>30-Minute Lesson</h3>
           <div class="price-card__price">$50<span>/ session</span></div>
           <ul>
-            <li>A focused half-hour, 1-on-1</li>
+            <li>A focused half-hour</li>
             <li>Hitting or fielding</li>
             <li>Ages 11 through college</li>
           </ul>
@@ -311,7 +311,7 @@ page({
     <div class="container">
       <p class="eyebrow center reveal">On staff</p>
       <h1 class="center reveal">He coaches for a living</h1>
-      <p class="section__sub center reveal">Mustang High School, Risin' Baseball, and Mojo — then your player, one-on-one. This page can grow with more coaching news, photos, or a camps schedule later.</p>
+      <p class="section__sub center reveal">Mustang High School, Risin' Baseball, and Mojo — then your player. This page can grow with more coaching news, photos, or a camps schedule later.</p>
       <div class="partners reveal" style="margin-top:2.4rem">
         <a class="partner" href="https://www.instagram.com/mustangbroncosbaseball/" target="_blank" rel="noopener noreferrer" aria-label="Mustang High School Baseball on Instagram">
           <div class="partner__logo"><img src="/img/partners/mustang.jpg" alt="Mustang High School Broncos" loading="lazy" /></div>
@@ -397,7 +397,7 @@ page({
           <p>
             I hit <em>.434 with 17 homers</em> at Connors State, played at
             <em>Oklahoma State</em>, then <em>.333 with 9 homers</em> at UCO.
-            Now I coach at Mustang High School and train players one-on-one here.
+            Now I coach at Mustang High School and train players here.
           </p>
           <p>
             Every lesson is built around your kid — not a cookie-cutter plan.
@@ -427,7 +427,7 @@ page({
           <h3>Single Lesson</h3>
           <div class="price-card__price">$70<span>/ session</span></div>
           <ul>
-            <li>One hour, 1-on-1</li>
+            <li>One hour</li>
             <li>Hitting, fielding, or both</li>
             <li>Ages 11 through college</li>
           </ul>
@@ -449,7 +449,7 @@ page({
           <h3>30-Minute Lesson</h3>
           <div class="price-card__price">$50<span>/ session</span></div>
           <ul>
-            <li>A focused half-hour, 1-on-1</li>
+            <li>A focused half-hour</li>
             <li>Hitting or fielding</li>
             <li>Ages 11 through college</li>
           </ul>

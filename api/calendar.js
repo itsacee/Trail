@@ -13,7 +13,7 @@ import { fetchBookings } from "../lib/bookings.js";
 import { LOCATIONS, locationKeyFor } from "../lib/schedule.js";
 import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
 
-const TYPE_LABEL = { single: "Private", thirty: "30-min", membership: "Membership" };
+const TYPE_LABEL = { single: "1 hour", thirty: "30-min", membership: "Membership" };
 const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
 
 // Shared by the feed and the emailed invite so an event looks the same

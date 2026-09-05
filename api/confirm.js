@@ -21,7 +21,7 @@ import { releaseHold } from "../lib/holds.js";
 function inviteAttachment(meta, sessions, sourceId) {
   const now = stamp();
   const player = meta.player || "Lesson";
-  const kind = meta.type === "thirty" ? "30-min" : meta.type === "membership" ? "Membership" : "Private";
+  const kind = meta.type === "thirty" ? "30-min" : meta.type === "membership" ? "Membership" : "1 hour";
   const events = sessions.map((s, i) => {
     const place = LOCATIONS[s.loc] || LOCATIONS[LOCATION_KEY] || {};
     return eventLines({
@@ -59,7 +59,7 @@ const PHONE_TEL = "+14058194401";
 const REPLY_TO = "Apacademybsb@gmail.com";
 
 const TYPE_NAMES = {
-  single: "Private Lesson (1 hour)",
+  single: "Lesson (1 hour)",
   thirty: "30-Minute Lesson",
   membership: "Membership — 4 lessons per month",
 };
