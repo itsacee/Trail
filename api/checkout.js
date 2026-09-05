@@ -10,7 +10,7 @@ import { bookWindowBlocked } from "../lib/members.js";
 const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 
 const SESSION_TYPES = {
-  single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
+  single: { amount: 7000, quantity: 1, picks: 1, label: "Lesson (1 hour)", mode: "payment" },
   thirty: { amount: 5000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
   // Members pick lesson 1 of 4 here; the other 3 get booked from /account.html.
   membership: { amount: 24000, quantity: 1, picks: 1, label: "Membership — 4 one-hour lessons (1 month, does not auto-renew)", mode: "payment" },
