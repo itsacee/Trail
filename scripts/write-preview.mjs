@@ -159,7 +159,7 @@ page({
           Hitting and fielding with a D1 hitter who coaches kids every day.
         </p>
         <div class="hero__actions reveal">
-          <a class="btn btn--primary btn--lg" href="/book.html?type=single">Book a Lesson — $70</a>
+          <a class="btn btn--primary btn--lg" href="/book.html?type=single">Book a Lesson — $80</a>
         </div>
       </div>
     </div>
@@ -255,7 +255,7 @@ page({
       <div class="grid grid--3 pricing">
         <a class="price-card reveal" href="/book.html?type=single">
           <h3>Single Lesson</h3>
-          <div class="price-card__price">$70<span>/ session</span></div>
+          <div class="price-card__price">$80<span>/ session</span></div>
           <ul>
             <li>One hour</li>
             <li>Hitting, fielding, or both</li>
@@ -266,7 +266,7 @@ page({
         <a class="price-card price-card--featured reveal" href="/book.html?type=membership">
           <div class="price-card__tag">Most Popular</div>
           <h3>Membership</h3>
-          <div class="price-card__price">$240<span>/ month</span></div>
+          <div class="price-card__price">$280<span>/ month</span></div>
           <ul>
             <li>4 one-hour lessons</li>
             <li>Pick any 4 days that work for you</li>
@@ -277,7 +277,7 @@ page({
         </a>
         <a class="price-card reveal" href="/book.html?type=thirty">
           <h3>30-Minute Lesson</h3>
-          <div class="price-card__price">$50<span>/ session</span></div>
+          <div class="price-card__price">$60<span>/ session</span></div>
           <ul>
             <li>A focused half-hour</li>
             <li>Hitting or fielding</li>
@@ -425,7 +425,7 @@ page({
       <div class="grid grid--3 pricing">
         <a class="price-card reveal" href="/book.html?type=single">
           <h3>Single Lesson</h3>
-          <div class="price-card__price">$70<span>/ session</span></div>
+          <div class="price-card__price">$80<span>/ session</span></div>
           <ul>
             <li>One hour</li>
             <li>Hitting, fielding, or both</li>
@@ -436,7 +436,7 @@ page({
         <a class="price-card price-card--featured reveal" href="/book.html?type=membership">
           <div class="price-card__tag">Most Popular</div>
           <h3>Membership</h3>
-          <div class="price-card__price">$240<span>/ month</span></div>
+          <div class="price-card__price">$280<span>/ month</span></div>
           <ul>
             <li>4 one-hour lessons</li>
             <li>Pick any 4 days that work for you</li>
@@ -447,7 +447,7 @@ page({
         </a>
         <a class="price-card reveal" href="/book.html?type=thirty">
           <h3>30-Minute Lesson</h3>
-          <div class="price-card__price">$50<span>/ session</span></div>
+          <div class="price-card__price">$60<span>/ session</span></div>
           <ul>
             <li>A focused half-hour</li>
             <li>Hitting or fielding</li>
@@ -493,7 +493,7 @@ page({
         <details>
           <summary>How does the membership work?</summary>
           <p>
-            $240 for one month — 4 one-hour lessons. It does <strong>not</strong> auto-renew; buy again when you want another month.
+            $280 for one month — 4 one-hour lessons. It does <strong>not</strong> auto-renew; buy again when you want another month.
             You pick your first day at checkout, then book the other three
             <strong>on any days that work for you</strong> inside that month — one at a time, whenever you know your
             schedule. Sign in at <a href="/account.html">Member login</a> with the same email to book them, reschedule a day, and to see how

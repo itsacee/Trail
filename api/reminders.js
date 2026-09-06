@@ -1,6 +1,6 @@
 // Daily emails:
 //   - memberships that expire soon, or just ended
-//   - after a drop-in (single) lesson: pitch the $240 month
+//   - after a drop-in (single) lesson: pitch the $280 month
 //   - after a membership lesson: remind them to book the next one
 //
 // Runs once a day from Vercel Cron (see vercel.json).

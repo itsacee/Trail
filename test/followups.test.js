@@ -216,8 +216,8 @@ test("membershipPitchMail sells the month without the field address", () => {
     },
     "https://www.apacademybsb.com"
   );
-  assert.match(mail.subject, /\$240/);
-  assert.match(mail.text, /Four singles are \$280/);
+  assert.match(mail.subject, /\$280/);
+  assert.match(mail.text, /Four singles are \$320/);
   assert.match(mail.text, /nothing auto-renews/i);
   assert.match(mail.text, /book\.html\?type=membership/);
   assert.doesNotMatch(mail.text, /Juniper|73064|231 W/i);

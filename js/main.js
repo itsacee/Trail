@@ -172,10 +172,10 @@ async function loadAvailability() {
 const DAYS_AHEAD = 7; // only about a week ahead — keep in sync with BOOK_AHEAD_DAYS in lib/members.js
 
 const SESSIONS = {
-  single: { name: "Single Lesson", price: "$70 · 1 hour", label: "Pay $70 — Book Lesson", picks: 1, focus: "full" },
-  thirty: { name: "30-Minute Lesson", price: "$50 · 30 min", label: "Pay $50 — Book Lesson", picks: 1, focus: "one" },
+  single: { name: "Single Lesson", price: "$80 · 1 hour", label: "Pay $80 — Book Lesson", picks: 1, focus: "full" },
+  thirty: { name: "30-Minute Lesson", price: "$60 · 30 min", label: "Pay $60 — Book Lesson", picks: 1, focus: "one" },
   // Members pick lesson 1 of 4 here; the other 3 get booked later from account.html.
-  membership: { name: "Membership", price: "$240 · 4 lessons", label: "Start Membership — $240", picks: 1, focus: "full" },
+  membership: { name: "Membership", price: "$280 · 4 lessons", label: "Start Membership — $280", picks: 1, focus: "full" },
 };
 
 const form = document.getElementById("bookingForm");
