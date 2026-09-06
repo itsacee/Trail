@@ -193,7 +193,7 @@ function emailHtml(meta, sessions) {
       <div style="background:#11180f;border:1px solid #3d5a2a;border-radius:12px;padding:18px;">
         <div style="font-size:11px;color:#b7d59a;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Want to keep this going?</div>
         <p style="color:#f5f6f8;font-size:15px;line-height:1.6;margin:8px 0 0;">
-          Four singles are $280. A month of four hour lessons is $240, and nothing auto-renews — you pay once.
+          Four singles are $320. A month of four hour lessons is $280, and nothing auto-renews — you pay once.
           I'll check in after the lesson if you want to start a month.
         </p>
       </div>
@@ -271,7 +271,7 @@ ${
   meta.type === "single"
     ? `
 WANT TO KEEP THIS GOING?
-Four singles are $280. A month of four hour lessons is $240, and nothing auto-renews — you pay once. I'll check in after the lesson if you want to start a month.
+Four singles are $320. A month of four hour lessons is $280, and nothing auto-renews — you pay once. I'll check in after the lesson if you want to start a month.
 `
     : ""
 }
