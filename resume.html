@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Elijah Alexander — Baseball Coaching Resume</title>
+  <link rel="icon" type="image/png" href="img/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #14181d;
+      --dim: #4c545e;
+      --line: #d8dce1;
+      --accent: #0e6ba8;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { background: #e9ebee; }
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      color: var(--ink);
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* On-screen toolbar (hidden when printing) */
+    .toolbar {
+      max-width: 8.5in; margin: 1.2rem auto 0; padding: 0 1rem;
+      display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    }
+    .toolbar p { font-size: 0.85rem; color: var(--dim); }
+    .toolbar button {
+      background: var(--accent); color: #fff; border: none; border-radius: 999px;
+      padding: 0.65rem 1.4rem; font: 700 0.9rem "Inter", sans-serif; cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* The page itself */
+    .sheet {
+      background: #fff; max-width: 8.5in; min-height: 11in;
+      margin: 0.8rem auto 2.5rem; padding: 0.65in 0.7in;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+
+    header.head { border-bottom: 3px solid var(--ink); padding-bottom: 0.55rem; margin-bottom: 0.9rem; }
+    h1 {
+      font-family: "Bebas Neue", sans-serif; font-weight: 400;
+      font-size: 2.7rem; letter-spacing: 0.045em; line-height: 1;
+    }
+    .head__role { font-weight: 700; color: var(--accent); font-size: 0.98rem; margin-top: 0.15rem; }
+    .head__contact { margin-top: 0.4rem; font-size: 0.86rem; color: var(--dim); }
+    .head__contact a { color: var(--dim); text-decoration: none; }
+    .head__contact span + span::before { content: "  ·  "; white-space: pre; }
+
+    h2 {
+      font-family: "Bebas Neue", sans-serif; font-weight: 400; font-size: 1.25rem;
+      letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent);
+      border-bottom: 1px solid var(--line); padding-bottom: 0.18rem;
+      margin: 1rem 0 0.5rem;
+    }
+    section:first-of-type h2 { margin-top: 0.2rem; }
+
+    .summary { font-size: 0.92rem; }
+
+    .entry { margin-bottom: 0.65rem; }
+    .entry__top { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+    .entry__top h3 { font-size: 0.96rem; font-weight: 800; }
+    .entry__top .where { font-weight: 600; color: var(--dim); font-size: 0.88rem; white-space: nowrap; }
+    .entry ul { margin: 0.25rem 0 0 1.05rem; font-size: 0.9rem; }
+    .entry ul li { margin-bottom: 0.12rem; }
+    .entry ul li::marker { color: var(--accent); }
+
+    .statline {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;
+      margin: 0.4rem 0 0.75rem;
+    }
+    .statline div {
+      border: 1px solid var(--line); border-radius: 8px; text-align: center; padding: 0.45rem 0.25rem;
+    }
+    .statline b { display: block; font-family: "Bebas Neue", sans-serif; font-size: 1.5rem; line-height: 1.1; color: var(--accent); }
+    .statline span { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--dim); font-weight: 700; }
+
+    .skills { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .skills li {
+      list-style: none; border: 1px solid var(--line); border-radius: 999px;
+      padding: 0.22rem 0.7rem; font-size: 0.8rem; font-weight: 600; color: var(--ink);
+    }
+
+    .refs { font-size: 0.9rem; color: var(--dim); }
+
+    /* Placeholders you still need to fill in — highlighted on screen only */
+    .fill { background: #fff3c4; border-radius: 3px; padding: 0 0.15rem; }
+
+    @media print {
+      html, body { background: #fff; }
+      body { line-height: 1.35; }
+      .toolbar { display: none; }
+      .sheet { box-shadow: none; margin: 0 auto; max-width: none; min-height: 0; padding: 0; }
+      .fill { background: none; }
+      a { color: inherit; }
+      h1 { font-size: 2.35rem; }
+      h2 { margin: 0.65rem 0 0.35rem; font-size: 1.15rem; }
+      header.head { padding-bottom: 0.4rem; margin-bottom: 0.6rem; }
+      .summary, .entry ul, .refs { font-size: 0.87rem; }
+      .entry { margin-bottom: 0.45rem; }
+      .statline { margin: 0.3rem 0 0.55rem; }
+      .statline div { padding: 0.3rem 0.2rem; }
+      .statline b { font-size: 1.3rem; }
+      .skills li { padding: 0.15rem 0.6rem; font-size: 0.77rem; }
+      section, .entry { break-inside: avoid; }
+    }
+    @page { size: letter; margin: 0.45in; }
+
+    @media (max-width: 640px) {
+      .sheet { padding: 1.2rem; min-height: 0; }
+      .statline { grid-template-columns: repeat(2, 1fr); }
+      .entry__top { flex-direction: column; gap: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="toolbar">
+    <p>Anything highlighted in yellow still needs your real info — tell the agent and it'll fill it in. Then hit the button and choose “Save as PDF.”</p>
+    <button onclick="window.print()">Print / Save as PDF</button>
+  </div>
+
+  <div class="sheet">
+    <header class="head">
+      <h1>Elijah Alexander</h1>
+      <p class="head__role">Baseball Coach &middot; Hitting &amp; Player Development</p>
+      <p class="head__contact">
+        <span>Oklahoma City, OK</span><span><a href="tel:+14058194401">(405) 819-4401</a></span><span><a href="mailto:Apacademybsb@gmail.com">Apacademybsb@gmail.com</a></span><span><a href="https://instagram.com/apacademybsb">@apacademybsb</a></span>
+      </p>
+    </header>
+
+    <section>
+      <h2>Profile</h2>
+      <p class="summary">
+        Former Division I baseball player and founder of AP Academy, a private training
+        business in the Oklahoma City metro. I've hit at every level of college baseball —
+        JUCO, NCAA Division II, and Division I — and now coach youth and high school players
+        every week in hitting, fielding, and speed &amp; conditioning. Looking to bring that
+        playing experience and daily coaching work to the Newcastle High School baseball program.
+      </p>
+    </section>
+
+    <section>
+      <h2>Coaching &amp; Training Experience</h2>
+      <div class="entry">
+        <div class="entry__top">
+          <h3>Founder &amp; Head Trainer — AP Academy (Ace Performance)</h3>
+          <span class="where">Oklahoma City, OK &middot; <span class="fill">2025</span> – Present</span>
+        </div>
+        <ul>
+          <li>Run one-on-one and small-group lessons for players from age 7 through varsity high school — hitting mechanics, bat speed, approach, infield/outfield footwork, and sprint work.</li>
+          <li>Build an individual development plan for every player: identify the flaw, attack it with targeted drills, and send players home with work they can do on their own.</li>
+          <li>Coach the mental side of the game — pre-at-bat routines, focus, and competing under pressure.</li>
+          <li>Founded and operate the entire business: scheduling, online booking and payments, parent communication, and Instagram content (@apacademybsb).</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Playing Career</h2>
+      <div class="statline">
+        <div><b>.434</b><span>AVG at Connors St.</span></div>
+        <div><b>26</b><span>College Home Runs</span></div>
+        <div><b>129</b><span>RBIs at Connors St.</span></div>
+        <div><b>D1</b><span>Oklahoma State</span></div>
+      </div>
+      <div class="entry">
+        <div class="entry__top">
+          <h3>University of Central Oklahoma — NCAA Division II</h3>
+          <span class="where"><span class="fill">2025 – 2026</span></span>
+        </div>
+        <ul>
+          <li>Hit .333 with 9 home runs.</li>
+        </ul>
+      </div>
+      <div class="entry">
+        <div class="entry__top">
+          <h3>Oklahoma State University — NCAA Division I</h3>
+          <span class="where">2024 – 2025</span>
+        </div>
+        <ul>
+          <li>Member of the Cowboys baseball program in the Big 12 Conference.</li>
+        </ul>
+      </div>
+      <div class="entry">
+        <div class="entry__top">
+          <h3>Connors State College — JUCO</h3>
+          <span class="where"><span class="fill">2022 – 2024</span></span>
+        </div>
+        <ul>
+          <li>Batted .434 with 17 home runs, 47 doubles, and 129 RBIs over 113 games across two seasons.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Education</h2>
+      <div class="entry">
+        <div class="entry__top">
+          <h3>University of Central Oklahoma — <span class="fill">B.S., Your Major (expected 20XX)</span></h3>
+          <span class="where">Edmond, OK</span>
+        </div>
+      </div>
+      <div class="entry">
+        <div class="entry__top">
+          <h3><span class="fill">Your High School</span></h3>
+          <span class="where"><span class="fill">City, OK &middot; Class of 20XX</span></span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Skills</h2>
+      <ul class="skills">
+        <li>Hitting instruction</li>
+        <li>Infield &amp; outfield fundamentals</li>
+        <li>Speed &amp; conditioning</li>
+        <li>Practice planning</li>
+        <li>Player development plans</li>
+        <li>Mental game &amp; routines</li>
+        <li>Parent communication</li>
+        <li>Video swing analysis</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>References</h2>
+      <p class="refs">Available on request — including college coaches and parents of current AP Academy players.</p>
+    </section>
+  </div>
+
+</body>
+</html>
