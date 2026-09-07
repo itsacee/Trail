@@ -7,7 +7,8 @@
 // the tab before the success page loaded, or email wasn't connected yet).
 // Each link signs that person in for 30 days — treat them like passwords.
 
-import { fromPayment, membershipSummary, MEMBER_PERIOD_DAYS, prettyDate } from "../lib/members.js";
+import { membershipSummary, MEMBER_PERIOD_DAYS, prettyDate } from "../lib/members.js";
+import { listActiveMemberships, MEMBERSHIP_LIMIT } from "../lib/membershipCapacity.js";
 import { loadLessons, scheduledFor } from "../lib/lessons.js";
 import { signMemberToken } from "../lib/memberAuth.js";
 
@@ -16,14 +17,6 @@ function esc(v) {
     /[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
   );
-}
-
-async function stripeGet(key, path) {
-  const r = await fetch(`https://api.stripe.com/v1/${path}`, {
-    headers: { Authorization: `Bearer ${key}` },
-  });
-  if (!r.ok) return null;
-  return r.json();
 }
 
 export default async function handler(req, res) {
@@ -40,33 +33,16 @@ export default async function handler(req, res) {
   }
 
   const origin = `https://${req.headers.host || "www.apacademybsb.com"}`;
-  const since = Math.floor(Date.now() / 1000) - (MEMBER_PERIOD_DAYS + 7) * 86400;
-
-  let payments = [];
+  let memberships = [];
   try {
-    const list = await stripeGet(key, `payment_intents?limit=100&created[gte]=${since}`);
-    payments = (list?.data || []).filter(
-      (p) => p.status === "succeeded" && String(p.metadata?.type || "") === "membership"
-    );
+    memberships = await listActiveMemberships(key);
   } catch {
-    payments = [];
+    res.status(502).send("Couldn't load memberships from Stripe.");
+    return;
   }
 
   const stored = await loadLessons();
-
-  // Newest payment per email wins — that's their current membership.
-  const byEmail = new Map();
-  payments
-    .sort((a, b) => b.created - a.created)
-    .forEach((pi) => {
-      const email = String(pi.metadata?.email || "").toLowerCase();
-      if (!email || byEmail.has(email)) return;
-      const sub = fromPayment(pi, email);
-      if (!sub) return; // expired
-      byEmail.set(email, sub);
-    });
-
-  const members = [...byEmail.values()]
+  const members = memberships
     .map((sub) => {
       const summary = membershipSummary(sub, scheduledFor(sub, stored));
       return {
@@ -77,7 +53,11 @@ export default async function handler(req, res) {
     .sort((a, b) => b.periodStart - a.periodStart);
 
   if (String(req.query?.format || "") === "json") {
-    res.status(200).json({ members });
+    res.status(200).json({
+      members,
+      limit: MEMBERSHIP_LIMIT,
+      spotsAvailable: Math.max(0, MEMBERSHIP_LIMIT - members.length),
+    });
     return;
   }
 
@@ -142,7 +122,7 @@ export default async function handler(req, res) {
   .empty { color:#a8adb6; }
 </style></head><body>
 <h1>Member sign-in links</h1>
-<p class="sub">${members.length} active membership${members.length === 1 ? "" : "s"}.
+<p class="sub">${members.length} of ${MEMBERSHIP_LIMIT} active memberships · ${Math.max(0, MEMBERSHIP_LIMIT - members.length)} spots available.
 Each link signs that person in for 30 days — only send it to them.</p>
 ${cards || `<p class="empty">No active memberships in the last ${MEMBER_PERIOD_DAYS + 7} days.</p>`}
 </body></html>`);

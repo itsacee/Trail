@@ -929,6 +929,26 @@ a.price-card .btn { text-align: center; }
   transform: none;
   box-shadow: none;
 }
+.membership-availability {
+  margin: 0.85rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.membership-availability.is-full { color: #ffb0a6; }
+.price-card.is-unavailable {
+  filter: grayscale(1);
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+.price-card.is-unavailable .btn {
+  background: #777b82;
+  border-color: #777b82;
+  color: #d7d9dd;
+  box-shadow: none;
+  pointer-events: none;
+}
 .booking__note {
   text-align: center;
   color: var(--text-dim);

@@ -178,6 +178,7 @@ const SESSIONS = {
   membership: { name: "Membership", price: "$280 · 4 lessons", label: "Start Membership — $280", picks: 1, focus: "full" },
 };
 
+let membershipCapacity = { state: "loading", limit: 15, spotsAvailable: 0, available: false };
 const form = document.getElementById("bookingForm");
 const dateSelect = document.getElementById("bkDate");
 const timeSelect = document.getElementById("bkTime");
@@ -439,9 +440,62 @@ function chooseTime(time) {
 }
 
 function refreshSubmit() {
+  if (selectedType === "membership" && membershipCapacity.state !== "ready") {
+    submitBtn.textContent =
+      membershipCapacity.state === "loading" ? "Checking Membership Availability…" : "Membership Unavailable";
+    submitBtn.disabled = true;
+    return;
+  }
+  if (selectedType === "membership" && !membershipCapacity.available) {
+    submitBtn.textContent = `Memberships Full — 0 of ${membershipCapacity.limit} Spots`;
+    submitBtn.disabled = true;
+    return;
+  }
   submitBtn.textContent = SESSIONS[selectedType].label;
   submitBtn.disabled = false;
 }
+
+function membershipCapacityText(capacity) {
+  if (capacity.state === "loading") return "Checking membership availability…";
+  if (capacity.state !== "ready") return "Membership availability is temporarily unavailable. Please try again soon.";
+  if (!capacity.available) {
+    return `Memberships are full — 0 of ${capacity.limit} spots available. A spot opens automatically when a current membership ends.`;
+  }
+  return `${capacity.spotsAvailable} of ${capacity.limit} membership spots available.`;
+}
+
+function renderMembershipCapacity() {
+  document.querySelectorAll("[data-membership-availability]").forEach((el) => {
+    el.textContent = membershipCapacityText(membershipCapacity);
+    el.classList.toggle("is-full", membershipCapacity.state === "ready" && !membershipCapacity.available);
+  });
+  document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
+    const blocked = membershipCapacity.state !== "ready" || !membershipCapacity.available;
+    el.classList.toggle("is-unavailable", blocked);
+    el.setAttribute("aria-disabled", blocked ? "true" : "false");
+  });
+  if (form) refreshSubmit();
+}
+
+async function loadMembershipCapacity() {
+  renderMembershipCapacity();
+  try {
+    const response = await fetch("/api/membership-capacity", { cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || typeof data.spotsAvailable !== "number") throw new Error();
+    membershipCapacity = { ...data, state: "ready" };
+  } catch {
+    membershipCapacity = { state: "error", limit: 15, spotsAvailable: 0, available: false };
+  }
+  renderMembershipCapacity();
+}
+
+document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
+  el.addEventListener("click", (event) => {
+    if (membershipCapacity.state !== "ready" || !membershipCapacity.available) event.preventDefault();
+  });
+});
+if (form || document.querySelector("[data-membership-availability]")) loadMembershipCapacity();
 
 if (form) {
   const params = new URLSearchParams(window.location.search);
@@ -504,7 +558,10 @@ if (form) {
         return;
       }
       statusEl.textContent = data.error || "Online booking isn't live yet — call or text (405) 819-4401 to book.";
-      if (res.status === 409) {
+      if (data.code === "membership_full") {
+        membershipCapacity = { state: "ready", limit: 15, spotsAvailable: 0, available: false };
+        renderMembershipCapacity();
+      } else if (res.status === 409) {
         // A slot was taken while they were filling the form — clear the
         // cached availability so the dropdown shows the truth.
         picked.forEach((p) => delete bookedCache[p.date]);

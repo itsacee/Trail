@@ -6,6 +6,11 @@ import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor, getAvailability, durationFor, slotBlocked } from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
 import { bookWindowBlocked } from "../lib/members.js";
+import {
+  getMembershipCapacity,
+  MEMBERSHIP_CHECKOUT_MINUTES,
+  MEMBERSHIP_LIMIT,
+} from "../lib/membershipCapacity.js";
 
 const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 
@@ -37,7 +42,16 @@ export default async function handler(req, res) {
   // straight away instead of sitting reserved until it expires.
   if (req.body?.action === "release") {
     const id = String(req.body?.sessionId || "");
-    if (SESSION_ID_RE.test(id)) await releaseHold(id);
+    if (SESSION_ID_RE.test(id)) {
+      await releaseHold(id);
+      // Also release a membership seat reserved by an open Stripe Checkout.
+      // Stripe returns an error when the session is already paid or expired;
+      // either way there is no open reservation left to clean up.
+      await fetch(`https://api.stripe.com/v1/checkout/sessions/${id}/expire`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+      }).catch(() => {});
+    }
     res.status(200).json({ released: true });
     return;
   }
@@ -73,6 +87,27 @@ export default async function handler(req, res) {
         : "Please pick your lesson day, time and enter the player's name.",
     });
     return;
+  }
+
+  if (isMember) {
+    try {
+      const { summary } = await getMembershipCapacity(key, email);
+      if (!summary.available) {
+        res.status(409).json({
+          error: `Memberships are full right now — all ${MEMBERSHIP_LIMIT} spots are taken. A spot will reopen automatically when a membership ends.`,
+          code: "membership_full",
+        });
+        return;
+      }
+    } catch {
+      // The limit is a hard cap. If Stripe cannot confirm the live count, do
+      // not create a checkout that could become membership number 16.
+      res.status(503).json({
+        error: "I couldn't confirm membership availability. Please try again in a moment.",
+        code: "membership_unavailable",
+      });
+      return;
+    }
   }
 
   // The time has to be one we actually offer on that day, per the coach's
@@ -132,6 +167,9 @@ export default async function handler(req, res) {
 
   const params = new URLSearchParams();
   params.append("mode", session.mode);
+  if (isMember) {
+    params.append("expires_at", String(Math.floor(Date.now() / 1000) + MEMBERSHIP_CHECKOUT_MINUTES * 60));
+  }
   params.append("success_url", successUrl);
   if (emailOk) {
     params.append("customer_email", email);
@@ -187,6 +225,36 @@ export default async function handler(req, res) {
   if (!response.ok) {
     res.status(502).json({ error: data.error?.message || "Payment setup failed. Please try again." });
     return;
+  }
+
+  if (isMember && data.id) {
+    try {
+      // Count this new open Checkout as a reserved spot. If simultaneous
+      // buyers reached the last opening, Stripe's creation order determines
+      // who got spot 15; any later Checkout is expired before we return it.
+      const { summary } = await getMembershipCapacity(key, email);
+      if (!summary.requestedAdmitted) {
+        await fetch(`https://api.stripe.com/v1/checkout/sessions/${data.id}/expire`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}` },
+        }).catch(() => {});
+        res.status(409).json({
+          error: `The last membership spot was just taken. All ${MEMBERSHIP_LIMIT} spots are now full.`,
+          code: "membership_full",
+        });
+        return;
+      }
+    } catch {
+      await fetch(`https://api.stripe.com/v1/checkout/sessions/${data.id}/expire`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+      }).catch(() => {});
+      res.status(503).json({
+        error: "I couldn't confirm membership availability. Please try again in a moment.",
+        code: "membership_unavailable",
+      });
+      return;
+    }
   }
 
   // Hold the slot for the length of the checkout. Until the payment succeeds

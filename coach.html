@@ -254,6 +254,7 @@
       <!-- ============ MEMBERS ============ -->
       <section id="tab-members" hidden>
         <p class="muted" style="margin-bottom:0.9rem">Everyone on an active membership, how many lessons they have left, and when those expire.</p>
+        <p class="muted" id="membershipCapacity" style="margin-bottom:0.9rem">Loading membership capacity…</p>
         <div id="membersList"><p class="empty">Loading…</p></div>
       </section>
 
@@ -439,16 +440,23 @@
       if (!pass) return;
       box.innerHTML = '<p class="empty">Loading…</p>';
       let members = [];
+      let limit = 15;
+      let spotsAvailable = 0;
       try {
         const r = await fetch(`/api/member-links?key=${encodeURIComponent(pass)}&format=json`);
         if (!r.ok) throw new Error();
-        members = (await r.json()).members || [];
+        const data = await r.json();
+        members = data.members || [];
+        limit = Number(data.limit) || 15;
+        spotsAvailable = Math.max(0, Number(data.spotsAvailable) || 0);
       } catch {
         box.innerHTML = '<p class="empty">Couldn\'t load memberships. Pull to refresh or tap Refresh above.</p>';
         return;
       }
       membersLoaded = true;
       document.getElementById("tabMembers").textContent = members.length;
+      document.getElementById("membershipCapacity").textContent =
+        `${members.length} of ${limit} memberships active · ${spotsAvailable} spot${spotsAvailable === 1 ? "" : "s"} available`;
       if (!members.length) {
         box.innerHTML = '<p class="empty">No active memberships right now.</p>';
         return;
