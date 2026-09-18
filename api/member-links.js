@@ -8,7 +8,11 @@
 // Each link signs that person in for 30 days — treat them like passwords.
 
 import { membershipSummary, MEMBER_PERIOD_DAYS, prettyDate } from "../lib/members.js";
-import { listActiveMemberships, MEMBERSHIP_LIMIT } from "../lib/membershipCapacity.js";
+import {
+  listActiveMemberships,
+  membershipsWithCredits,
+  MEMBERSHIP_LIMIT,
+} from "../lib/membershipCapacity.js";
 import { loadLessons, scheduledFor } from "../lib/lessons.js";
 import { signMemberToken } from "../lib/memberAuth.js";
 
@@ -42,7 +46,7 @@ export default async function handler(req, res) {
   }
 
   const stored = await loadLessons();
-  const members = memberships
+  const members = membershipsWithCredits(memberships, stored)
     .map((sub) => {
       const summary = membershipSummary(sub, scheduledFor(sub, stored));
       return {

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   activeMembershipsFromPayments,
   capacitySummary,
+  membershipsWithCredits,
   MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
 
@@ -44,6 +45,38 @@ test("activeMembershipsFromPayments counts current members once per coach-page e
   assert.equal(memberships.length, 1);
   assert.equal(memberships[0].id, "new");
   assert.equal(memberships[0].email, "parent@example.com");
+});
+
+test("membershipsWithCredits removes a member as soon as all four lessons are used", () => {
+  const now = Math.floor(Date.now() / 1000);
+  const membership = {
+    id: "pi_used",
+    email: "used@example.com",
+    metadata: { email: "used@example.com" },
+    current_period_start: now - 86400,
+    current_period_end: now + 27 * 86400,
+  };
+  const dates = Array.from({ length: 4 }, (_, i) =>
+    new Date((now + i * 86400) * 1000).toLocaleDateString("en-CA", {
+      timeZone: "America/Chicago",
+    })
+  );
+  const stored = {
+    voids: [],
+    lessons: dates.map((date, i) => ({
+      id: `lesson_${i}`,
+      email: "used@example.com",
+      date,
+      time: "6:00 PM",
+      type: "membership",
+    })),
+  };
+
+  assert.equal(membershipsWithCredits([membership], stored).length, 0);
+  assert.equal(
+    membershipsWithCredits([membership], { ...stored, lessons: stored.lessons.slice(0, 3) }).length,
+    1
+  );
 });
 
 test("capacitySummary opens and closes at exactly 15 active memberships", () => {
