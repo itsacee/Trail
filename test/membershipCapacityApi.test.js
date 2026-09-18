@@ -37,7 +37,7 @@ function responseRecorder() {
   };
 }
 
-function mockFullStripe() {
+function mockFullStripe(storedLessons = null) {
   mock.method(globalThis, "fetch", async (url) => {
     const value = String(url);
     if (value.includes("/payment_intents?")) {
@@ -45,6 +45,9 @@ function mockFullStripe() {
     }
     if (value.includes("/checkout/sessions?")) {
       return stripeResponse({ data: [], has_more: false });
+    }
+    if (value.includes("lessons.json") && storedLessons) {
+      return { ok: true, text: async () => JSON.stringify(storedLessons) };
     }
     throw new Error(`Unexpected Stripe request: ${value}`);
   });
@@ -101,6 +104,40 @@ test("checkout API refuses membership number 16 before creating a payment", asyn
     previous === undefined
       ? delete process.env.STRIPE_SECRET_KEY
       : (process.env.STRIPE_SECRET_KEY = previous);
+    mock.restoreAll();
+  }
+});
+
+test("a zero-credit membership disappears from the count and opens a spot", async () => {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+  mockFullStripe({
+    voids: [],
+    lessons: Array.from({ length: 4 }, (_, i) => ({
+      id: `used_${i}`,
+      email: "member0@example.com",
+      date: today,
+      time: `${6 + i}:00 PM`,
+      type: "membership",
+    })),
+  });
+  const previousKey = process.env.STRIPE_SECRET_KEY;
+  const previousUrl = process.env.AVAILABILITY_URL;
+  process.env.STRIPE_SECRET_KEY = "sk_test_capacity";
+  process.env.AVAILABILITY_URL = "https://blob.example/availability.json";
+  try {
+    const res = responseRecorder();
+    await capacityHandler({ method: "GET" }, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.active, 14);
+    assert.equal(res.body.spotsAvailable, 1);
+    assert.equal(res.body.available, true);
+  } finally {
+    previousKey === undefined
+      ? delete process.env.STRIPE_SECRET_KEY
+      : (process.env.STRIPE_SECRET_KEY = previousKey);
+    previousUrl === undefined
+      ? delete process.env.AVAILABILITY_URL
+      : (process.env.AVAILABILITY_URL = previousUrl);
     mock.restoreAll();
   }
 });
