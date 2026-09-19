@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Package Payment | AP Academy</title>
+  <link rel="icon" type="image/png" href="img/logo-mark.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="page-book">
+  <header class="nav" id="top">
+    <div class="nav__inner container">
+      <a class="nav__brand" href="index.html">
+        <span class="nav__logo"><img src="img/logo-mark.png" alt="AP Academy logo" /></span>
+        <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+      </a>
+      <a class="btn btn--primary nav__cta" href="contact.html">Contact Elijah</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="section book-page">
+      <div class="container container--narrow">
+        <p class="eyebrow center">Player Package</p>
+        <h1 class="center" id="packageTitle">Payment update</h1>
+        <p class="section__sub center" id="packageLead"></p>
+        <div class="booking" style="text-align:center">
+          <p id="packageDetail" style="font-size:1.05rem;line-height:1.8"></p>
+          <p style="margin-top:1.6rem">
+            <a class="btn btn--primary btn--lg" id="packageAction" href="contact.html">Contact Elijah</a>
+          </p>
+          <p class="booking__note">Questions? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__bottom">
+      <p>&copy; <span id="year"></span> AP Academy · Ace Performance. All rights reserved.</p>
+      <p class="footer__credit"><img src="img/logo-mark.png" alt="" />Powered by AP</p>
+    </div>
+  </footer>
+
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const paid = params.get("paid") === "1";
+      const plan = params.get("plan") === "12" ? "12" : "8";
+      const price = plan === "12" ? "$840" : "$560";
+      const title = document.getElementById("packageTitle");
+      const lead = document.getElementById("packageLead");
+      const detail = document.getElementById("packageDetail");
+      const action = document.getElementById("packageAction");
+
+      if (paid) {
+        title.textContent = "You're all set.";
+        lead.textContent = `Your one-time ${price} payment for the ${plan}-lesson package is complete.`;
+        detail.textContent = "Elijah will reach out to set the weekly schedule and build the player's first personalized workout and focus goal.";
+        action.textContent = "Contact Elijah";
+        action.href = "contact.html";
+      } else {
+        title.textContent = "Nothing was charged.";
+        lead.textContent = "You left Stripe Checkout before completing payment.";
+        detail.textContent = `When you're ready, you can return to the one-time ${price} package checkout.`;
+        action.textContent = `Return to ${plan}-Lesson Checkout`;
+        action.href = `/api/package-checkout?plan=${plan}`;
+      }
+      document.getElementById("year").textContent = new Date().getFullYear();
+    })();
+  </script>
+</body>
+</html>
