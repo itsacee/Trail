@@ -18,6 +18,7 @@ import {
   bookingBlocked,
   bookWindowBlocked,
   MEMBER_CREDITS,
+  MEMBER_PERIOD_DAYS,
   BOOK_AHEAD_DAYS,
 } from "../lib/members.js";
 
@@ -38,6 +39,10 @@ const SUB = {
   current_period_start: Math.floor(Date.parse("2026-08-20T12:00:00Z") / 1000),
   current_period_end: Math.floor(Date.parse("2026-09-17T12:00:00Z") / 1000),
 };
+
+test("a paid membership lasts 30 days", () => {
+  assert.equal(MEMBER_PERIOD_DAYS, 30);
+});
 
 function lesson(id, date, time, extra = {}) {
   return { id, date, time, source: "member", type: "membership", email: "sam@example.com", ...extra };

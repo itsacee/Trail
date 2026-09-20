@@ -43,10 +43,10 @@ Want different colors? Change `--accent` at the top of `css/styles.css`.
 Parents pick a lesson type on the homepage, then land on `book.html`.
 
 - **Single / 30-min:** pick a day and time, pay through Stripe Checkout.
-- **Membership ($280 / 4 weeks):** one-time payment (does not auto-renew).
+- **Membership ($280 / 30 days):** one-time payment (does not auto-renew).
   Then sign in at `account.html` with the email they paid with (a sign-in
   *link*, not a password). They book **one lesson per week**, up to 4 in
-  those 4 weeks. Unused lessons do not roll over. Buy again to continue.
+  those 30 days. Unused lessons do not roll over. Buy again to continue.
 
 Member lesson times are stored in Vercel Blob (`lessons.json`) and show up
 on the coach schedule and calendar feed. Single-lesson payments still live
