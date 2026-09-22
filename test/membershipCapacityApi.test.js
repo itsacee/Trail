@@ -92,6 +92,7 @@ test("checkout API refuses membership number 16 before creating a payment", asyn
           type: "membership",
           player: "New Player",
           email: "new@example.com",
+          focus: "Both",
           sessions: [{ date: "2099-01-01", time: "6:00 PM" }],
         },
       },

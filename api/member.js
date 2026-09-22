@@ -253,8 +253,8 @@ export default async function handler(req, res) {
     const newDate = String(req.body?.date || "");
     const newTime = String(req.body?.time || "");
     const newFocus = FOCUS[req.body?.focus] ? String(req.body.focus) : lesson.focus || "";
-    if (!DATE_RE.test(newDate) || !TIME_RE.test(newTime)) {
-      res.status(400).json({ error: "Pick a new day and time." });
+    if (!DATE_RE.test(newDate) || !TIME_RE.test(newTime) || !newFocus) {
+      res.status(400).json({ error: "Pick a training focus, day, and time." });
       return;
     }
     if (newDate === lesson.date && newTime === lesson.time) {
@@ -279,17 +279,13 @@ export default async function handler(req, res) {
     }
 
     try {
-      const taken = await bookedTimes(key, newDate);
+      const ignoreSourceId = newDate === lesson.date ? lesson.sourceId || lesson.id : "";
+      const taken = await bookedTimes(key, newDate, { ignoreSourceId });
       const dur = durationFor("membership");
-      const others = taken.map((b) => {
-        if (newDate === lesson.date && b.time === lesson.time) {
-          const n = Math.max(0, (Number(b.count) > 0 ? Number(b.count) : 1) - 1);
-          return n ? { ...b, count: n } : null;
-        }
-        return b;
-      }).filter(Boolean);
-      if (slotBlocked(others, newTime, dur)) {
-        res.status(409).json({ error: "Sorry — that time just filled up. Pick another." });
+      if (slotBlocked(taken, newTime, dur, newFocus)) {
+        res.status(409).json({
+          error: "Sorry — that time is full or has a different training focus. Pick another.",
+        });
         return;
       }
     } catch {
@@ -319,8 +315,8 @@ export default async function handler(req, res) {
   const date = String(req.body?.date || "");
   const time = String(req.body?.time || "");
   const focus = FOCUS[req.body?.focus] ? String(req.body.focus) : "";
-  if (!DATE_RE.test(date) || !TIME_RE.test(time)) {
-    res.status(400).json({ error: "Pick a day and time." });
+  if (!DATE_RE.test(date) || !TIME_RE.test(time) || !focus) {
+    res.status(400).json({ error: "Pick a training focus, day, and time." });
     return;
   }
 
@@ -339,8 +335,10 @@ export default async function handler(req, res) {
   try {
     const taken = await bookedTimes(key, date);
     const dur = durationFor("membership");
-    if (slotBlocked(taken, time, dur)) {
-      res.status(409).json({ error: "Sorry — that time just filled up. Pick another." });
+    if (slotBlocked(taken, time, dur, focus)) {
+      res.status(409).json({
+        error: "Sorry — that time is full or has a different training focus. Pick another.",
+      });
       return;
     }
   } catch {

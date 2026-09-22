@@ -27,7 +27,7 @@ import { loadHolds, holdsOnDate } from "../lib/holds.js";
 // backs out of payment and tries again is blocked by the hold they just
 // created — the slot they were about to buy reads as taken, to them, for the
 // full hold window.
-export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
+export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId = "" } = {}) {
   const byTime = new Map(); // time label -> { mins, sources }
   let stored = { lessons: [], voids: [] };
   try {
@@ -40,7 +40,12 @@ export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
     if (!time) return;
     const cur = byTime.get(time) || { mins: 0, sources: [] };
     cur.mins = Math.max(cur.mins, mins);
-    if (source) cur.sources.push(source);
+    if (
+      source &&
+      !cur.sources.some((existing) => existing.kind === source.kind && existing.id === source.id)
+    ) {
+      cur.sources.push(source);
+    }
     byTime.set(time, cur);
   };
 
@@ -51,6 +56,7 @@ export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
     ((await res.json()).data || []).forEach((item) => {
       const m = item.metadata || {};
       const { time, mins } = pick(m);
+      if (ignoreSourceId && item.id === ignoreSourceId) return;
       // Member moved/cancelled this Stripe signup slot — don't keep it blocked.
       if (isVoided(stored, { sourceId: item.id, date, time })) return;
       add(time, mins, {
@@ -58,6 +64,7 @@ export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
         id: item.id,
         player: m.player || "",
         type: m.type || "",
+        focus: m.focus || "",
         created: item.created || 0,
       });
     });
@@ -80,12 +87,15 @@ export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
   await Promise.all(queries);
 
   try {
-    lessonsOnDate(stored, date).forEach((l) =>
+    lessonsOnDate(stored, date)
+      .filter((l) => !ignoreSourceId || l.id !== ignoreSourceId)
+      .forEach((l) =>
       add(l.time, durationFor(l.type || "membership"), {
         kind: "member",
         id: l.id,
         player: l.player || "",
         email: l.email || "",
+        focus: l.focus || "",
         createdAt: l.createdAt || 0,
       })
     );
@@ -103,6 +113,7 @@ export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
       add(h.time, h.mins || 60, {
         kind: "hold",
         id: h.sessionId,
+        focus: h.focus || "",
         expiresAt: h.expiresAt,
         expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
       })
@@ -115,6 +126,7 @@ export async function bookedTimes(key, date, { ignoreHold = "" } = {}) {
     time,
     mins: v.mins,
     count: v.sources.length,
+    focuses: [...new Set(v.sources.map((source) => source.focus || "").filter(Boolean))],
     sources: v.sources,
   }));
 }
@@ -136,7 +148,9 @@ export default async function handler(req, res) {
     res.status(200).json({
       date,
       // Names and ids stay private unless the coach asked.
-      booked: isCoach ? booked : booked.map(({ time, mins, count }) => ({ time, mins, count })),
+      booked: isCoach
+        ? booked
+        : booked.map(({ time, mins, count, focuses }) => ({ time, mins, count, focuses })),
     });
   } catch {
     res.status(200).json({ booked: [] });

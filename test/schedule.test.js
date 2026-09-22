@@ -112,13 +112,26 @@ test("normalizeAvailability fills gaps and drops malformed blocked dates", () =>
   assert.equal(a.slotMinutes, 60);
 });
 
-test("slotBlocked lets a second player join the same start time", () => {
+test("slotBlocked lets a second player join only with the same focus", () => {
   assert.equal(SLOT_CAPACITY, 2);
-  const one = [{ time: "5:00 PM", mins: 60, count: 1 }];
-  assert.equal(slotBlocked(one, "5:00 PM", 60), false);
-  assert.equal(slotBlocked(one, "5:30 PM", 60), true);
-  assert.equal(slotBlocked([{ time: "5:00 PM", mins: 60, count: 2 }], "5:00 PM", 60), true);
-  assert.equal(slotBlocked(one, "5:00 PM", 30), true);
-  assert.equal(slotBlocked([{ time: "5:00 PM", mins: 30, count: 1 }], "5:30 PM", 30), false);
-  assert.equal(slotBlocked([], "5:00 PM", 60), false);
+  const hitting = [{ time: "5:00 PM", mins: 60, count: 1, focuses: ["Hitting"] }];
+  assert.equal(slotBlocked(hitting, "5:00 PM", 60, "Hitting"), false);
+  assert.equal(slotBlocked(hitting, "5:00 PM", 60, "Fielding"), true);
+  assert.equal(slotBlocked(hitting, "5:00 PM", 60, "Both"), true);
+  assert.equal(slotBlocked(hitting, "5:30 PM", 60, "Hitting"), true);
+  assert.equal(
+    slotBlocked([{ time: "5:00 PM", mins: 60, count: 2, focuses: ["Hitting"] }], "5:00 PM", 60, "Hitting"),
+    true
+  );
+  assert.equal(slotBlocked(hitting, "5:00 PM", 30, "Hitting"), true);
+  assert.equal(
+    slotBlocked([{ time: "5:00 PM", mins: 30, count: 1, focuses: ["Fielding"] }], "5:30 PM", 30, "Fielding"),
+    false
+  );
+  assert.equal(slotBlocked([], "5:00 PM", 60, "Both"), false);
+});
+
+test("old bookings without a focus stay exclusive", () => {
+  const legacy = [{ time: "5:00 PM", mins: 60, count: 1, focuses: [] }];
+  assert.equal(slotBlocked(legacy, "5:00 PM", 60, "Hitting"), true);
 });

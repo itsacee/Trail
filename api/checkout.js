@@ -77,6 +77,7 @@ export default async function handler(req, res) {
   const valid =
     session &&
     player &&
+    focus &&
     (!isMember || emailOk) &&
     sessions.length === session.picks &&
     sessions.every((s) => DATE_RE.test(String(s?.date || "")) && TIME_RE.test(String(s?.time || "")));
@@ -142,12 +143,13 @@ export default async function handler(req, res) {
     const takenByDate = Object.fromEntries(
       await Promise.all(dates.map(async (d) => [d, await bookedTimes(key, d)]))
     );
-    // Two players can share a start time. A third, or a different overlapping
-    // start, is blocked.
-    const conflict = sessions.find((s) => slotBlocked(takenByDate[s.date] || [], s.time, lessonMins));
+    // Two players can share only when start, length, and training focus match.
+    const conflict = sessions.find((s) =>
+      slotBlocked(takenByDate[s.date] || [], s.time, lessonMins, focus)
+    );
     if (conflict) {
       res.status(409).json({
-        error: `Sorry — ${conflict.date} at ${conflict.time} just filled up. Please pick another time.`,
+        error: `Sorry — ${conflict.date} at ${conflict.time} is full or has a different training focus. Please pick another time.`,
       });
       return;
     }
@@ -261,7 +263,7 @@ export default async function handler(req, res) {
   // nothing else marks it as taken, so without this a second parent could pay
   // for the same time while this one is still entering their card.
   if (data.id && sessions.length) {
-    await placeHold(data.id, sessions, lessonMins);
+    await placeHold(data.id, sessions, lessonMins, focus);
   }
 
   // The browser keeps this so it can ignore — and later release — its own hold.
