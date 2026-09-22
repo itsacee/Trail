@@ -91,9 +91,13 @@ const PLACE_BLURB = {
   "Mustang": "Lessons train at <strong>Mustang High School</strong>'s baseball field in Mustang, OK.",
 };
 
-// Mirror lib/schedule.js SLOT_CAPACITY — two players can share a start time.
+// Mirror lib/schedule.js: two players can share only with the same focus.
 const SLOT_CAPACITY = 2;
-function slotIsBlocked(booked, label, dur) {
+function bookedFocusMatches(row, focus) {
+  const focuses = [...new Set((row.focuses || []).filter(Boolean))];
+  return Boolean(focus && focuses.length === 1 && focuses[0] === focus);
+}
+function slotIsBlocked(booked, label, dur, focus) {
   const start = labelToMin(label);
   if (start === null) return true;
   const end = start + dur;
@@ -104,6 +108,7 @@ function slotIsBlocked(booked, label, dur) {
     if (!(start < be && bs < end)) continue;
     const n = Number(b.count) > 0 ? Number(b.count) : 1;
     if (b.time === label && (b.mins || 60) === dur) {
+      if (!bookedFocusMatches(b, focus)) return true;
       if (n >= SLOT_CAPACITY) return true;
       continue;
     }
@@ -111,10 +116,10 @@ function slotIsBlocked(booked, label, dur) {
   }
   return false;
 }
-function spotsLeft(booked, label, dur) {
+function spotsLeft(booked, label, dur, focus) {
   const hit = (booked || []).find((b) => b.time === label);
   if (!hit) return SLOT_CAPACITY;
-  if ((hit.mins || 60) !== dur) return 0;
+  if ((hit.mins || 60) !== dur || !bookedFocusMatches(hit, focus)) return 0;
   const n = Number(hit.count) > 0 ? Number(hit.count) : 1;
   return Math.max(0, SLOT_CAPACITY - n);
 }
@@ -356,6 +361,7 @@ function renderTimeOptions() {
     return;
   }
   const dur = durationFor(selectedType);
+  const focus = focusSelect ? focusSelect.value : "";
   const starts = startsForDate(date, dur); // start times where this lesson fits
   const booked = bookedCache[date] || []; // [{ time, mins, count }]
   // Slots already added to THIS order block overlapping picks too
@@ -372,9 +378,9 @@ function renderTimeOptions() {
     const s = toMinutes(t);
     const e = s + dur;
     const thisPick = picked.some((p) => p.date === date && p.time === label);
-    const isBooked = slotIsBlocked(booked, label, dur);
+    const isBooked = slotIsBlocked(booked, label, dur, focus);
     const mineHit = !thisPick && overlaps(mineRanges, s, e);
-    const left = spotsLeft(booked, label, dur);
+    const left = spotsLeft(booked, label, dur, focus);
     const name = isBooked
       ? `${label} — booked`
       : thisPick
@@ -508,6 +514,13 @@ if (form) {
   loadAvailability().then(renderDays);
   dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
   timeSelect.addEventListener("change", () => chooseTime(timeSelect.value));
+  if (focusSelect) {
+    focusSelect.addEventListener("change", () => {
+      picked = [];
+      renderPicked();
+      renderTimeOptions();
+    });
+  }
   document.querySelectorAll("[data-book]").forEach((el) =>
     el.addEventListener("click", (e) => {
       e.preventDefault();

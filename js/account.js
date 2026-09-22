@@ -59,7 +59,11 @@ function isoDate(d) {
 }
 
 const SLOT_CAPACITY = 2;
-function slotIsBlocked(booked, label, dur) {
+function bookedFocusMatches(row, focus) {
+  const focuses = [...new Set((row.focuses || []).filter(Boolean))];
+  return Boolean(focus && focuses.length === 1 && focuses[0] === focus);
+}
+function slotIsBlocked(booked, label, dur, focus) {
   const start = labelToMinutes(label);
   if (start === null) return true;
   const end = start + dur;
@@ -70,6 +74,7 @@ function slotIsBlocked(booked, label, dur) {
     if (!(start < be && bs < end)) continue;
     const n = Number(b.count) > 0 ? Number(b.count) : 1;
     if (b.time === label && (b.mins || 60) === dur) {
+      if (!bookedFocusMatches(b, focus)) return true;
       if (n >= SLOT_CAPACITY) return true;
       continue;
     }
@@ -77,10 +82,10 @@ function slotIsBlocked(booked, label, dur) {
   }
   return false;
 }
-function spotsLeft(booked, label, dur) {
+function spotsLeft(booked, label, dur, focus) {
   const hit = (booked || []).find((b) => b.time === label);
   if (!hit) return SLOT_CAPACITY;
-  if ((hit.mins || 60) !== dur) return 0;
+  if ((hit.mins || 60) !== dur || !bookedFocusMatches(hit, focus)) return 0;
   const n = Number(hit.count) > 0 ? Number(hit.count) : 1;
   return Math.max(0, SLOT_CAPACITY - n);
 }
@@ -262,14 +267,15 @@ async function loadTimes(date) {
     }
   }
   const taken = bookedCache[date] || [];
+  const focus = document.getElementById("memFocus").value;
   const starts = startsForDate(date);
   timeSelect.innerHTML = "";
   timeSelect.append(new Option("Choose a time", ""));
   let open = 0;
   starts.forEach((t) => {
     const label = fmtTime(t);
-    const hit = slotIsBlocked(taken, label, 60);
-    const left = spotsLeft(taken, label, 60);
+    const hit = slotIsBlocked(taken, label, 60, focus);
+    const left = spotsLeft(taken, label, 60, focus);
     const opt = new Option(hit ? `${label} — booked` : left === 1 ? `${label} · 1 spot left` : label, label);
     opt.disabled = hit;
     if (!hit) open++;
@@ -415,6 +421,7 @@ weekForm.addEventListener("submit", async (e) => {
 });
 
 dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
+document.getElementById("memFocus").addEventListener("change", () => loadTimes(dateSelect.value));
 function signOut() {
   clearToken();
   account = null;
