@@ -86,6 +86,12 @@ const DEFAULT_AVAILABILITY = {
   blocked: [],
 };
 let AVAIL = DEFAULT_AVAILABILITY;
+let SITE_STATUS = {
+  membershipPaused: false,
+  membershipPausedReason: "",
+  fieldingOnly: false,
+  fieldingOnlyReason: "",
+};
 
 const PLACE_BLURB = {
   "Mustang": "Lessons train at <strong>Mustang High School</strong>'s baseball field in Mustang, OK.",
@@ -168,10 +174,54 @@ async function loadAvailability() {
     if (res.ok) {
       const d = await res.json();
       if (d && d.availability && d.availability.days) AVAIL = d.availability;
+      if (d?.siteStatus) SITE_STATUS = d.siteStatus;
     }
   } catch {
     /* keep defaults — static preview or offline */
   }
+  applySiteStatus();
+}
+
+function applySiteStatus() {
+  const notice = document.getElementById("siteNotice");
+  if (notice) {
+    const parts = [];
+    if (SITE_STATUS.fieldingOnly && SITE_STATUS.fieldingOnlyReason) parts.push(SITE_STATUS.fieldingOnlyReason);
+    if (SITE_STATUS.membershipPaused && SITE_STATUS.membershipPausedReason) parts.push(SITE_STATUS.membershipPausedReason);
+    if (parts.length) {
+      notice.hidden = false;
+      notice.innerHTML = parts.map((p) => `<p>${p}</p>`).join("");
+    } else {
+      notice.hidden = true;
+      notice.innerHTML = "";
+    }
+  }
+
+  document.querySelectorAll('[data-book="membership"]').forEach((el) => {
+    const paused = Boolean(SITE_STATUS.membershipPaused);
+    el.disabled = paused;
+    el.classList.toggle("is-disabled", paused);
+    el.setAttribute("aria-disabled", paused ? "true" : "false");
+    const tag = el.querySelector(".booking__type-tag");
+    if (tag) tag.hidden = !paused;
+  });
+
+  if (SITE_STATUS.membershipPaused && selectedType === "membership") {
+    setType("single", { syncUrl: true });
+  }
+
+  if (SITE_STATUS.membershipPaused) {
+    membershipCapacity = {
+      state: "ready",
+      limit: membershipCapacity.limit || 15,
+      spotsAvailable: 0,
+      available: false,
+      paused: true,
+    };
+    renderMembershipCapacity();
+  }
+
+  updateFocusField();
 }
 
 const DAYS_AHEAD = 7; // only about a week ahead — keep in sync with BOOK_AHEAD_DAYS in lib/members.js
@@ -245,6 +295,7 @@ function updateMemberCheckout() {
 
 function setType(type, { syncUrl = true } = {}) {
   if (!SESSIONS[type]) return;
+  if (SITE_STATUS.membershipPaused && type === "membership") return;
   if (type !== selectedType) {
     selectedType = type;
     picked = [];
@@ -277,9 +328,19 @@ function updateFocusField() {
   const mode = SESSIONS[selectedType].focus;
   if (mode === "none") { focusField.hidden = true; return; }
   focusField.hidden = false;
+
+  const hitting = focusSelect ? focusSelect.querySelector('option[value="Hitting"]') : null;
   const both = focusSelect ? focusSelect.querySelector('option[value="Both"]') : null;
-  if (both) both.hidden = mode === "one";
-  if (mode === "one" && focusSelect && focusSelect.value === "Both") focusSelect.value = "Hitting";
+  const fieldingOnly = Boolean(SITE_STATUS.fieldingOnly);
+
+  if (hitting) hitting.hidden = fieldingOnly;
+  if (both) both.hidden = fieldingOnly || mode === "one";
+
+  if (fieldingOnly && focusSelect) {
+    focusSelect.value = "Fielding";
+  } else if (mode === "one" && focusSelect && focusSelect.value === "Both") {
+    focusSelect.value = "Hitting";
+  }
 }
 
 function fmtTime(t) {
@@ -446,6 +507,11 @@ function chooseTime(time) {
 }
 
 function refreshSubmit() {
+  if (selectedType === "membership" && SITE_STATUS.membershipPaused) {
+    submitBtn.textContent = "Memberships Paused";
+    submitBtn.disabled = true;
+    return;
+  }
   if (selectedType === "membership" && membershipCapacity.state !== "ready") {
     submitBtn.textContent =
       membershipCapacity.state === "loading" ? "Checking Membership Availability…" : "Membership Unavailable";
@@ -462,6 +528,7 @@ function refreshSubmit() {
 }
 
 function membershipCapacityText(capacity) {
+  if (SITE_STATUS.membershipPaused) return SITE_STATUS.membershipPausedReason;
   if (capacity.state === "loading") return "Checking membership availability…";
   if (capacity.state !== "ready") return "Membership availability is temporarily unavailable. Please try again soon.";
   if (!capacity.available) {
@@ -473,10 +540,16 @@ function membershipCapacityText(capacity) {
 function renderMembershipCapacity() {
   document.querySelectorAll("[data-membership-availability]").forEach((el) => {
     el.textContent = membershipCapacityText(membershipCapacity);
-    el.classList.toggle("is-full", membershipCapacity.state === "ready" && !membershipCapacity.available);
+    el.classList.toggle(
+      "is-full",
+      SITE_STATUS.membershipPaused || (membershipCapacity.state === "ready" && !membershipCapacity.available)
+    );
   });
   document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
-    const blocked = membershipCapacity.state !== "ready" || !membershipCapacity.available;
+    const blocked =
+      SITE_STATUS.membershipPaused ||
+      membershipCapacity.state !== "ready" ||
+      !membershipCapacity.available;
     el.classList.toggle("is-unavailable", blocked);
     el.setAttribute("aria-disabled", blocked ? "true" : "false");
   });
@@ -498,20 +571,30 @@ async function loadMembershipCapacity() {
 
 document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
   el.addEventListener("click", (event) => {
-    if (membershipCapacity.state !== "ready" || !membershipCapacity.available) event.preventDefault();
+    if (SITE_STATUS.membershipPaused || membershipCapacity.state !== "ready" || !membershipCapacity.available) {
+      event.preventDefault();
+    }
   });
 });
 if (form || document.querySelector("[data-membership-availability]")) loadMembershipCapacity();
 
 if (form) {
   const params = new URLSearchParams(window.location.search);
-  const typeFromUrl = params.get("type");
-  if (SESSIONS[typeFromUrl]) selectedType = typeFromUrl;
 
   updateFocusField();
   updateMemberCheckout();
   syncTypeTabs();
-  loadAvailability().then(renderDays);
+  loadAvailability().then(() => {
+    const typeFromUrl = params.get("type");
+    if (SESSIONS[typeFromUrl] && !(SITE_STATUS.membershipPaused && typeFromUrl === "membership")) {
+      selectedType = typeFromUrl;
+      syncTypeTabs();
+      updateFocusField();
+      updateMemberCheckout();
+      refreshSubmit();
+    }
+    renderDays();
+  });
   dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
   timeSelect.addEventListener("change", () => chooseTime(timeSelect.value));
   if (focusSelect) {
@@ -524,6 +607,7 @@ if (form) {
   document.querySelectorAll("[data-book]").forEach((el) =>
     el.addEventListener("click", (e) => {
       e.preventDefault();
+      if (el.disabled || el.getAttribute("aria-disabled") === "true") return;
       setType(el.dataset.book);
     })
   );

@@ -153,6 +153,21 @@ function showDash() {
 
 function renderDash(data) {
   account = data;
+  const status = data.siteStatus || {};
+  const notice = document.getElementById("acctNotice");
+  if (notice) {
+    const parts = [];
+    if (status.fieldingOnly && status.fieldingOnlyReason) parts.push(status.fieldingOnlyReason);
+    if (status.membershipPaused && status.membershipPausedReason) parts.push(status.membershipPausedReason);
+    if (parts.length) {
+      notice.hidden = false;
+      notice.innerHTML = parts.map((p) => `<p>${p}</p>`).join("");
+    } else {
+      notice.hidden = true;
+      notice.innerHTML = "";
+    }
+  }
+
   const left = data.remaining || 0;
   const expires = data.lastDayPretty || (data.lastDay ? prettyDate(data.lastDay) : "");
   document.getElementById("acctPlayer").textContent = data.player ? `${data.player}'s membership` : "Your membership";
@@ -160,8 +175,14 @@ function renderDash(data) {
   if (whoName) whoName.textContent = data.email || data.player || "this member";
   document.getElementById("acctCredits").textContent =
     `${left} of ${data.credits || 4} lessons left${expires ? ` · use by ${expires}` : ""}`;
-  document.getElementById("acctTitle").textContent = left ? "Book Your Next Lesson" : "This membership is used up";
-  document.getElementById("acctLead").textContent = left
+  document.getElementById("acctTitle").textContent = status.membershipPaused
+    ? "Memberships Are Paused"
+    : left
+    ? "Book Your Next Lesson"
+    : "This membership is used up";
+  document.getElementById("acctLead").textContent = status.membershipPaused
+    ? "Your credits are saved — booking is paused while Mustang redoes the indoor facility. We'll turn memberships back on when hitting is available again."
+    : left
     ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Pick any day that works${
         expires ? ` — they expire ${expires}` : ""
       }. Book one at a time; you don't have to plan them all now.`
@@ -198,14 +219,15 @@ function renderDash(data) {
     list.innerHTML = `<p class="acct__empty">No lessons on the calendar yet.</p>`;
   } else {
     list.innerHTML = `<p class="booking__picked-title">Upcoming</p>` + upcoming.map((l) => {
+      const showReschedule = !status.membershipPaused;
       return `<div class="acct__row">
         <div><strong>${prettyDate(l.date)}</strong> · ${l.time}${l.focus ? ` · ${l.focus}` : ""}</div>
         <span class="acct__actions">
-          <button type="button" class="acct__btn" data-reschedule="${l.id}">Reschedule</button>
+          ${showReschedule ? `<button type="button" class="acct__btn" data-reschedule="${l.id}">Reschedule</button>` : ""}
           <button type="button" class="acct__btn acct__btn--quiet" data-cancel="${l.id}">Cancel</button>
         </span>
       </div>`;
-    }).join("") + `<p class="acct__hint">Need a different day? Reschedule or cancel at least 12 hours before the lesson. That credit stays on your membership so you can book another day.</p>`;
+    }).join("") + `<p class="acct__hint">${status.membershipPaused ? "Booking is paused right now. You can still cancel a lesson if you need to." : "Need a different day? Reschedule or cancel at least 12 hours before the lesson. That credit stays on your membership so you can book another day."}</p>`;
     list.querySelectorAll("[data-cancel]").forEach((btn) => {
       btn.addEventListener("click", () => cancelLesson(btn.dataset.cancel));
     });
@@ -215,10 +237,13 @@ function renderDash(data) {
   }
 
   exitReschedule();
-  const canBook = left > 0 && !data.expired;
+  const canBook = !status.membershipPaused && left > 0 && !data.expired;
   weekForm.hidden = !canBook;
   const msg = document.getElementById("acctMsg");
-  if (data.expired) {
+  if (status.membershipPaused && left > 0 && !data.expired) {
+    msg.hidden = false;
+    msg.textContent = `You still have ${left} lesson${left === 1 ? "" : "s"} left. Booking will open again when the facility is ready.`;
+  } else if (data.expired) {
     msg.hidden = false;
     msg.innerHTML = `This membership ended${expires ? ` on ${expires}` : ""}. <a href="book.html?type=membership">Buy another month</a> when you're ready.`;
   } else if (!left) {
@@ -228,7 +253,16 @@ function renderDash(data) {
     msg.hidden = true;
   }
 
-  if (canBook) renderDays();
+  if (canBook) {
+    const memFocus = document.getElementById("memFocus");
+    if (memFocus && status.fieldingOnly) {
+      memFocus.querySelectorAll('option[value="Hitting"], option[value="Both"]').forEach((o) => {
+        o.hidden = true;
+      });
+      memFocus.value = "Fielding";
+    }
+    renderDays();
+  }
   showDash();
 }
 

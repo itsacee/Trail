@@ -18,6 +18,7 @@ import {
 import { tokenFromRequest } from "../lib/memberAuth.js";
 import { buildCalendar, stamp } from "../lib/ics.js";
 import { bookingEvent } from "./calendar.js";
+import { getSiteStatus, membershipBlockedMessage, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -28,6 +29,7 @@ function publicAccount(acct) {
   const loc = LOCATIONS.mustang || {};
   return {
     ...acct.summary,
+    siteStatus: getSiteStatus(),
     location: {
       name: loc.name || "Mustang High School",
       address: loc.address || "",
@@ -211,6 +213,14 @@ export default async function handler(req, res) {
 
   const action = String(req.body?.action || "book");
 
+  if (action === "book" || action === "reschedule") {
+    const paused = membershipBlockedMessage();
+    if (paused) {
+      res.status(503).json({ error: paused, code: "membership_paused" });
+      return;
+    }
+  }
+
   if (action === "cancel") {
     const id = String(req.body?.id || "");
     const lesson = acct.scheduled.find((l) => l.id === id);
@@ -252,7 +262,13 @@ export default async function handler(req, res) {
 
     const newDate = String(req.body?.date || "");
     const newTime = String(req.body?.time || "");
-    const newFocus = FOCUS[req.body?.focus] ? String(req.body.focus) : lesson.focus || "";
+    const newFocusRaw = FOCUS[req.body?.focus] ? String(req.body.focus) : lesson.focus || "";
+    const newFocusError = focusBlockedMessage(newFocusRaw);
+    if (newFocusError) {
+      res.status(400).json({ error: newFocusError });
+      return;
+    }
+    const newFocus = normalizeFocus(newFocusRaw, "membership");
     if (!DATE_RE.test(newDate) || !TIME_RE.test(newTime) || !newFocus) {
       res.status(400).json({ error: "Pick a training focus, day, and time." });
       return;
@@ -314,7 +330,13 @@ export default async function handler(req, res) {
 
   const date = String(req.body?.date || "");
   const time = String(req.body?.time || "");
-  const focus = FOCUS[req.body?.focus] ? String(req.body.focus) : "";
+  const focusRaw = FOCUS[req.body?.focus] ? String(req.body.focus) : "";
+  const focusError = focusBlockedMessage(focusRaw);
+  if (focusError) {
+    res.status(400).json({ error: focusError });
+    return;
+  }
+  const focus = normalizeFocus(focusRaw, "membership");
   if (!DATE_RE.test(date) || !TIME_RE.test(time) || !focus) {
     res.status(400).json({ error: "Pick a training focus, day, and time." });
     return;

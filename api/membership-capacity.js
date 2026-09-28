@@ -1,4 +1,5 @@
 import { getMembershipCapacity, MEMBERSHIP_LIMIT } from "../lib/membershipCapacity.js";
+import { membershipBlockedMessage } from "../lib/siteStatus.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -13,6 +14,19 @@ export default async function handler(req, res) {
       limit: MEMBERSHIP_LIMIT,
       spotsAvailable: 0,
       available: false,
+    });
+    return;
+  }
+
+  const paused = membershipBlockedMessage();
+  if (paused) {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).json({
+      limit: MEMBERSHIP_LIMIT,
+      spotsAvailable: 0,
+      available: false,
+      paused: true,
+      message: paused,
     });
     return;
   }

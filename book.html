@@ -54,6 +54,8 @@
       <h1 class="center reveal" id="bookTitle">Pick a Day. Grab Your Spot.</h1>
       <p class="section__sub center reveal" id="bookLead">Choose your lesson type, then lock in a time. We'll email the training address after you pay.</p>
 
+      <div class="site-notice reveal" id="siteNotice" hidden></div>
+
       <form class="booking reveal" id="bookingForm" novalidate>
         <div class="booking__types" role="tablist" aria-label="Lesson type">
           <button type="button" class="booking__type is-active" data-book="single" role="tab" aria-selected="true">
@@ -63,6 +65,7 @@
           <button type="button" class="booking__type" data-book="membership" role="tab" aria-selected="false">
             <strong>Membership</strong>
             <span>$280 · 4 lessons / month</span>
+            <span class="booking__type-tag" hidden>Paused</span>
           </button>
           <button type="button" class="booking__type" data-book="thirty" role="tab" aria-selected="false">
             <strong>30-Minute</strong>
@@ -88,9 +91,9 @@
           <div class="booking__field">
             <label for="bkFocus">What should we work on?</label>
             <select id="bkFocus" name="focus" autocomplete="off">
+              <option value="Fielding">Fielding</option>
               <option value="Both">Hitting &amp; Fielding</option>
               <option value="Hitting">Hitting</option>
-              <option value="Fielding">Fielding</option>
             </select>
           </div>
         </div>

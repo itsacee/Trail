@@ -11,6 +11,7 @@ import {
   MEMBERSHIP_CHECKOUT_MINUTES,
   MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
+import { membershipBlockedMessage, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
 
 const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 
@@ -65,8 +66,23 @@ export default async function handler(req, res) {
   // Stored lowercase so member sign-in can find them later — Stripe's metadata
   // search is case-sensitive, and parents type their address however they like.
   const email = String(req.body?.email || "").trim().toLowerCase();
-  const focus = FOCUS_LABELS[req.body?.focus] ? String(req.body.focus) : "";
   const session = SESSION_TYPES[type];
+
+  if (type === "membership") {
+    const paused = membershipBlockedMessage();
+    if (paused) {
+      res.status(503).json({ error: paused, code: "membership_paused" });
+      return;
+    }
+  }
+
+  const focusRaw = FOCUS_LABELS[req.body?.focus] ? String(req.body.focus) : "";
+  const focusError = focusBlockedMessage(focusRaw);
+  if (focusError) {
+    res.status(400).json({ error: focusError });
+    return;
+  }
+  const focus = normalizeFocus(focusRaw, type);
   let sessions = Array.isArray(req.body?.sessions) ? req.body.sessions : [];
   // Backwards compatibility with single date/time payloads
   if (!sessions.length && req.body?.date && req.body?.time) {
