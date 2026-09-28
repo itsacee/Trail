@@ -6,12 +6,13 @@
 
 import { getAvailability, normalizeAvailability } from "../lib/schedule.js";
 import { kvSet, storeConfigured } from "../lib/store.js";
+import { getSiteStatus } from "../lib/siteStatus.js";
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
     const availability = await getAvailability();
     res.setHeader("Cache-Control", "no-store");
-    res.status(200).json({ availability, editable: storeConfigured() });
+    res.status(200).json({ availability, editable: storeConfigured(), siteStatus: getSiteStatus() });
     return;
   }
 

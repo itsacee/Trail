@@ -4,6 +4,7 @@
 
 import { bookedTimes } from "./slots.js";
 import { allowedTimes, locationKeyFor, getAvailability, durationFor, labelToMin } from "../lib/schedule.js";
+import { membershipBlockedMessage, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
 
 const SESSION_TYPES = {
   single: { amount: 7000, quantity: 1, picks: 1, label: "Private Lesson (1 hour)", mode: "payment" },
@@ -29,8 +30,23 @@ export default async function handler(req, res) {
   }
 
   const { type, player, parent, phone, email } = req.body || {};
-  const focus = FOCUS_LABELS[req.body?.focus] ? String(req.body.focus) : "";
   const session = SESSION_TYPES[type];
+
+  if (type === "membership") {
+    const paused = membershipBlockedMessage();
+    if (paused) {
+      res.status(503).json({ error: paused });
+      return;
+    }
+  }
+
+  const focusRaw = FOCUS_LABELS[req.body?.focus] ? String(req.body.focus) : "";
+  const focusError = focusBlockedMessage(focusRaw);
+  if (focusError) {
+    res.status(400).json({ error: focusError });
+    return;
+  }
+  const focus = normalizeFocus(focusRaw, type);
   let sessions = Array.isArray(req.body?.sessions) ? req.body.sessions : [];
   // Backwards compatibility with single date/time payloads
   if (!sessions.length && req.body?.date && req.body?.time) {

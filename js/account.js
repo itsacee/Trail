@@ -111,15 +111,35 @@ function prettyExpiry(iso) {
 
 function renderDash(data) {
   account = data;
+  const status = data.siteStatus || {};
+  const notice = document.getElementById("acctNotice");
+  if (notice) {
+    const parts = [];
+    if (status.fieldingOnly && status.fieldingOnlyReason) parts.push(status.fieldingOnlyReason);
+    if (status.membershipPaused && status.membershipPausedReason) parts.push(status.membershipPausedReason);
+    if (parts.length) {
+      notice.hidden = false;
+      notice.innerHTML = parts.map((p) => `<p>${p}</p>`).join("");
+    } else {
+      notice.hidden = true;
+      notice.innerHTML = "";
+    }
+  }
+
   document.getElementById("acctPlayer").textContent = data.player ? `${data.player}'s membership` : "Your membership";
   const expiry = data.periodEndDate ? ` · credits expire ${prettyExpiry(data.periodEndDate)}` : "";
   document.getElementById("acctCredits").textContent =
     `${data.remaining || 0} lesson${data.remaining === 1 ? "" : "s"} left · ${data.used || 0} of ${data.credits || 4} used${expiry}`;
-  document.getElementById("acctTitle").textContent = data.remaining ? "Book Your Next Lesson" : "This membership is done";
-  document.getElementById("acctLead").textContent =
-    data.remaining
-      ? "One lesson per week. Book a day in the next 10 days — when you know you can make it."
-      : "You've used this membership's 4 lessons. Buy another 4 weeks on the Book page when you're ready.";
+  document.getElementById("acctTitle").textContent = status.membershipPaused
+    ? "Memberships Are Paused"
+    : data.remaining
+    ? "Book Your Next Lesson"
+    : "This membership is done";
+  document.getElementById("acctLead").textContent = status.membershipPaused
+    ? "Your credits are saved — booking is paused while Mustang redoes the indoor facility. We'll email when memberships open back up."
+    : data.remaining
+    ? "One lesson per week. Book a day in the next 10 days — when you know you can make it."
+    : "You've used this membership's 4 lessons. Buy another 4 weeks on the Book page when you're ready.";
 
   const where = document.getElementById("acctWhere");
   if (data.location?.address) {
@@ -149,10 +169,13 @@ function renderDash(data) {
     });
   }
 
-  const canBook = (data.remaining || 0) > 0 && !data.bookedThisWeek;
+  const canBook = !status.membershipPaused && (data.remaining || 0) > 0 && !data.bookedThisWeek;
   weekForm.hidden = !canBook;
   const msg = document.getElementById("acctMsg");
-  if (data.bookedThisWeek && data.remaining > 0) {
+  if (status.membershipPaused && (data.remaining || 0) > 0) {
+    msg.hidden = false;
+    msg.textContent = `You still have ${data.remaining} lesson${data.remaining === 1 ? "" : "s"} left. Booking will open again when the facility is ready.`;
+  } else if (data.bookedThisWeek && data.remaining > 0) {
     msg.hidden = false;
     msg.textContent = `You're set this week (${prettyDate(data.bookedThisWeek.date)} at ${data.bookedThisWeek.time}). Come back to book next week.`;
   } else if (!data.remaining) {
@@ -162,7 +185,16 @@ function renderDash(data) {
     msg.hidden = true;
   }
 
-  if (canBook) renderDays();
+  if (canBook) {
+    const memFocus = document.getElementById("memFocus");
+    if (memFocus && status.fieldingOnly) {
+      memFocus.querySelectorAll('option[value="Hitting"], option[value="Both"]').forEach((o) => {
+        o.hidden = true;
+      });
+      memFocus.value = "Fielding";
+    }
+    renderDays();
+  }
   showDash();
 }
 

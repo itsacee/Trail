@@ -15,6 +15,7 @@ import {
   canCancelLesson,
 } from "../lib/members.js";
 import { tokenFromRequest } from "../lib/memberAuth.js";
+import { getSiteStatus, membershipBlockedMessage, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -25,6 +26,7 @@ function publicAccount(acct) {
   const loc = LOCATIONS.mustang || {};
   return {
     ...acct.summary,
+    siteStatus: getSiteStatus(),
     location: {
       name: loc.name || "Mustang High School",
       address: loc.address || "",
@@ -116,6 +118,14 @@ export default async function handler(req, res) {
 
   const action = String(req.body?.action || "book");
 
+  if (action === "book") {
+    const paused = membershipBlockedMessage();
+    if (paused) {
+      res.status(503).json({ error: paused });
+      return;
+    }
+  }
+
   if (action === "cancel") {
     const id = String(req.body?.id || "");
     const lesson = acct.scheduled.find((l) => l.id === id);
@@ -150,7 +160,13 @@ export default async function handler(req, res) {
 
   const date = String(req.body?.date || "");
   const time = String(req.body?.time || "");
-  const focus = FOCUS[req.body?.focus] ? String(req.body.focus) : "";
+  const focusRaw = FOCUS[req.body?.focus] ? String(req.body.focus) : "";
+  const focusError = focusBlockedMessage(focusRaw);
+  if (focusError) {
+    res.status(400).json({ error: focusError });
+    return;
+  }
+  const focus = normalizeFocus(focusRaw, "membership");
   if (!DATE_RE.test(date) || !TIME_RE.test(time)) {
     res.status(400).json({ error: "Pick a day and time." });
     return;

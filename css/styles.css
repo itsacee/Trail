@@ -640,6 +640,47 @@ a.price-card .btn { text-align: center; }
 .booking__member-note strong { color: var(--text); }
 .booking__member-note a { color: var(--btn); font-weight: 700; }
 
+.site-notice {
+  background: rgba(255, 196, 86, 0.08);
+  border: 1px solid rgba(255, 196, 86, 0.35);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  color: #f5d78a;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  margin-bottom: 1.5rem;
+}
+.site-notice p { margin: 0; }
+.site-notice p + p { margin-top: 0.65rem; }
+
+.booking__type-tag {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 196, 86, 0.15);
+  color: #f5d78a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.booking__type.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.booking__type.is-disabled .booking__type-tag { display: inline-block; }
+
+.price-card.is-paused {
+  opacity: 0.72;
+  cursor: default;
+  pointer-events: none;
+}
+.price-card.is-paused .price-card__tag {
+  background: rgba(255, 196, 86, 0.15);
+  color: #f5d78a;
+}
+
 .acct__top {
   display: flex;
   align-items: flex-start;
