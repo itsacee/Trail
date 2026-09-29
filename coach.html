@@ -73,12 +73,15 @@
     .subscribe {
       display: flex; align-items: center; gap: 0.8rem;
       background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
-      padding: 0.9rem 1rem; margin-bottom: 0.9rem; text-decoration: none; color: var(--text);
-      min-height: 60px;
+      padding: 0.9rem 1rem; margin-bottom: 0.55rem; text-decoration: none; color: var(--text);
+      min-height: 60px; width: 100%; text-align: left; cursor: pointer; font-family: inherit;
     }
+    .subscribe:hover { border-color: var(--btn); }
     .subscribe .ico { font-size: 1.4rem; flex: 0 0 auto; }
     .subscribe b { display: block; font-size: 0.95rem; }
     .subscribe small { color: var(--dim); font-size: 0.8rem; }
+    .cal-hint { color: var(--dim); font-size: 0.85rem; margin: 0.35rem 0 0.9rem; line-height: 1.45; overflow-wrap: anywhere; }
+    .cal-hint code { color: var(--text); font-size: 0.78rem; word-break: break-all; }
 
     /* ---- lessons: stacked, never side-by-side ---- */
     .day-head {
@@ -244,10 +247,20 @@
           <div class="stat"><b id="upcomingCount">–</b><span>Upcoming</span></div>
         </div>
         <div class="status" id="status"></div>
-        <a class="subscribe" id="subscribe" href="#">
-          <span class="ico">📅</span>
-          <span><b>Add lessons to your phone calendar</b><small>Set this up once — bookings appear on their own</small></span>
+        <p class="muted" style="margin:0 0 0.55rem;font-weight:700">Your calendars</p>
+        <a class="subscribe" id="subscribeApple" href="#">
+          <span class="ico">🍎</span>
+          <span><b>Add to Apple Calendar</b><small>Opens on iPhone / Mac — keep using this</small></span>
         </a>
+        <button type="button" class="subscribe" id="subscribeGoogle">
+          <span class="ico">📆</span>
+          <span><b>Add to Google Calendar</b><small>Copies the link &amp; opens Google — paste it there</small></span>
+        </button>
+        <button type="button" class="subscribe" id="copyCalFeed">
+          <span class="ico">🔗</span>
+          <span><b>Copy calendar link</b><small>Paste into Google → Settings → Add calendar → From URL</small></span>
+        </button>
+        <p class="cal-hint" id="calHint">Set each up once. New bookings show up automatically (Google can take a few minutes).</p>
         <div id="schedule"></div>
       </section>
 
@@ -358,9 +371,10 @@
         return;
       }
       localStorage.setItem("coachPass", pass);
-      // webcal:// makes iPhone offer to subscribe instead of downloading once
-      document.getElementById("subscribe").href =
-        `webcal://${window.location.host}/api/calendar?key=${encodeURIComponent(pass)}`;
+      const feedHttps = `https://${window.location.host}/api/calendar?key=${encodeURIComponent(pass)}`;
+      const feedWebcal = `webcal://${window.location.host}/api/calendar?key=${encodeURIComponent(pass)}`;
+      document.getElementById("subscribeApple").href = feedWebcal;
+      window.__calFeedHttps = feedHttps;
       login.hidden = true;
       app.hidden = false;
       renderStatus(data.status || {});
@@ -701,6 +715,34 @@
       } catch {
         msg.className = "error";
         msg.textContent = "Network error — please try again.";
+      }
+    });
+
+    document.getElementById("subscribeGoogle").addEventListener("click", async () => {
+      const url = window.__calFeedHttps;
+      const hint = document.getElementById("calHint");
+      if (!url) {
+        hint.textContent = "Sign in first, then tap Add to Google Calendar.";
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        hint.innerHTML = `✓ Link copied. Google’s “Add by URL” page is opening — <strong>paste</strong> and click Add calendar.<br /><code>${url}</code>`;
+      } catch {
+        hint.innerHTML = `Copy this link, then paste it in Google Calendar → Settings → Add calendar → From URL:<br /><code>${url}</code>`;
+      }
+      window.open("https://calendar.google.com/calendar/u/0/r/settings/addbyurl", "_blank", "noopener");
+    });
+
+    document.getElementById("copyCalFeed").addEventListener("click", async () => {
+      const url = window.__calFeedHttps;
+      const hint = document.getElementById("calHint");
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        hint.innerHTML = `✓ Copied:<br /><code>${url}</code>`;
+      } catch {
+        hint.innerHTML = `Select and copy:<br /><code>${url}</code>`;
       }
     });
 
