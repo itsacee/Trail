@@ -44,6 +44,20 @@
     return Math.min(SLOT_CAPACITY, Math.max(1, n));
   }
 
+  // Mirrors lib/schedule.js — change both together.
+  function canPair(type) {
+    return type === "single" || type === "thirty" || type === "private";
+  }
+
+  // Mirrors lib/settings.js — change both together. The private price is the
+  // premium for holding the hour alone; two athletes already fill the hour, so
+  // a pair pays the regular per-athlete rate.
+  function unitPriceFor(type, athletes, prices) {
+    const table = prices || {};
+    if (type === "private" && Number(athletes) > 1) return table.single || 0;
+    return table[type] || 0;
+  }
+
   function toMinutes(hhmm) {
     const [h, m] = String(hhmm).split(":").map(Number);
     return h * 60 + m;
@@ -310,6 +324,8 @@
     MONTH_SHORT,
     durationFor,
     seatsFor,
+    canPair,
+    unitPriceFor,
     toMinutes,
     labelToMin,
     fmtTime,

@@ -16,6 +16,7 @@ import {
   seatsFor,
   seatsLeft,
   isExclusiveType,
+  canPair,
   SLOT_CAPACITY,
   DEFAULT_AVAILABILITY,
   migrateSavedAvailability,
@@ -147,8 +148,16 @@ test("seatsFor caps at the hour's capacity and a private lesson takes it all", (
   assert.equal(seatsFor("thirty", 2), 2);
   // A private hour is exclusive by definition, whatever the athlete count says.
   assert.equal(seatsFor("private", 1), SLOT_CAPACITY);
+  assert.equal(seatsFor("private", 2), SLOT_CAPACITY);
   assert.equal(isExclusiveType("private"), true);
   assert.equal(isExclusiveType("single"), false);
+});
+
+test("a private hour can carry a sibling, but a membership credit can't", () => {
+  assert.equal(canPair("single"), true);
+  assert.equal(canPair("thirty"), true);
+  assert.equal(canPair("private"), true);
+  assert.equal(canPair("membership"), false);
 });
 
 test("a second athlete fills the hour so nobody else can join", () => {

@@ -690,9 +690,10 @@
         <div class="grid2">
           <div class="card">
             <span class="card__title">Prices</span>
-            <p class="muted" style="margin:0.35rem 0 0.2rem">Regular and 30-minute lessons charge per athlete. A private hour is one price and blocks the whole hour.</p>
+            <p class="muted" style="margin:0.35rem 0 0.2rem">Regular and 30-minute lessons charge per athlete. A private hour blocks the whole hour.</p>
             <label class="field"><span>Regular lesson, per athlete ($)</span><input id="priceSingle" type="number" step="1" inputmode="numeric" /></label>
-            <label class="field"><span>Private 1-on-1 ($)</span><input id="pricePrivate" type="number" step="1" inputmode="numeric" /></label>
+            <label class="field"><span>Private 1-on-1, one athlete ($)</span><input id="pricePrivate" type="number" step="1" inputmode="numeric" /></label>
+            <p class="faint" id="privatePreview" style="margin:-0.3rem 0 0.2rem"></p>
             <label class="field"><span>30-minute, per athlete ($)</span><input id="priceThirty" type="number" step="1" inputmode="numeric" /></label>
             <label class="field"><span>Membership, one month ($)</span><input id="priceMembership" type="number" step="1" inputmode="numeric" /></label>
             <label class="field"><span>Membership card deposit ($)</span><input id="priceDeposit" type="number" step="1" inputmode="numeric" /></label>
@@ -975,19 +976,21 @@
       const two = Number(s.athletes) > 1 || Boolean(s.player2);
       const who = two && s.player2 ? `${s.player} & ${s.player2}` : s.player || "—";
       const owed = Number(s.amountDueCents) || 0;
+      const typeLabel =
+        s.type === "private" && two ? "Private · 2 athletes" : TYPE_LABEL[s.type] || s.type || "";
       const el = document.createElement("div");
       el.className = "lesson";
       el.innerHTML = `
         <div class="lesson__top">
           <span class="lesson__time">${esc(s.time)}</span>
-          <span class="tag ${s.type === "membership" ? "tag--key" : ""}">${esc(TYPE_LABEL[s.type] || s.type || "")}</span>
+          <span class="tag ${s.type === "membership" ? "tag--key" : ""}">${esc(typeLabel)}</span>
         </div>
         <div class="lesson__who">${esc(who)}</div>
         ${s.phone || s.email ? `<div class="lesson__sub">${esc(s.phone || "")}${s.phone && s.email ? " · " : ""}${esc(s.email || "")}</div>` : ""}
         <div class="tags">
           ${s.focus ? `<span class="tag">${esc(s.focus)}</span>` : ""}
-          ${s.type === "private" ? '<span class="tag tag--full">Whole hour</span>' : ""}
-          ${two ? '<span class="tag tag--full">2 athletes · hour full</span>' : ""}
+          ${s.type === "private" && !two ? '<span class="tag tag--full">Whole hour</span>' : ""}
+          ${two ? `<span class="tag tag--full">2 athletes · ${s.type === "private" ? "private hour" : "hour full"}</span>` : ""}
           ${place ? `<span class="tag">${esc(place)}</span>` : ""}
           ${owed ? `<span class="tag tag--owed">Owes ${esc(money(owed))}</span>` : ""}
           ${s.source === "manual" ? '<span class="tag">Cash / desk</span>' : ""}
@@ -1145,7 +1148,7 @@
         `<label class="field"><span>Lesson</span>
            <select id="addType">
              <option value="single">Regular lesson — ${wholeMoney(prices.single || 8000)} each</option>
-             <option value="private">Private 1-on-1 — ${wholeMoney(prices.private || 10000)}</option>
+             <option value="private">Private hour — ${wholeMoney(prices.private || 10000)} solo, ${wholeMoney(prices.single || 8000)} each for two</option>
              <option value="thirty">30-minute — ${wholeMoney(prices.thirty || 6000)} each</option>
              <option value="membership">Membership first lesson — ${wholeMoney(prices.membership || 28000)}</option>
            </select></label>
@@ -1170,9 +1173,11 @@
       const slot = wireSlotPicker(60, "");
       const typeEl = $("addType");
       typeEl.addEventListener("change", () => {
-        const shared = typeEl.value === "single" || typeEl.value === "thirty";
-        $("addPlayer2Field").hidden = !shared;
-        if (!shared) $("addPlayer2").value = "";
+        // A membership credit belongs to one athlete; everything else, private
+        // hours included, can carry a sibling.
+        const canPair = typeEl.value !== "membership";
+        $("addPlayer2Field").hidden = !canPair;
+        if (!canPair) $("addPlayer2").value = "";
         slot.setDuration(DURATIONS[typeEl.value] || 60);
       });
       $("addGo").addEventListener("click", async () => {
@@ -1374,6 +1379,7 @@
       $("allowCash").checked = s.allowCash !== false;
       $("allowDeposit").checked = s.allowDeposit !== false;
       updateDepositPreview();
+      updatePrivatePreview();
 
       const st = desk.siteStatus || {};
       $("ctlBlockNew").checked = Boolean(st.blockNewMemberships);
@@ -1388,6 +1394,17 @@
       $("depositPreview").textContent = `Deposit checkout charges $${dep} by card and tells them $${rest} in cash is due at the first lesson.`;
     }
     ["priceMembership", "priceDeposit"].forEach((id) => $(id).addEventListener("input", updateDepositPreview));
+
+    // Two athletes already fill the hour, so a private pair pays the regular
+    // rate rather than the 1-on-1 premium.
+    function updatePrivatePreview() {
+      const solo = Math.round(parseFloat($("pricePrivate").value) || 0);
+      const each = Math.round(parseFloat($("priceSingle").value) || 0);
+      $("privatePreview").textContent =
+        `One athlete alone pays $${solo}. Two of their own athletes pay $${each} each ($${each * 2}) — ` +
+        `the hour is theirs either way.`;
+    }
+    ["pricePrivate", "priceSingle"].forEach((id) => $(id).addEventListener("input", updatePrivatePreview));
 
     $("priceSave").addEventListener("click", async () => {
       const msg = $("priceMsg");

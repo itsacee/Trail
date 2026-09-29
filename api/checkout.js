@@ -11,6 +11,7 @@ import {
   slotBlocked,
   seatsFor,
   isExclusiveType,
+  canPair,
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
@@ -21,7 +22,7 @@ import {
   MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
 import { membershipBlockedMessage, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
-import { loadSettings } from "../lib/settings.js";
+import { loadSettings, unitPriceFor } from "../lib/settings.js";
 import { loadCoachStatus } from "../lib/coachStatus.js";
 
 const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
@@ -29,18 +30,27 @@ const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 const SESSION_TYPES = {
   // Per-athlete price. Two athletes can share the hour; booking two athletes
   // here charges for both and fills the hour.
-  single: { amount: 8000, quantity: 1, picks: 1, label: "Regular Lesson (1 hour)", mode: "payment", perAthlete: true },
-  thirty: { amount: 6000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment", perAthlete: true },
-  // Private buys the whole hour, so nobody else can book into it.
-  private: { amount: 10000, quantity: 1, picks: 1, label: "Private 1-on-1 Lesson (1 hour, just you)", mode: "payment" },
+  single: { amount: 8000, quantity: 1, picks: 1, label: "Regular Lesson (1 hour)", mode: "payment" },
+  thirty: { amount: 6000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
+  // Private buys the whole hour, so nobody else can book into it. A pair of
+  // siblings can share a private hour — they already fill it, so they pay the
+  // regular per-athlete rate rather than the 1-on-1 premium.
+  private: {
+    amount: 10000,
+    quantity: 1,
+    picks: 1,
+    label: "Private 1-on-1 Lesson (1 hour, just you)",
+    pairLabel: "Private Lesson (1 hour, just your two athletes)",
+    mode: "payment",
+  },
   // Members pick lesson 1 of 4 here; the other 3 get booked from /account.html.
   membership: { amount: 28000, quantity: 1, picks: 1, label: "Membership — 4 one-hour lessons (1 month, does not auto-renew)", mode: "payment" },
 };
 
-// Only shared-hour lessons can add a second athlete; a private lesson is 1-on-1
-// by definition and a membership's credits belong to one player.
+// A membership's credits belong to one player, so only per-athlete lesson types
+// can carry a second name.
 function athleteCountFor(type, raw) {
-  if (!SESSION_TYPES[type]?.perAthlete) return 1;
+  if (!canPair(type)) return 1;
   const n = Math.round(Number(raw) || 1);
   return Math.min(SLOT_CAPACITY, Math.max(1, n));
 }
@@ -249,12 +259,15 @@ export default async function handler(req, res) {
   );
   params.append("line_items[0][quantity]", String(session.quantity));
   params.append("line_items[0][price_data][currency]", "usd");
-  const unitAmount = settings.prices?.[type] || session.amount;
+  const unitAmount = unitPriceFor(type, athletes, settings.prices) || session.amount;
   // Per-athlete lessons charge once per athlete on the booking.
   const fullAmount = unitAmount * athletes;
   let chargeAmount = fullAmount;
   let amountDue = 0;
-  let productLabel = athletes > 1 ? `${session.label} × ${athletes} athletes` : session.label;
+  let productLabel = session.label;
+  if (athletes > 1) {
+    productLabel = session.pairLabel || `${session.label} × ${athletes} athletes`;
+  }
   if (payMode === "deposit" && type === "membership") {
     chargeAmount = Math.min(settings.membershipDeposit || 8000, fullAmount);
     amountDue = Math.max(0, fullAmount - chargeAmount);

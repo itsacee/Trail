@@ -45,8 +45,10 @@ Parents pick a lesson type on the homepage, then land on `book.html`.
 - **Regular lesson ($80 / athlete) and 30-min ($60 / athlete):** pick a day
   and time, pay through Stripe Checkout. These share the hour — see
   "Two athletes per hour" below.
-- **Private 1-on-1 ($100):** the same hour, but it books the whole slot so
-  nobody else can join.
+- **Private hour ($100 for one athlete):** books the whole slot so nobody else
+  can join. Two of your own athletes can share a private hour, and because a
+  pair already fills the hour they pay the regular **$80 each** instead of the
+  1-on-1 premium (`unitPriceFor` in `lib/settings.js`).
 - **Membership ($280 / 30 days):** one-time payment (does not auto-renew).
   Then sign in at `account.html` with the email they paid with (a sign-in
   *link*, not a password). They book **one lesson per week**, up to 4 in
@@ -71,7 +73,7 @@ An hour holds **two athlete seats** (`SLOT_CAPACITY` in `lib/schedule.js`):
 - The booking form has an **"+ Add another athlete"** button. Adding a second
   name fills both seats, so the hour is closed to everyone else.
 - A private lesson takes both seats and refuses any hour that already has
-  someone in it.
+  someone in it, whether it's one athlete or a pair on it.
 
 `api/slots.js` reports seats and exclusivity per time, so the calendar can
 grey out a day that is genuinely full rather than merely busy.

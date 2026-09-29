@@ -21,7 +21,7 @@ import {
   isMemberFrozen,
 } from "../lib/membersStore.js";
 import { loadFinance, saveFinance, addFinanceEntry, financeSummary } from "../lib/finance.js";
-import { loadSettings, saveSettings } from "../lib/settings.js";
+import { loadSettings, saveSettings, unitPriceFor } from "../lib/settings.js";
 import { loadCoachStatus, saveCoachStatus } from "../lib/coachStatus.js";
 import { getSiteStatus } from "../lib/siteStatus.js";
 import {
@@ -31,6 +31,7 @@ import {
   slotBlocked,
   seatsFor,
   isExclusiveType,
+  canPair,
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
 import { bookedTimes } from "./slots.js";
@@ -361,9 +362,7 @@ export default async function handler(req, res) {
         res.status(400).json({ error: "Need athlete, day, and time." });
         return;
       }
-      // Only shared-hour lessons can carry a second athlete.
-      const canShare = type === "single" || type === "thirty";
-      const athletes = canShare && player2 ? 2 : 1;
+      const athletes = canPair(type) && player2 ? 2 : 1;
       const seats = isExclusiveType(type) ? SLOT_CAPACITY : seatsFor(type, athletes);
       const focus = normalizeFocus(req.body.focus || "Fielding", type);
       const availability = await getAvailability();
@@ -379,7 +378,7 @@ export default async function handler(req, res) {
         }
       }
       const payMethod = req.body.paymentMethod === "card" ? "card" : req.body.paymentMethod === "comp" ? "comp" : "cash";
-      const listPrice = (settings.prices[type] || 0) * athletes;
+      const listPrice = unitPriceFor(type, athletes, settings.prices) * athletes;
       const total = req.body.amountCents != null ? Number(req.body.amountCents) : listPrice;
       const paid = req.body.markPaid || payMethod === "card" ? total : payMethod === "comp" ? 0 : 0;
       const due = Math.max(0, total - paid);

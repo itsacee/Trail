@@ -8,6 +8,7 @@ import {
   slotBlocked,
   seatsFor,
   isExclusiveType,
+  canPair,
   SLOT_CAPACITY,
   LOCATIONS,
 } from "../lib/schedule.js";
@@ -17,7 +18,7 @@ import {
   saveManualBookings,
   makeManualBooking,
 } from "../lib/manualBookings.js";
-import { loadSettings } from "../lib/settings.js";
+import { loadSettings, unitPriceFor } from "../lib/settings.js";
 import {
   loadMembersState,
   saveMembersState,
@@ -79,9 +80,7 @@ export default async function handler(req, res) {
   const focusRaw = FOCUS[body.focus] ? String(body.focus) : "";
   const date = String(body.date || body.sessions?.[0]?.date || "");
   const time = String(body.time || body.sessions?.[0]?.time || "");
-  // A second athlete is only possible on the shared-hour lesson types.
-  const canShare = type === "single" || type === "thirty";
-  const athletes = canShare && player2 ? 2 : 1;
+  const athletes = canPair(type) && player2 ? 2 : 1;
   const seats = isExclusiveType(type) ? SLOT_CAPACITY : seatsFor(type, athletes);
 
   if (!type || !player || !email || !DATE_RE.test(date) || !TIME_RE.test(time)) {
@@ -154,7 +153,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const price = (settings.prices[type] || 0) * athletes;
+  const price = unitPriceFor(type, athletes, settings.prices) * athletes;
   const isMember = type === "membership";
   const booking = makeManualBooking({
     type,
@@ -215,8 +214,13 @@ export default async function handler(req, res) {
       `Pay $${dollars} cash at the field` +
       (isMember ? " (covers all 4 lessons)." : athletes > 1 ? ` (covers both athletes).` : ".") +
       `\n\n` +
-      (type === "private" ? `This is a private 1-on-1 hour — nobody else will be added to it.\n\n` : "") +
-      (athletes > 1 ? `Both athletes are on this hour, so the time is now full.\n\n` : "") +
+      (type === "private"
+        ? athletes > 1
+          ? `This is a private hour for both athletes — nobody else will be added to it.\n\n`
+          : `This is a private 1-on-1 hour — nobody else will be added to it.\n\n`
+        : athletes > 1
+        ? `Both athletes are on this hour, so the time is now full.\n\n`
+        : "") +
       (loc.address ? `Where: ${loc.address}\n${loc.note || ""}\n\n` : "") +
       (isMember ? `Sign in at apacademybsb.com/account.html with ${email} to book the other lessons.\n\n` : "") +
       `Questions? (405) 819-4401`,

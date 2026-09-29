@@ -152,11 +152,13 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   /* ---------- state ---------- */
 
+  // `pair` = you can put a second athlete of your own on the booking. A private
+  // hour is never shared with a stranger, but two siblings can share it.
   const SESSIONS = {
-    single: { name: "Regular Lesson", picks: 1, focus: "full", shared: true },
-    private: { name: "Private 1-on-1", picks: 1, focus: "full", shared: false },
-    membership: { name: "Membership", picks: 1, focus: "full", shared: false },
-    thirty: { name: "30-Minute Lesson", picks: 1, focus: "one", shared: true },
+    single: { name: "Regular Lesson", picks: 1, focus: "full", pair: true },
+    private: { name: "Private 1-on-1", picks: 1, focus: "full", pair: true },
+    membership: { name: "Membership", picks: 1, focus: "full", pair: false },
+    thirty: { name: "30-Minute Lesson", picks: 1, focus: "one", pair: true },
   };
 
   let AVAIL = AP.DEFAULT_AVAILABILITY;
@@ -199,11 +201,14 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     memberNote: document.getElementById("memberNote"),
   };
 
+  // Functions, not strings, because the private note quotes live prices.
   const TYPE_NOTE = {
-    single: "One hour. A second athlete can share the hour with you unless you add one yourself.",
-    private: "One hour, yours alone. Nobody else can book into this time.",
-    membership: "Four one-hour lessons a month. You pick lesson 1 today.",
-    thirty: "A focused 30 minutes on one skill.",
+    single: () => "One hour. A second athlete can share the hour with you unless you add one yourself.",
+    private: () =>
+      `One hour, nobody else can book into it. ${AP.dollars(PRICING.prices.private)} for one athlete, ` +
+      `or add a second athlete of your own for the regular ${AP.dollars(PRICING.prices.single)} each.`,
+    membership: () => "Four one-hour lessons a month. You pick lesson 1 today.",
+    thirty: () => "A focused 30 minutes on one skill.",
   };
 
   // Starting checkout reserves the slot so nobody else can pay for it. That
@@ -227,12 +232,12 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   /* ---------- derived values ---------- */
 
-  function sharedType() {
-    return Boolean(SESSIONS[selectedType].shared);
+  function pairType() {
+    return Boolean(SESSIONS[selectedType].pair);
   }
 
   function athleteCount() {
-    return sharedType() ? athletes : 1;
+    return pairType() ? athletes : 1;
   }
 
   function want() {
@@ -242,7 +247,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   }
 
   function unitPrice() {
-    return PRICING.prices[selectedType] || 0;
+    return AP.unitPriceFor(selectedType, athleteCount(), PRICING.prices);
   }
 
   function totalPrice() {
@@ -304,6 +309,8 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       /* defaults */
     }
     renderPrices();
+    syncTypeTabs(); // the private note quotes prices
+    syncAthleteField();
     syncPayOptions();
     refreshSubmit();
   }
@@ -400,7 +407,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       el.classList.toggle("is-active", on);
       if (el.getAttribute("role") === "tab") el.setAttribute("aria-selected", on ? "true" : "false");
     });
-    if (els.typeNote) els.typeNote.textContent = TYPE_NOTE[selectedType] || "";
+    if (els.typeNote) els.typeNote.textContent = TYPE_NOTE[selectedType]?.() || "";
     const title = document.getElementById("bookTitle");
     const lead = document.getElementById("bookLead");
     const slotTitle = document.getElementById("slotStepTitle");
@@ -434,7 +441,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   }
 
   function syncAthleteField() {
-    const canAdd = sharedType();
+    const canAdd = pairType();
     if (els.addAthlete) {
       els.addAthlete.hidden = !canAdd;
       els.addAthlete.classList.toggle("is-active", canAdd && athletes > 1);
@@ -450,9 +457,11 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       if (!show) els.player2.value = "";
     }
     if (els.player2Hint) {
-      els.player2Hint.textContent = show
-        ? `Two athletes fill the hour — nobody else can book it. ${AP.dollars(unitPrice())} each.`
-        : "";
+      els.player2Hint.textContent = !show
+        ? ""
+        : selectedType === "private"
+        ? `Two athletes already fill the hour, so you pay the regular ${AP.dollars(unitPrice())} each instead of the private rate.`
+        : `Two athletes fill the hour — nobody else can book it. ${AP.dollars(unitPrice())} each.`;
     }
   }
 
@@ -653,7 +662,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     if (type === "membership" && membershipsPaused()) return;
     if (type === selectedType) return;
     selectedType = type;
-    if (!sharedType()) athletes = 1;
+    if (!pairType()) athletes = 1;
     syncTypeTabs();
     updateFocusField();
     syncAthleteField();
@@ -710,7 +719,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     const typeFromUrl = params.get("type");
     if (SESSIONS[typeFromUrl] && !(typeFromUrl === "membership" && membershipsPaused())) {
       selectedType = typeFromUrl;
-      if (!sharedType()) athletes = 1;
+      if (!pairType()) athletes = 1;
       syncTypeTabs();
       updateFocusField();
       syncAthleteField();
