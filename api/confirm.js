@@ -14,6 +14,8 @@ import { signMemberToken } from "../lib/memberAuth.js";
 import { MEMBER_CREDITS, MEMBER_PERIOD_DAYS, lastUsableDate } from "../lib/members.js";
 import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
 import { releaseHold } from "../lib/holds.js";
+import { loadFinance, saveFinance, addFinanceEntry } from "../lib/finance.js";
+import { loadMembersState, saveMembersState, upsertMember } from "../lib/membersStore.js";
 
 // A .ics of the booked lesson(s), attached to the confirmation. The coach is
 // BCC'd on every one of these, so a booking is one tap away from their phone
@@ -541,6 +543,38 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
           return { status: 200, body: { sent: true, alreadySent: true, ...summary } };
         }
       }
+    }
+
+    // Record card payment + any deposit balance once (before flagging/email).
+    try {
+      const amountPaid = Number(meta.amount_paid || session.amount_total || 0) || 0;
+      const amountDue = Number(meta.amount_due || 0) || 0;
+      const fin = await loadFinance();
+      addFinanceEntry(fin, {
+        amountCents: amountPaid,
+        method: "card",
+        type: meta.type || "single",
+        player: meta.player || "",
+        email: to,
+        bookingId: String(session.payment_intent || sessionId),
+        note: meta.payment_mode === "deposit" ? "Membership deposit (card)" : "Stripe checkout",
+        date: sessions[0]?.date,
+      });
+      await saveFinance(fin);
+      if (isMember && amountDue > 0 && to) {
+        const members = await loadMembersState();
+        upsertMember(members, to, {
+          player: meta.player || "",
+          parent: meta.parent || "",
+          phone: meta.phone || "",
+          amountDueCents: amountDue,
+          amountPaidCents: amountPaid,
+          paymentMethod: "deposit",
+        });
+        await saveMembersState(members);
+      }
+    } catch {
+      /* booking still stands */
     }
 
     const canEmail = Boolean(resendKey && to && (sessions.length || isMember));

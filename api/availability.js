@@ -7,10 +7,12 @@
 import { getAvailability, normalizeAvailability } from "../lib/schedule.js";
 import { kvSet, storeConfigured } from "../lib/store.js";
 import { getSiteStatus } from "../lib/siteStatus.js";
+import { loadCoachStatus } from "../lib/coachStatus.js";
 import { bookingWindow, todayChicago } from "../lib/members.js";
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
+    await loadCoachStatus();
     const availability = await getAvailability();
     const today = todayChicago();
     const window = bookingWindow(today);

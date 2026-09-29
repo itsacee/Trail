@@ -81,10 +81,29 @@
             <li><strong>$280 for one month</strong> — 4 one-hour lessons (that's $70 each vs. $80 drop-in). Ages 11 through college.</li>
             <li>You <strong>only pick your first day today</strong>. That's lesson 1 of 4.</li>
             <li>Book the other 3 <strong>week by week</strong> — on Sundays the whole next week opens; other days you can book through this Sunday. Sign in at <a href="account.html">the Members page</a> with this same email; it shows how many lessons you have left and the date they expire.</li>
+            <li>Pay <strong>card in full</strong>, put a <strong>card deposit</strong> down and finish in cash, or <strong>reserve with cash</strong> and pay at the field.</li>
             <li>It <strong>does not auto-renew</strong>. When the month is up (or you've used all 4 lessons), it ends and nothing is charged again. Want another month? Buy membership again — it never charges you on its own.</li>
             <li>Lessons you don't use <strong>don't roll over</strong>.</li>
             <li>Need to move a day? Sign in on the <a href="account.html">Members page</a> and tap Reschedule — at least 12 hours before the lesson. Drop-in (single / 30-min) lessons can't be changed online; text (405) 819-4401.</li>
           </ul>
+        </div>
+
+        <div class="booking__step" id="payStep">
+          <h3 class="booking__step-title"><span class="booking__step-num">Pay</span> How do you want to pay?</h3>
+          <div class="booking__types booking__pay" role="radiogroup" aria-label="Payment method">
+            <button type="button" class="booking__type is-active" data-pay="card" role="radio" aria-checked="true">
+              <strong>Card</strong>
+              <span id="payCardHint">Pay in full online</span>
+            </button>
+            <button type="button" class="booking__type" data-pay="deposit" role="radio" aria-checked="false" id="payDepositBtn" hidden>
+              <strong>Deposit + cash</strong>
+              <span id="payDepositHint">Card now, rest cash</span>
+            </button>
+            <button type="button" class="booking__type" data-pay="cash" role="radio" aria-checked="false" id="payCashBtn">
+              <strong>Cash</strong>
+              <span>Reserve now · pay at the field</span>
+            </button>
+          </div>
         </div>
 
         <div class="booking__step" id="focusField">
@@ -142,7 +161,7 @@
         </div>
 
         <button type="submit" class="btn btn--primary btn--lg booking__submit" id="bookingSubmit">Pay $80 — Book Lesson</button>
-        <p class="booking__note">🔒 Secure payment by Stripe. We'll email the training address after you book.</p>
+        <p class="booking__note" id="bookingPayNote">🔒 Secure payment by Stripe. We'll email the training address after you book.</p>
         <p class="booking__status" id="bookingStatus" role="status"></p>
       </form>
     </div>
