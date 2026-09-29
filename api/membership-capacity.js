@@ -18,23 +18,16 @@ export default async function handler(req, res) {
     return;
   }
 
-  const paused = membershipBlockedMessage();
-  if (paused) {
-    res.setHeader("Cache-Control", "no-store");
-    res.status(200).json({
-      limit: MEMBERSHIP_LIMIT,
-      spotsAvailable: 0,
-      available: false,
-      paused: true,
-      message: paused,
-    });
-    return;
-  }
-
   try {
     const { summary } = await getMembershipCapacity(key);
+    const paused = membershipBlockedMessage();
     res.setHeader("Cache-Control", "no-store");
-    res.status(200).json(summary);
+    res.status(200).json({
+      ...summary,
+      ...(paused
+        ? { available: false, salesPaused: true, paused: true, message: paused }
+        : {}),
+    });
   } catch {
     // Fail closed: if Stripe cannot confirm the count, do not risk selling
     // membership number 16.

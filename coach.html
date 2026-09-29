@@ -107,6 +107,14 @@
       color: var(--text); text-decoration: none; font-size: 0.9rem; font-weight: 600;
     }
     .actions a:active { background: var(--line); }
+    .btn-inline {
+      flex: 1 1 auto; min-width: 92px; min-height: 44px;
+      background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
+      color: var(--good); font: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+      padding: 0 0.9rem;
+    }
+    .btn-inline:active { background: var(--line); }
+    .btn-inline:disabled { opacity: 0.55; color: var(--dim); }
 
     /* ---- members ---- */
     .pill {
@@ -479,6 +487,9 @@
             ${typeof m.daysLeft === "number" && left ? ` · ${m.daysLeft} day${m.daysLeft === 1 ? "" : "s"} left` : ""}
           </div>
           <ul class="member__list">${lessons}</ul>
+          <div class="actions" style="margin-top:0.75rem">
+            <button type="button" class="btn-inline" data-record="${esc(m.player || "")}">✓ Used fielding today</button>
+          </div>
           <div class="actions">
             ${m.phone ? `<a href="sms:${esc(tel(m.phone))}?&body=${encodeURIComponent(note)}">💬 Text link</a>` : ""}
             ${m.email ? `<a href="mailto:${esc(m.email)}?subject=${encodeURIComponent("Your AP Academy membership link")}&body=${encodeURIComponent(note)}">✉️ Email link</a>` : ""}
@@ -486,6 +497,38 @@
           </div>
         </div>`;
       }).join("");
+      box.querySelectorAll("[data-record]").forEach((btn) => {
+        btn.addEventListener("click", () => recordFieldingToday(pass, btn));
+      });
+    }
+
+    async function recordFieldingToday(pass, btn) {
+      const player = btn.dataset.record || "";
+      if (!player) return;
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      try {
+        const r = await fetch(`/api/record-lesson?key=${encodeURIComponent(pass)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ players: [player], focus: "Fielding" }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || "Couldn't save.");
+        const row = (data.results || [])[0];
+        const summary = (data.summaries || [])[0];
+        if (row?.skipped) {
+          btn.textContent = "Already logged today";
+        } else {
+          btn.textContent = summary ? `Saved · ${summary.remaining} left` : "Saved";
+        }
+        membersLoaded = false;
+        loadMembers(true);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "✓ Used fielding today";
+        alert(err.message || "Couldn't save that lesson.");
+      }
     }
 
     document.getElementById("passBtn").addEventListener("click", () => {

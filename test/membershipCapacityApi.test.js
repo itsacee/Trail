@@ -56,7 +56,9 @@ function mockFullStripe(storedLessons = null) {
 test("public capacity endpoint reports zero spots at 15 active memberships", async () => {
   mockFullStripe();
   const previous = process.env.STRIPE_SECRET_KEY;
+  const previousNormal = process.env.AP_SITE_NORMAL;
   process.env.STRIPE_SECRET_KEY = "sk_test_capacity";
+  process.env.AP_SITE_NORMAL = "1";
   try {
     const res = responseRecorder();
     await capacityHandler({ method: "GET" }, res);
@@ -74,6 +76,9 @@ test("public capacity endpoint reports zero spots at 15 active memberships", asy
     previous === undefined
       ? delete process.env.STRIPE_SECRET_KEY
       : (process.env.STRIPE_SECRET_KEY = previous);
+    previousNormal === undefined
+      ? delete process.env.AP_SITE_NORMAL
+      : (process.env.AP_SITE_NORMAL = previousNormal);
     mock.restoreAll();
   }
 });
@@ -81,7 +86,9 @@ test("public capacity endpoint reports zero spots at 15 active memberships", asy
 test("checkout API refuses membership number 16 before creating a payment", async () => {
   mockFullStripe();
   const previous = process.env.STRIPE_SECRET_KEY;
+  const previousNormal = process.env.AP_SITE_NORMAL;
   process.env.STRIPE_SECRET_KEY = "sk_test_capacity";
+  process.env.AP_SITE_NORMAL = "1";
   try {
     const res = responseRecorder();
     await checkoutHandler(
@@ -105,6 +112,9 @@ test("checkout API refuses membership number 16 before creating a payment", asyn
     previous === undefined
       ? delete process.env.STRIPE_SECRET_KEY
       : (process.env.STRIPE_SECRET_KEY = previous);
+    previousNormal === undefined
+      ? delete process.env.AP_SITE_NORMAL
+      : (process.env.AP_SITE_NORMAL = previousNormal);
     mock.restoreAll();
   }
 });
@@ -123,8 +133,10 @@ test("a zero-credit membership disappears from the count and opens a spot", asyn
   });
   const previousKey = process.env.STRIPE_SECRET_KEY;
   const previousUrl = process.env.AVAILABILITY_URL;
+  const previousNormal = process.env.AP_SITE_NORMAL;
   process.env.STRIPE_SECRET_KEY = "sk_test_capacity";
   process.env.AVAILABILITY_URL = "https://blob.example/availability.json";
+  process.env.AP_SITE_NORMAL = "1";
   try {
     const res = responseRecorder();
     await capacityHandler({ method: "GET" }, res);
@@ -139,6 +151,9 @@ test("a zero-credit membership disappears from the count and opens a spot", asyn
     previousUrl === undefined
       ? delete process.env.AVAILABILITY_URL
       : (process.env.AVAILABILITY_URL = previousUrl);
+    previousNormal === undefined
+      ? delete process.env.AP_SITE_NORMAL
+      : (process.env.AP_SITE_NORMAL = previousNormal);
     mock.restoreAll();
   }
 });
