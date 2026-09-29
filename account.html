@@ -92,19 +92,11 @@
               <option value="Fielding">Fielding</option>
             </select>
           </div>
-          <div class="booking__grid">
-            <div class="booking__field">
-              <label for="memDate">Day</label>
-              <select id="memDate">
-                <option value="">Choose a day</option>
-              </select>
-            </div>
-            <div class="booking__field">
-              <label for="memTime">Time</label>
-              <select id="memTime" disabled>
-                <option value="">Pick a day first</option>
-              </select>
-            </div>
+          <div class="booking__calendar" id="memCalendar"></div>
+          <div class="booking__times" id="memTimes" hidden>
+            <p class="booking__times-title" id="memTimesTitle">Open times</p>
+            <div class="booking__chips" id="memTimeChips" role="radiogroup" aria-label="Lesson time"></div>
+            <p class="booking__note booking__note--tight" id="memTimesNote"></p>
           </div>
           <button type="submit" class="btn btn--primary btn--lg booking__submit" id="weekSubmit">Lock in this lesson</button>
           <p class="booking__note">4 lessons per month · week-by-week booking (Sundays = next full week) · shared times require the same focus · unused lessons don't roll over · does not auto-renew</p>
@@ -123,6 +115,7 @@
     </div>
   </footer>
 
+  <script src="js/booking-core.js"></script>
   <script src="js/main.js"></script>
   <script src="js/account.js"></script>
 </body>

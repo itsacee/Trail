@@ -1,4 +1,5 @@
-// Coach admin: finances, collect cash, freeze members, facility pause toggles.
+// Coach admin: schedule moves, finances, collect cash, freeze members, facility
+// pause toggles, prices and hours.
 
 import { fetchBookings } from "../lib/bookings.js";
 import {
@@ -8,6 +9,10 @@ import {
   findBooking,
   activeBookings,
 } from "../lib/manualBookings.js";
+import { loadLessons, saveLessons, removeLesson, voidStripeLesson } from "../lib/lessons.js";
+import { moveLesson, clearStripeSlot, seatsOnLesson } from "../lib/reschedule.js";
+import { sendLessonMovedEmail } from "../lib/lessonMail.js";
+import { requireCoach } from "../lib/coachAuth.js";
 import {
   loadMembersState,
   saveMembersState,
@@ -16,26 +21,26 @@ import {
   isMemberFrozen,
 } from "../lib/membersStore.js";
 import { loadFinance, saveFinance, addFinanceEntry, financeSummary } from "../lib/finance.js";
-import { loadSettings, saveSettings } from "../lib/settings.js";
+import { loadSettings, saveSettings, unitPriceFor } from "../lib/settings.js";
 import { loadCoachStatus, saveCoachStatus } from "../lib/coachStatus.js";
 import { getSiteStatus } from "../lib/siteStatus.js";
-import { getAvailability, allowedTimes, durationFor, slotBlocked } from "../lib/schedule.js";
+import {
+  getAvailability,
+  allowedTimes,
+  durationFor,
+  slotBlocked,
+  seatsFor,
+  isExclusiveType,
+  canPair,
+  SLOT_CAPACITY,
+} from "../lib/schedule.js";
 import { bookedTimes } from "./slots.js";
 import { MEMBER_PERIOD_DAYS } from "../lib/members.js";
 import { normalizeFocus } from "../lib/siteStatus.js";
 
-function auth(req, res) {
-  const pass = process.env.COACH_PASS;
-  if (!pass) {
-    res.status(500).json({ error: "Set COACH_PASS in Vercel." });
-    return null;
-  }
-  if (String(req.query?.key || req.body?.key || "") !== pass) {
-    res.status(401).json({ error: "Wrong passcode." });
-    return null;
-  }
-  return pass;
-}
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
+const BOOKING_TYPES = ["single", "thirty", "private", "membership"];
 
 async function listOutstanding() {
   const manual = await loadManualBookings();
@@ -86,6 +91,7 @@ async function dashboard() {
   const outstanding = await listOutstanding();
   const settings = await loadSettings();
   const siteStatus = getSiteStatus();
+  const availability = await getAvailability();
 
   const members = Object.values(membersState.byEmail || {}).map((m) => ({
     email: m.email,
@@ -124,11 +130,13 @@ async function dashboard() {
     finance: financeSummary(finance.entries, outstanding),
     settings,
     siteStatus,
+    availability,
+    slotCapacity: SLOT_CAPACITY,
   };
 }
 
 export default async function handler(req, res) {
-  if (!auth(req, res)) return;
+  if (!requireCoach(req, res)) return;
   await loadCoachStatus();
 
   if (req.method === "GET") {
@@ -219,52 +227,166 @@ export default async function handler(req, res) {
       return;
     }
 
+    // Move any lesson on the schedule — cash/manual, member-portal, or the slot
+    // a parent picked at checkout — to a new day and time, and tell them.
+    if (action === "move_booking") {
+      const id = String(req.body?.id || "");
+      const date = String(req.body?.date || "");
+      const time = String(req.body?.time || "");
+      if (!DATE_RE.test(date) || !TIME_RE.test(time)) {
+        res.status(400).json({ error: "Pick the new day and time (e.g. 6:00 PM)." });
+        return;
+      }
+
+      const sessions = await fetchBookings(key);
+      const row = sessions.find((s) => s.id === id);
+      if (!row) {
+        res.status(404).json({ error: "That lesson isn't on the schedule anymore — refresh and try again." });
+        return;
+      }
+      if (row.date === date && row.time === time) {
+        res.status(400).json({ error: "That's the day and time it's already on." });
+        return;
+      }
+
+      const availability = await getAvailability();
+      const mins = durationFor(row.type);
+      const focus = normalizeFocus(req.body.focus || row.focus || "Fielding", row.type);
+      // The coach can move a lesson outside posted hours on purpose (make-up
+      // sessions), but double-booking is always refused.
+      const outsideHours = !allowedTimes(date, availability, mins).includes(time);
+      if (outsideHours && !req.body.force) {
+        res.status(409).json({
+          error: `${time} on ${date} is outside your open hours. Move it anyway?`,
+          code: "outside_hours",
+        });
+        return;
+      }
+      if (key) {
+        try {
+          const taken = await bookedTimes(key, date, {
+            ignoreSourceId: row.source === "stripe" ? row.sourceId : row.id,
+          });
+          if (
+            slotBlocked(taken, time, mins, focus, {
+              seats: seatsOnLesson(row),
+              exclusive: isExclusiveType(row.type),
+            })
+          ) {
+            res.status(409).json({ error: "Something else is already on that time. Pick another." });
+            return;
+          }
+        } catch {
+          /* continue — the coach can see the schedule */
+        }
+      }
+
+      const stored = await loadLessons();
+      const manual = await loadManualBookings();
+      const result = moveLesson({ row, stored, manual, date, time, focus, availability });
+      if (!result.ok) {
+        res.status(404).json({ error: result.error });
+        return;
+      }
+      if (result.changed.includes("lessons") && !(await saveLessons(stored))) {
+        res.status(500).json({ error: "Couldn't save the move (check Blob)." });
+        return;
+      }
+      if (result.changed.includes("manual") && !(await saveManualBookings(manual))) {
+        res.status(500).json({ error: "Couldn't save the move (check Blob)." });
+        return;
+      }
+      if (result.clearStripe) {
+        await clearStripeSlot(key, result.clearStripe.sourceId, result.clearStripe.lessonId);
+      }
+
+      let notified = false;
+      if (req.body.notify !== false && row.email) {
+        notified = await sendLessonMovedEmail({
+          to: row.email,
+          oldLesson: row,
+          newLesson: { ...row, ...result.moved },
+          movedBy: "coach",
+          extraLine: req.body.message || "",
+        });
+      }
+      res.status(200).json({ ok: true, moved: result.moved, notified, ...(await dashboard()) });
+      return;
+    }
+
+    // Cancel any lesson: cash/manual bookings are marked cancelled, member
+    // lessons are removed, and checkout slots are voided so the time reopens.
     if (action === "cancel_booking") {
       const id = String(req.body?.id || "");
       const store = await loadManualBookings();
       const b = findBooking(store, id);
-      if (!b) {
-        res.status(404).json({ error: "Only cash/manual bookings can be cancelled here." });
+      if (b) {
+        b.status = "cancelled";
+        b.cancelledAt = Date.now();
+        await saveManualBookings(store);
+        res.status(200).json({ ok: true, ...(await dashboard()) });
         return;
       }
-      b.status = "cancelled";
-      b.cancelledAt = Date.now();
-      await saveManualBookings(store);
+
+      const sessions = await fetchBookings(key);
+      const row = sessions.find((s) => s.id === id);
+      if (!row) {
+        res.status(404).json({ error: "That lesson isn't on the schedule anymore." });
+        return;
+      }
+      const stored = await loadLessons();
+      if (row.source === "stripe") {
+        voidStripeLesson(stored, { email: row.email, date: row.date, time: row.time, sourceId: row.sourceId });
+      } else if (!removeLesson(stored, row.id, row.email)) {
+        res.status(404).json({ error: "That lesson isn't on file anymore." });
+        return;
+      }
+      if (!(await saveLessons(stored))) {
+        res.status(500).json({ error: "Couldn't cancel that lesson (check Blob)." });
+        return;
+      }
+      if (row.source === "stripe") await clearStripeSlot(key, row.sourceId, row.id);
       res.status(200).json({ ok: true, ...(await dashboard()) });
       return;
     }
 
     if (action === "create_booking") {
       const settings = await loadSettings();
-      const type = ["single", "thirty", "membership"].includes(req.body.type) ? req.body.type : "single";
+      const type = BOOKING_TYPES.includes(req.body.type) ? req.body.type : "single";
       const date = String(req.body.date || "");
       const time = String(req.body.time || "");
       const player = String(req.body.player || "").trim();
+      const player2 = String(req.body.player2 || "").trim();
       const email = String(req.body.email || "").trim().toLowerCase();
-      if (!player || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{1,2}:\d{2} (AM|PM)$/.test(time)) {
-        res.status(400).json({ error: "Need player, day, and time." });
+      if (!player || !DATE_RE.test(date) || !TIME_RE.test(time)) {
+        res.status(400).json({ error: "Need athlete, day, and time." });
         return;
       }
+      const athletes = canPair(type) && player2 ? 2 : 1;
+      const seats = isExclusiveType(type) ? SLOT_CAPACITY : seatsFor(type, athletes);
       const focus = normalizeFocus(req.body.focus || "Fielding", type);
       const availability = await getAvailability();
-      if (!allowedTimes(date, availability, durationFor(type)).includes(time)) {
-        res.status(400).json({ error: "That time isn't in your open hours." });
+      if (!allowedTimes(date, availability, durationFor(type)).includes(time) && !req.body.force) {
+        res.status(409).json({ error: "That time isn't in your open hours. Save anyway?", code: "outside_hours" });
         return;
       }
       if (key) {
         const taken = await bookedTimes(key, date);
-        if (slotBlocked(taken, time, durationFor(type), focus)) {
+        if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive: isExclusiveType(type) })) {
           res.status(409).json({ error: "That slot is already taken." });
           return;
         }
       }
       const payMethod = req.body.paymentMethod === "card" ? "card" : req.body.paymentMethod === "comp" ? "comp" : "cash";
-      const total = req.body.amountCents != null ? Number(req.body.amountCents) : settings.prices[type] || 0;
+      const listPrice = unitPriceFor(type, athletes, settings.prices) * athletes;
+      const total = req.body.amountCents != null ? Number(req.body.amountCents) : listPrice;
       const paid = req.body.markPaid || payMethod === "card" ? total : payMethod === "comp" ? 0 : 0;
       const due = Math.max(0, total - paid);
       const booking = makeManualBooking({
         type,
         player,
+        player2,
+        athletes,
         parent: req.body.parent || "",
         phone: req.body.phone || "",
         email,

@@ -305,7 +305,14 @@ function memberFacts(meta, sessions, startedAt) {
     lastDayPretty: prettyDate(lastUsableDate(periodEnd)),
     left: Math.max(0, MEMBER_CREDITS - sessions.length),
     who: meta.player || "Your player",
+    // Deposit checkouts leave a balance to hand over in cash on day one.
+    cashDue: Math.max(0, Number(meta.amount_due) || 0),
   };
+}
+
+function dollars(cents) {
+  const n = (Number(cents) || 0) / 100;
+  return `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
 }
 
 function memberEmailHtml(meta, origin, sessions, startedAt) {
@@ -337,6 +344,21 @@ function memberEmailHtml(meta, origin, sessions, startedAt) {
       <div style="background:#050505;border:1px solid #26262b;border-radius:12px;padding:16px 18px;">
         <div style="font-size:17px;color:#ffffff;font-weight:bold;">${prettyDate(f.first.date)} at ${f.first.time}</div>
         <div style="color:#a8adb6;font-size:13px;padding-top:4px;">Lesson 1 of ${MEMBER_CREDITS} · ${f.left} left to book</div>
+      </div>
+    </td></tr>`
+        : ""
+    }
+
+    ${
+      f.cashDue
+        ? `<tr><td style="padding-top:22px;">
+      <div style="background:#1a1206;border:2px solid #e0b457;border-radius:12px;padding:20px;">
+        <div style="font-size:11px;color:#e0b457;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Bring Cash to Your First Lesson</div>
+        <div style="font-size:21px;color:#ffffff;font-weight:bold;padding-top:8px;">${dollars(f.cashDue)} in cash</div>
+        <p style="color:#f5f6f8;font-size:15px;line-height:1.6;margin:8px 0 0;">
+          Your card covered the ${dollars(Number(meta.amount_paid) || 0)} deposit. The remaining
+          <strong>${dollars(f.cashDue)}</strong> is due in cash${f.first ? ` at your first lesson on ${prettyDate(f.first.date)}` : " at your first lesson"}.
+        </p>
       </div>
     </td></tr>`
         : ""
@@ -449,6 +471,14 @@ ${prettyDate(f.first.date)} at ${f.first.time}
 Lesson 1 of ${MEMBER_CREDITS} · ${f.left} left to book
 `
     : ""
+}${
+  f.cashDue
+    ? `
+BRING CASH TO YOUR FIRST LESSON
+Your card covered the ${dollars(Number(meta.amount_paid) || 0)} deposit.
+The remaining ${dollars(f.cashDue)} is due in cash${f.first ? ` on ${prettyDate(f.first.date)}` : " at your first lesson"}.
+`
+    : ""
 }
 WHERE TO GO
 ${p.name || "Mustang High School"}${p.address ? `\n${p.address}` : ""}
@@ -522,7 +552,16 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
     }));
     const isMember = meta.type === "membership" || Boolean(session.subscription);
     const memberToken = isMember && to ? signMemberToken(to) : "";
-    const summary = { player: meta.player || "", sessions, email: to, places, member: isMember, memberToken };
+    const summary = {
+      player: meta.player || "",
+      sessions,
+      email: to,
+      places,
+      member: isMember,
+      memberToken,
+      // Deposit checkouts still owe the balance in cash on day one.
+      amountDue: Math.max(0, Number(meta.amount_due) || 0),
+    };
 
     // 2. Don't send twice if they refresh the success page
     const target = session.subscription

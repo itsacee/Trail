@@ -42,15 +42,41 @@ Want different colors? Change `--accent` at the top of `css/styles.css`.
 
 Parents pick a lesson type on the homepage, then land on `book.html`.
 
-- **Single / 30-min:** pick a day and time, pay through Stripe Checkout.
+- **Regular lesson ($80 / athlete) and 30-min ($60 / athlete):** pick a day
+  and time, pay through Stripe Checkout. These share the hour — see
+  "Two athletes per hour" below.
+- **Private hour ($100 for one athlete):** books the whole slot so nobody else
+  can join. Two of your own athletes can share a private hour, and because a
+  pair already fills the hour they pay the regular **$80 each** instead of the
+  1-on-1 premium (`unitPriceFor` in `lib/settings.js`).
 - **Membership ($280 / 30 days):** one-time payment (does not auto-renew).
   Then sign in at `account.html` with the email they paid with (a sign-in
   *link*, not a password). They book **one lesson per week**, up to 4 in
   those 30 days. Unused lessons do not roll over. Buy again to continue.
 
+They also choose how to pay: full amount by card, cash at the field, or —
+for memberships — an **$80 card deposit with the $200 balance in cash at the
+first lesson**. The deposit amount is a setting on the coach page, and the
+balance is spelled out on the pay option, in the confirmation email, and on
+the member's account page until the coach marks it collected.
+
 Member lesson times are stored in Vercel Blob (`lessons.json`) and show up
-on the coach schedule and calendar feed. Single-lesson payments still live
-on Stripe metadata.
+on the coach schedule and calendar feed. Card payments still live on Stripe
+metadata; cash bookings live in `manual-bookings.json`.
+
+### Two athletes per hour
+
+An hour holds **two athlete seats** (`SLOT_CAPACITY` in `lib/schedule.js`):
+
+- One athlete books alone → the hour stays open for one more athlete, but
+  only at the same focus.
+- The booking form has an **"+ Add another athlete"** button. Adding a second
+  name fills both seats, so the hour is closed to everyone else.
+- A private lesson takes both seats and refuses any hour that already has
+  someone in it, whether it's one athlete or a pair on it.
+
+`api/slots.js` reports seats and exclusivity per time, so the calendar can
+grey out a day that is genuinely full rather than merely busy.
 
 The payment is created by `api/checkout.js`, a serverless function that runs
 automatically when this repo is deployed on Vercel. **One-time setup:**
@@ -65,8 +91,10 @@ friendly "call or text to book" message instead of failing silently.
 
 ## Hours and locations
 
-Defined in `lib/schedule.js` (server) and mirrored in `js/main.js` (booking
-form) — **change both together**:
+Day-to-day hours are edited on the coach page's **Hours** tab, which saves to
+Vercel KV. The built-in fallback used before anything is saved lives in
+`lib/schedule.js` (server) and is mirrored in `js/booking-core.js` (booking
+form and member portal) — **change both together**:
 
 | Days | Hours | Location |
 | --- | --- | --- |
@@ -119,18 +147,39 @@ as the location, and have a one-hour-before alert. Subscribers are asked to
 refresh every 15 minutes. The coach page has a one-tap subscribe button that
 fills in the passcode automatically.
 
-## Coach schedule page
+## Coach Desk
 
-`/coach.html` is a private page showing all upcoming lessons (player, parent,
-phone, time) plus a lessons-this-week counter. It reads bookings straight
-from Stripe via `api/schedule.js`. Setup:
+`/coach.html` is the private page the coach runs the business from. It works
+the same on a phone (tabs pinned to the bottom) and on a desktop (tabs as a
+left sidebar), and has five tabs:
 
-1. In Vercel: Settings → Environment Variables → add `COACH_PASS` with a
-   passcode you make up, then redeploy
-2. Open `apacademybsb.com/coach.html`, enter the passcode once — it's
-   remembered on that device
+| Tab | What it does |
+| --- | --- |
+| Lessons | Today / this week / upcoming / still-owed counts, every lesson with its athletes and tags, and per-lesson **Move**, text, call, email, cancel |
+| Members | Credits left, expiry, cash owed, freeze one member or everyone, mark cash collected, send a sign-in link |
+| Money | Outstanding balances, a cash/card ledger, and week + month totals |
+| Hours | Weekly open hours per day and a days-off calendar |
+| Setup | All five prices, the membership deposit, whether cash and deposits are allowed, and the facility pauses |
 
-The page is not linked from the public site and is marked noindex.
+Everything on the page talks to `api/coach.js`, which also handles moving a
+lesson. Moving works for any kind of booking: cash and member lessons are
+edited in place, while a card booking is voided on Stripe and rewritten as a
+member lesson that remembers where it came from (`lib/reschedule.js`). A move
+to a time outside posted hours is refused once and then allowed if the coach
+confirms, so make-up sessions are possible but accidents are not.
+Double-booking is always refused. The parent gets an email with a fresh
+calendar invite unless the coach turns that off.
+
+Parents can reschedule themselves from `account.html` up to 12 hours before
+the lesson; inside 12 hours the portal asks them to call or text.
+
+### Passcode
+
+Set `COACH_PASS` in Vercel (Settings → Environment Variables) to the passcode
+you want, then redeploy. If it is not set, `lib/coachAuth.js` falls back to a
+built-in default so the page still opens. Enter the passcode once and it is
+remembered on that device. The page is not linked from the public site and is
+marked noindex.
 
 ## Put it online (free)
 

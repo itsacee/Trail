@@ -6,20 +6,16 @@
 // date/time optional — defaults to today (Chicago) and 6:00 PM.
 
 import { recordMemberLessons } from "../lib/recordAttendance.js";
+import { requireCoach } from "../lib/coachAuth.js";
 import { findMembership } from "../lib/members.js";
 import { loadLessons, scheduledFor } from "../lib/lessons.js";
 import { membershipSummary } from "../lib/members.js";
 
 export default async function handler(req, res) {
+  if (!requireCoach(req, res)) return;
   const key = process.env.STRIPE_SECRET_KEY;
-  const pass = process.env.COACH_PASS;
-
-  if (!key || !pass) {
+  if (!key) {
     res.status(500).json({ error: "Not set up yet." });
-    return;
-  }
-  if (String(req.query?.key || req.body?.key || "") !== pass) {
-    res.status(401).json({ error: "Wrong passcode." });
     return;
   }
 
