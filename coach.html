@@ -757,7 +757,12 @@
       thirty: "30 min",
       private: "Private 1-on-1",
       membership: "Membership",
+      // Retired lesson type still sitting in older paid bookings.
+      group: "Group lesson",
     };
+    // Anything older than the labels above still reads like a lesson, not raw data.
+    const typeName = (type) =>
+      TYPE_LABEL[type] || (type ? String(type).charAt(0).toUpperCase() + String(type).slice(1) : "");
     const PLACE_LABEL = { mustang: "Mustang HS", delcity: "Del City", mojo: "Mojo Yard" };
     const DURATIONS = { single: 60, thirty: 30, private: 60, membership: 60 };
 
@@ -977,7 +982,7 @@
       const who = two && s.player2 ? `${s.player} & ${s.player2}` : s.player || "—";
       const owed = Number(s.amountDueCents) || 0;
       const typeLabel =
-        s.type === "private" && two ? "Private · 2 athletes" : TYPE_LABEL[s.type] || s.type || "";
+        s.type === "private" && two ? "Private · 2 athletes" : typeName(s.type);
       const el = document.createElement("div");
       el.className = "lesson";
       el.innerHTML = `
@@ -1323,7 +1328,7 @@
       due.innerHTML = list.length
         ? list.map((o) => `<div class="lesson" style="margin:0">
             <b>${esc(o.player || o.email || "(no name)")}</b>
-            <div class="lesson__sub">${esc([prettyDayOr(o.date), o.time, TYPE_LABEL[o.type] || o.type].filter(Boolean).join(" · "))}</div>
+            <div class="lesson__sub">${esc([prettyDayOr(o.date), o.time, typeName(o.type)].filter(Boolean).join(" · "))}</div>
             <div class="acts"><button type="button" data-due="${esc(o.id)}" data-amt="${o.amountDueCents}">Collect ${esc(money(o.amountDueCents))}</button></div>
           </div>`).join("")
         : '<p class="muted">Nothing outstanding — everybody\'s square.</p>';
