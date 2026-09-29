@@ -627,6 +627,11 @@
           <p class="muted" id="freezeAllMsg"></p>
         </div>
         <div id="membersList"><p class="empty">Loading…</p></div>
+        <div class="card" id="removedCard" hidden>
+          <span class="card__title">Cards you removed</span>
+          <p class="faint" style="margin-top:0.35rem">Still on file — nothing was deleted. Put one back any time.</p>
+          <div id="removedList" class="stack row-gap"></div>
+        </div>
       </section>
 
       <!-- ---------------- MONEY ---------------- -->
@@ -1242,6 +1247,10 @@
         ? `All members are frozen${desk.freezeAllReason ? ` — "${desk.freezeAllReason}"` : ""}.`
         : "";
 
+      // Before the early return below, so removed cards still show when every
+      // card has been taken off the list.
+      renderRemovedMembers();
+
       const box = $("membersList");
       if (!rows.length) {
         box.innerHTML = '<p class="empty">No members on file yet.</p>';
@@ -1272,6 +1281,7 @@
             ${m.amountDueCents ? `<button type="button" data-collect="${esc(m.email)}" data-amt="${m.amountDueCents}">Collect ${esc(wholeMoney(m.amountDueCents))}</button>` : ""}
             ${link && m.phone ? `<a href="sms:${esc(tel(m.phone))}?&body=${encodeURIComponent(note)}">💬 Send link</a>` : ""}
             ${link ? `<a href="mailto:${esc(m.email)}?subject=${encodeURIComponent("Your AP Academy membership link")}&body=${encodeURIComponent(note)}">✉️ Email link</a>` : ""}
+            <button type="button" class="danger" data-remove="${esc(m.email)}" data-who="${esc(m.player || link?.player || "")}">Remove card</button>
           </div>
         </div>`;
       }).join("");
@@ -1289,6 +1299,46 @@
       });
       box.querySelectorAll("[data-collect]").forEach((btn) => {
         btn.addEventListener("click", () => collect("mem_" + btn.dataset.collect, btn.dataset.amt));
+      });
+      box.querySelectorAll("[data-remove]").forEach((btn) => {
+        btn.addEventListener("click", () => removeCard(btn.dataset.remove, btn.dataset.who));
+      });
+    }
+
+    // For the athlete who signed up twice under two emails: drop the spare card.
+    async function removeCard(email, who) {
+      const name = who || email;
+      if (!window.confirm(
+        `Take ${name}'s card off the members list?\n\n${email}\n\n` +
+        `Their history stays on file, and you can put the card back any time.`
+      )) return;
+      try {
+        await act({ action: "remove_member", email });
+      } catch (err) {
+        if (err.code !== "owes_money") { alert(err.message); return; }
+        if (!window.confirm(err.message)) return;
+        try {
+          await act({ action: "remove_member", email, force: true });
+        } catch (err2) { alert(err2.message); }
+      }
+    }
+
+    function renderRemovedMembers() {
+      const rows = desk.removedMembers || [];
+      $("removedCard").hidden = !rows.length;
+      if (!rows.length) return;
+      const list = $("removedList");
+      list.innerHTML = rows.map((m) => `<div class="lesson" style="margin:0">
+          <b>${esc(m.player || "(no name)")}</b>
+          <div class="lesson__sub">${esc(m.email)}${m.removedAt ? " · off the list since " + esc(prettyDay(isoOf(new Date(m.removedAt)))) : ""}</div>
+          <div class="acts"><button type="button" data-restore="${esc(m.email)}">Put back</button></div>
+        </div>`).join("");
+      list.querySelectorAll("[data-restore]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await act({ action: "restore_member", email: btn.dataset.restore });
+          } catch (err) { alert(err.message); }
+        });
       });
     }
 
