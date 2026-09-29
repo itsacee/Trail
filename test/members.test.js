@@ -143,14 +143,45 @@ test("bookingWindow opens through this Sunday on weekdays", () => {
   });
 });
 
-test("bookingWindow on Sunday opens all of next week", () => {
-  atTime("2026-08-30T12:00:00-05:00", () => {
-    const w = bookingWindow("2026-08-30");
-    assert.equal(w.startKey, "2026-08-31");
-    assert.equal(w.endKey, "2026-09-06");
+test("bookingWindow on Sunday opens the next Mon–Sun batch", () => {
+  atTime("2026-09-27T12:00:00-05:00", () => {
+    const w = bookingWindow("2026-09-27");
+    assert.equal(w.startKey, "2026-10-05");
+    assert.equal(w.endKey, "2026-10-11");
     assert.equal(w.dates.length, 7);
-    assert.equal(w.dates[0], "2026-08-31");
-    assert.equal(w.dates[6], "2026-09-06");
+    assert.equal(w.dates[0], "2026-10-05");
+    assert.equal(w.dates[6], "2026-10-11");
+  });
+});
+
+test("bookingWindow on Monday includes this week plus the Sunday release", () => {
+  atTime("2026-09-28T12:00:00-05:00", () => {
+    const w = bookingWindow("2026-09-28");
+    assert.deepEqual(w.dates.slice(0, 6), [
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-01",
+      "2026-10-02",
+      "2026-10-03",
+      "2026-10-04",
+    ]);
+    assert.deepEqual(w.dates.slice(6), [
+      "2026-10-05",
+      "2026-10-06",
+      "2026-10-07",
+      "2026-10-08",
+      "2026-10-09",
+      "2026-10-10",
+      "2026-10-11",
+    ]);
+  });
+});
+
+test("bookingWindow on a same-month Sunday opens the immediate next week", () => {
+  atTime("2026-10-04T12:00:00-05:00", () => {
+    const w = bookingWindow("2026-10-04");
+    assert.equal(w.startKey, "2026-10-05");
+    assert.equal(w.endKey, "2026-10-11");
   });
 });
 
@@ -198,18 +229,23 @@ test("reschedule: excluding the moved lesson frees its day", () => {
 });
 
 test("reschedule: a fully-used membership can still move an existing lesson", () => {
-  atTime("2026-08-30T12:00:00-05:00", () => {
+  atTime("2026-09-27T12:00:00-05:00", () => {
+    const sub = {
+      metadata: { player: "Sam", email: "sam@example.com" },
+      current_period_start: Math.floor(Date.parse("2026-09-20T12:00:00Z") / 1000),
+      current_period_end: Math.floor(Date.parse("2026-10-20T12:00:00Z") / 1000),
+    };
     const all = [
-      lesson("a", "2026-08-31", "5:00 PM"),
-      lesson("b", "2026-09-01", "5:00 PM"),
-      lesson("c", "2026-09-02", "5:00 PM"),
-      lesson("d", "2026-09-03", "5:00 PM"),
+      lesson("a", "2026-10-05", "5:00 PM"),
+      lesson("b", "2026-10-06", "5:00 PM"),
+      lesson("c", "2026-10-07", "5:00 PM"),
+      lesson("d", "2026-10-08", "5:00 PM"),
     ];
     // All 4 credits used → a brand-new booking is refused.
-    assert.match(bookingBlocked(membershipSummary(SUB, all), "2026-09-04", all), /used all 4/);
+    assert.match(bookingBlocked(membershipSummary(sub, all), "2026-10-09", all), /used all 4/);
     // Moving lesson "a" excludes it, so remaining is 1 and the move is allowed within the open week.
     const others = all.filter((l) => l.id !== "a");
-    assert.equal(bookingBlocked(membershipSummary(SUB, others), "2026-09-04", others), null);
+    assert.equal(bookingBlocked(membershipSummary(sub, others), "2026-10-09", others), null);
   });
 });
 
