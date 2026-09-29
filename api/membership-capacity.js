@@ -1,5 +1,6 @@
 import { getMembershipCapacity, MEMBERSHIP_LIMIT } from "../lib/membershipCapacity.js";
 import { membershipBlockedMessage } from "../lib/siteStatus.js";
+import { loadCoachStatus } from "../lib/coachStatus.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -19,6 +20,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    await loadCoachStatus();
     const { summary } = await getMembershipCapacity(key);
     const paused = membershipBlockedMessage();
     res.setHeader("Cache-Control", "no-store");

@@ -19,6 +19,7 @@
 import { durationFor } from "../lib/schedule.js";
 import { loadLessons, lessonsOnDate, isVoided } from "../lib/lessons.js";
 import { loadHolds, holdsOnDate } from "../lib/holds.js";
+import { loadManualBookings, bookingsOnDate } from "../lib/manualBookings.js";
 
 // Returns [{ time: "5:00 PM", mins: 60, sources: [...] }] — each taken slot with
 // how long it runs, so callers can block overlapping start times (a 1-hour
@@ -120,6 +121,22 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
     );
   } catch {
     /* holds optional */
+  }
+
+  try {
+    const manual = await loadManualBookings();
+    bookingsOnDate(manual, date).forEach((b) =>
+      add(b.time, durationFor(b.type || "single"), {
+        kind: "cash",
+        id: b.id,
+        player: b.player || "",
+        email: b.email || "",
+        focus: b.focus || "",
+        createdAt: b.createdAt || 0,
+      })
+    );
+  } catch {
+    /* optional */
   }
 
   return [...byTime.entries()].map(([time, v]) => ({

@@ -46,6 +46,9 @@
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
       background: var(--bg); padding: 0.5rem 0 0.7rem;
     }
+    @media (min-width: 520px) {
+      .tabs { grid-template-columns: repeat(5, 1fr); }
+    }
     .tabs button {
       background: var(--surface); border: 1px solid var(--line); color: var(--dim);
       border-radius: 11px; padding: 0.75rem 0.3rem; font: inherit; font-size: 0.92rem;
@@ -237,6 +240,8 @@
       <div class="tabs" role="tablist">
         <button role="tab" data-tab="schedule" aria-selected="true">Lessons<span class="count" id="tabLessons">–</span></button>
         <button role="tab" data-tab="members" aria-selected="false">Members<span class="count" id="tabMembers">–</span></button>
+        <button role="tab" data-tab="money" aria-selected="false">Money<span class="count" id="tabMoney">&nbsp;</span></button>
+        <button role="tab" data-tab="controls" aria-selected="false">Controls<span class="count" id="tabControls">&nbsp;</span></button>
         <button role="tab" data-tab="hours" aria-selected="false">Hours<span class="count" id="tabHours">&nbsp;</span></button>
       </div>
 
@@ -268,7 +273,85 @@
       <section id="tab-members" hidden>
         <p class="muted" style="margin-bottom:0.9rem">Everyone on an active membership, how many lessons they have left, and when those expire.</p>
         <p class="muted" id="membershipCapacity" style="margin-bottom:0.9rem">Loading membership capacity…</p>
+        <div class="actions" style="margin-bottom:0.9rem">
+          <button type="button" class="btn" id="freezeAllBtn" style="width:auto;padding:0.65rem 1rem;font-size:0.9rem">Freeze ALL members</button>
+        </div>
+        <div id="coachMembersExtra"></div>
         <div id="membersList"><p class="empty">Loading…</p></div>
+      </section>
+
+      <!-- ============ MONEY ============ -->
+      <section id="tab-money" hidden>
+        <div class="stats">
+          <div class="stat"><b id="finWeek">–</b><span>This week</span></div>
+          <div class="stat"><b id="finMonth">–</b><span>This month</span></div>
+        </div>
+        <p class="muted" id="finSplit" style="margin-bottom:0.9rem"></p>
+        <div class="card">
+          <span class="card-title">Still owed</span>
+          <div id="dueList"><p class="muted">Loading…</p></div>
+        </div>
+        <div class="card">
+          <span class="card-title">Log cash / other</span>
+          <input id="finAmount" type="number" step="0.01" placeholder="Amount $" style="margin-top:0.6rem" />
+          <select id="finMethod"><option value="cash">Cash</option><option value="card">Card</option></select>
+          <input id="finNote" placeholder="Who / what" />
+          <button class="btn" id="finAdd">Add to ledger</button>
+          <p class="muted" id="finMsg"></p>
+        </div>
+        <div class="card">
+          <span class="card-title">Recent</span>
+          <div id="finRecent"></div>
+        </div>
+      </section>
+
+      <!-- ============ CONTROLS ============ -->
+      <section id="tab-controls" hidden>
+        <div class="card">
+          <span class="card-title">Facility pauses</span>
+          <p class="muted" style="margin:0.4rem 0 0.8rem">Flip these without a redeploy. Changes apply immediately on the site.</p>
+          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0"><input type="checkbox" id="ctlBlockNew" style="width:auto;margin:0" /> Block new memberships</label>
+          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0"><input type="checkbox" id="ctlFrozen" style="width:auto;margin:0" /> Pause membership clocks (global)</label>
+          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0 0.9rem"><input type="checkbox" id="ctlFielding" style="width:auto;margin:0" /> Fielding only (no hitting)</label>
+          <button class="btn" id="ctlSave">Save pauses</button>
+          <p class="muted" id="ctlMsg"></p>
+        </div>
+        <div class="card">
+          <span class="card-title">Prices &amp; cash options</span>
+          <label class="muted">Private ($)</label>
+          <input id="setSingle" type="number" step="1" />
+          <label class="muted">30-min ($)</label>
+          <input id="setThirty" type="number" step="1" />
+          <label class="muted">Membership ($)</label>
+          <input id="setMem" type="number" step="1" />
+          <label class="muted">Membership card deposit ($)</label>
+          <input id="setDeposit" type="number" step="1" />
+          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0"><input type="checkbox" id="setCash" style="width:auto;margin:0" /> Allow cash on booking page</label>
+          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0 0.9rem"><input type="checkbox" id="setDepositOn" style="width:auto;margin:0" /> Allow membership deposit option</label>
+          <button class="btn" id="setSave">Save prices</button>
+          <p class="muted" id="setMsg"></p>
+        </div>
+        <div class="card">
+          <span class="card-title">Add a cash / walk-in lesson</span>
+          <select id="bkType">
+            <option value="single">Private</option>
+            <option value="thirty">30-min</option>
+            <option value="membership">Membership first lesson</option>
+          </select>
+          <select id="bkPay">
+            <option value="cash">Cash (collect later)</option>
+            <option value="cash_paid">Cash (already paid)</option>
+            <option value="card">Card (already paid)</option>
+            <option value="comp">Comp / free</option>
+          </select>
+          <input id="bkDate" type="date" />
+          <input id="bkTime" placeholder="Time e.g. 6:00 PM" />
+          <input id="bkPlayer" placeholder="Player name *" />
+          <input id="bkEmail" type="email" placeholder="Email" />
+          <input id="bkPhone" placeholder="Phone" />
+          <button class="btn" id="bkSave">Save booking</button>
+          <p class="muted" id="bkMsg"></p>
+        </div>
       </section>
 
       <!-- ============ HOURS ============ -->
@@ -350,11 +433,12 @@
       b.addEventListener("click", () => {
         document.querySelectorAll(".tabs button").forEach((x) =>
           x.setAttribute("aria-selected", String(x === b)));
-        ["schedule", "members", "hours"].forEach((name) => {
+        ["schedule", "members", "money", "controls", "hours"].forEach((name) => {
           document.getElementById("tab-" + name).hidden = name !== b.dataset.tab;
         });
         window.scrollTo({ top: 0 });
-        if (b.dataset.tab === "members") loadMembers();
+        if (b.dataset.tab === "members") { loadMembers(); loadCoachDesk(); }
+        if (b.dataset.tab === "money" || b.dataset.tab === "controls") loadCoachDesk();
       });
     });
 
@@ -382,6 +466,7 @@
       loadAvail();
       // Fetched up front so the tab shows a real count, not a dash.
       loadMembers();
+      loadCoachDesk();
     }
 
     function renderStatus(s) {
@@ -716,6 +801,178 @@
         msg.className = "error";
         msg.textContent = "Network error — please try again.";
       }
+    });
+
+    /* ---------- money / freeze / controls ---------- */
+    let coachDesk = null;
+    function money2(c) { return "$" + ((Number(c) || 0) / 100).toFixed(2); }
+    function coachKey() { return localStorage.getItem("coachPass") || ""; }
+    async function coachPost(body) {
+      const res = await fetch(`/api/coach?key=${encodeURIComponent(coachKey())}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed");
+      return data;
+    }
+    async function loadCoachDesk() {
+      try {
+        const res = await fetch(`/api/coach?key=${encodeURIComponent(coachKey())}`);
+        coachDesk = await res.json();
+        if (!res.ok) return;
+        renderCoachDesk();
+      } catch { /* optional until Blob/API live */ }
+    }
+    function renderCoachDesk() {
+      const d = coachDesk || {};
+      const fin = d.finance || {};
+      document.getElementById("finWeek").textContent = money2(fin.weekCents);
+      document.getElementById("finMonth").textContent = money2(fin.monthCents);
+      const wb = fin.weekByMethod || {}, mb = fin.monthByMethod || {};
+      document.getElementById("finSplit").textContent =
+        `Week ${money2(wb.card)} card · ${money2(wb.cash)} cash   ·   Month ${money2(mb.card)} card · ${money2(mb.cash)} cash`;
+      const due = document.getElementById("dueList");
+      const list = fin.outstanding || [];
+      due.innerHTML = list.length
+        ? list.map((o) => `<div class="lesson" style="margin-top:0.5rem"><b>${o.player || o.email}</b><div class="muted">${o.date || ""} ${o.time || ""} · ${o.type || ""}</div>
+            <div class="actions"><button type="button" data-due="${o.id}" data-amt="${o.amountDueCents}">Collect ${money2(o.amountDueCents)}</button></div></div>`).join("")
+        : '<p class="muted">Nothing outstanding.</p>';
+      due.querySelectorAll("[data-due]").forEach((btn) => {
+        btn.onclick = async () => {
+          const dollars = prompt("Amount collected ($)", ((Number(btn.dataset.amt)||0)/100).toFixed(2));
+          if (dollars == null) return;
+          try {
+            coachDesk = await coachPost({ action: "collect_payment", id: btn.dataset.due, amountCents: Math.round(parseFloat(dollars)*100), method: "cash" });
+            renderCoachDesk();
+          } catch (e) { alert(e.message); }
+        };
+      });
+      document.getElementById("finRecent").innerHTML = (fin.recent || []).slice(0, 20).map((e) =>
+        `<div class="muted" style="padding:0.35rem 0;border-bottom:1px solid var(--line)"><b>${money2(e.amountCents)}</b> ${e.method} · ${e.date} · ${e.player || e.note || e.type || ""}</div>`
+      ).join("") || '<p class="muted">No ledger entries yet.</p>';
+
+      const freezeAllBtn = document.getElementById("freezeAllBtn");
+      freezeAllBtn.textContent = d.freezeAll ? "Unfreeze ALL members" : "Freeze ALL members";
+      const extra = document.getElementById("coachMembersExtra");
+      extra.innerHTML = (d.members || []).map((m) =>
+        `<div class="lesson" style="margin-bottom:0.5rem"><div class="member__name">${m.player || m.email}</div>
+          <div class="muted">${m.email}${(m.amountDueCents||0) ? " · owed "+money2(m.amountDueCents) : ""}${m.frozen ? " · FROZEN" : ""}</div>
+          <div class="actions">
+            <button type="button" data-freeze="${m.email}" data-on="${m.frozen ? "0" : "1"}">${m.frozen ? "Unfreeze" : "Freeze"}</button>
+            ${(m.amountDueCents||0) ? `<button type="button" data-collect-mem="${m.email}" data-amt="${m.amountDueCents}">Collect</button>` : ""}
+          </div></div>`
+      ).join("") || "";
+      extra.querySelectorAll("[data-freeze]").forEach((btn) => {
+        btn.onclick = async () => {
+          const frozen = btn.dataset.on === "1";
+          const reason = frozen ? (prompt("Reason", "Paused by coach") || "") : "";
+          try {
+            coachDesk = await coachPost({ action: "freeze_one", email: btn.dataset.freeze, frozen, reason });
+            renderCoachDesk();
+          } catch (e) { alert(e.message); }
+        };
+      });
+      extra.querySelectorAll("[data-collect-mem]").forEach((btn) => {
+        btn.onclick = async () => {
+          const dollars = prompt("Amount ($)", ((Number(btn.dataset.amt)||0)/100).toFixed(2));
+          if (dollars == null) return;
+          try {
+            coachDesk = await coachPost({ action: "collect_payment", id: "mem_" + btn.dataset.collectMem, amountCents: Math.round(parseFloat(dollars)*100), method: "cash" });
+            renderCoachDesk();
+          } catch (e) { alert(e.message); }
+        };
+      });
+
+      const ss = d.siteStatus || {};
+      document.getElementById("ctlBlockNew").checked = Boolean(ss.blockNewMemberships);
+      document.getElementById("ctlFrozen").checked = Boolean(ss.membershipFrozen);
+      document.getElementById("ctlFielding").checked = Boolean(ss.fieldingOnly);
+      const set = d.settings || {};
+      document.getElementById("setSingle").value = ((set.prices?.single || 8000) / 100);
+      document.getElementById("setThirty").value = ((set.prices?.thirty || 6000) / 100);
+      document.getElementById("setMem").value = ((set.prices?.membership || 28000) / 100);
+      document.getElementById("setDeposit").value = ((set.membershipDeposit || 10000) / 100);
+      document.getElementById("setCash").checked = set.allowCash !== false;
+      document.getElementById("setDepositOn").checked = set.allowDeposit !== false;
+    }
+
+    document.getElementById("freezeAllBtn").addEventListener("click", async () => {
+      const frozen = !coachDesk?.freezeAll;
+      const reason = frozen ? (prompt("Reason", "Paused by coach") || "Paused") : "";
+      try {
+        coachDesk = await coachPost({ action: "freeze_all", frozen, reason });
+        renderCoachDesk();
+      } catch (e) { alert(e.message); }
+    });
+    document.getElementById("finAdd").addEventListener("click", async () => {
+      const msg = document.getElementById("finMsg");
+      try {
+        coachDesk = await coachPost({
+          action: "add_finance",
+          amountCents: Math.round(parseFloat(document.getElementById("finAmount").value) * 100),
+          method: document.getElementById("finMethod").value,
+          note: document.getElementById("finNote").value.trim(),
+        });
+        msg.textContent = "Logged ✓";
+        document.getElementById("finAmount").value = "";
+        document.getElementById("finNote").value = "";
+        renderCoachDesk();
+      } catch (e) { msg.textContent = e.message; }
+    });
+    document.getElementById("ctlSave").addEventListener("click", async () => {
+      const msg = document.getElementById("ctlMsg");
+      try {
+        coachDesk = await coachPost({
+          action: "save_site_status",
+          blockNewMemberships: document.getElementById("ctlBlockNew").checked,
+          membershipFrozen: document.getElementById("ctlFrozen").checked,
+          fieldingOnly: document.getElementById("ctlFielding").checked,
+        });
+        msg.textContent = "Saved ✓ — site rules updated.";
+        renderCoachDesk();
+      } catch (e) { msg.textContent = e.message; }
+    });
+    document.getElementById("setSave").addEventListener("click", async () => {
+      const msg = document.getElementById("setMsg");
+      try {
+        coachDesk = await coachPost({
+          action: "save_settings",
+          settings: {
+            prices: {
+              single: Math.round(parseFloat(document.getElementById("setSingle").value) * 100),
+              thirty: Math.round(parseFloat(document.getElementById("setThirty").value) * 100),
+              membership: Math.round(parseFloat(document.getElementById("setMem").value) * 100),
+            },
+            membershipDeposit: Math.round(parseFloat(document.getElementById("setDeposit").value) * 100),
+            allowCash: document.getElementById("setCash").checked,
+            allowDeposit: document.getElementById("setDepositOn").checked,
+          },
+        });
+        msg.textContent = "Saved ✓";
+        renderCoachDesk();
+      } catch (e) { msg.textContent = e.message; }
+    });
+    document.getElementById("bkSave").addEventListener("click", async () => {
+      const msg = document.getElementById("bkMsg");
+      const pay = document.getElementById("bkPay").value;
+      try {
+        coachDesk = await coachPost({
+          action: "create_booking",
+          type: document.getElementById("bkType").value,
+          date: document.getElementById("bkDate").value,
+          time: document.getElementById("bkTime").value.trim(),
+          player: document.getElementById("bkPlayer").value.trim(),
+          email: document.getElementById("bkEmail").value.trim(),
+          phone: document.getElementById("bkPhone").value.trim(),
+          paymentMethod: pay === "card" ? "card" : pay === "comp" ? "comp" : "cash",
+          markPaid: pay === "cash_paid" || pay === "card",
+        });
+        msg.textContent = "Saved ✓";
+        renderCoachDesk();
+        load(coachKey());
+      } catch (e) { msg.textContent = e.message; }
     });
 
     document.getElementById("subscribeGoogle").addEventListener("click", async () => {

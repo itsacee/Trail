@@ -12,6 +12,8 @@ import {
   MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
 import { membershipBlockedMessage, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
+import { loadSettings } from "../lib/settings.js";
+import { loadCoachStatus } from "../lib/coachStatus.js";
 
 const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 
@@ -39,6 +41,9 @@ export default async function handler(req, res) {
     return;
   }
 
+  await loadCoachStatus();
+  const settings = await loadSettings();
+
   // Backing out of Stripe returns them here; drop the hold so the slot frees up
   // straight away instead of sitting reserved until it expires.
   if (req.body?.action === "release") {
@@ -63,6 +68,7 @@ export default async function handler(req, res) {
   if (SESSION_ID_RE.test(previous)) await releaseHold(previous);
 
   const { type, player, parent, phone } = req.body || {};
+  const payMode = req.body?.payMode === "deposit" ? "deposit" : "card";
   // Stored lowercase so member sign-in can find them later — Stripe's metadata
   // search is case-sensitive, and parents type their address however they like.
   const email = String(req.body?.email || "").trim().toLowerCase();
@@ -72,6 +78,13 @@ export default async function handler(req, res) {
     const paused = membershipBlockedMessage();
     if (paused) {
       res.status(503).json({ error: paused, code: "membership_paused" });
+      return;
+    }
+  }
+
+  if (payMode === "deposit") {
+    if (type !== "membership" || !settings.allowDeposit) {
+      res.status(400).json({ error: "Deposit option isn't available. Pay in full by card or choose cash." });
       return;
     }
   }
@@ -198,8 +211,17 @@ export default async function handler(req, res) {
   );
   params.append("line_items[0][quantity]", String(session.quantity));
   params.append("line_items[0][price_data][currency]", "usd");
-  params.append("line_items[0][price_data][unit_amount]", String(session.amount));
-  params.append("line_items[0][price_data][product_data][name]", session.label);
+  const fullAmount = settings.prices?.[type] || session.amount;
+  let chargeAmount = fullAmount;
+  let amountDue = 0;
+  let productLabel = session.label;
+  if (payMode === "deposit" && type === "membership") {
+    chargeAmount = Math.min(settings.membershipDeposit || 10000, fullAmount);
+    amountDue = Math.max(0, fullAmount - chargeAmount);
+    productLabel = `Membership deposit ($${(chargeAmount / 100).toFixed(0)}) — balance $${(amountDue / 100).toFixed(0)} cash`;
+  }
+  params.append("line_items[0][price_data][unit_amount]", String(chargeAmount));
+  params.append("line_items[0][price_data][product_data][name]", productLabel);
   params.append("line_items[0][price_data][product_data][description]", sessionLabel);
 
   // Metadata on the payment/subscription itself, so /api/slots can find
@@ -209,7 +231,7 @@ export default async function handler(req, res) {
   // this is where the buyer gets the training address (not shown pre-payment)
   params.append(
     `${metaTarget}[description]`,
-    `${session.label}: ${sessionLabel}${focus ? ` · Focus: ${FOCUS_LABELS[focus]}` : ""}${phone ? ` (${phone})` : ""} · Location: ${ADDRESS}`
+    `${productLabel}: ${sessionLabel}${focus ? ` · Focus: ${FOCUS_LABELS[focus]}` : ""}${phone ? ` (${phone})` : ""} · Location: ${ADDRESS}`
   );
   const meta = [
     ["player", player],
@@ -218,6 +240,11 @@ export default async function handler(req, res) {
     ["email", email || ""],
     ["type", type],
     ["focus", focus],
+    ["payment_mode", payMode],
+    ["payment_status", amountDue > 0 ? "deposit_paid" : "paid"],
+    ["amount_paid", String(chargeAmount)],
+    ["amount_due", String(amountDue)],
+    ["amount_total", String(fullAmount)],
   ];
   if (sessions[0]) {
     meta.push(["date", sessions[0].date], ["time", sessions[0].time]);
