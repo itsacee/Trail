@@ -11,6 +11,10 @@
 
 import { LOCATIONS, locationKeyFor } from "../lib/schedule.js";
 import { signMemberToken } from "../lib/memberAuth.js";
+import { upsertGoogleEvent } from "../lib/googleCalendar.js";
+import { loadSettings } from "../lib/settings.js";
+import { loadFinance, saveFinance, addFinanceEntry } from "../lib/finance.js";
+import { loadMembersState, saveMembersState, upsertMember } from "../lib/membersStore.js";
 
 const COACH = "Elijah Alexander";
 const PHONE = "(405) 819-4401";
@@ -413,6 +417,66 @@ export default async function handler(req, res) {
           return;
         }
       }
+      // Flag early so refresh can't double finance / calendar events
+      await stripe(target.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ "metadata[confirmation_sent]": "1" }),
+      });
+    }
+
+    // Side effects once (finance + Google + deposit balance)
+    try {
+      const settings = await loadSettings();
+      const amountPaid = Number(meta.amount_paid || session.amount_total || 0) || 0;
+      const amountDue = Number(meta.amount_due || 0) || 0;
+      const fin = await loadFinance();
+      addFinanceEntry(fin, {
+        amountCents: amountPaid,
+        method: "card",
+        type: meta.type || "single",
+        player: meta.player || "",
+        email: to,
+        bookingId: String(session.payment_intent || id),
+        note: meta.payment_mode === "deposit" ? "Membership deposit (card)" : "Stripe checkout",
+        date: sessions[0]?.date,
+      });
+      await saveFinance(fin);
+
+      if (isMember && amountDue > 0 && to) {
+        const members = await loadMembersState();
+        upsertMember(members, to, {
+          player: meta.player || "",
+          parent: meta.parent || "",
+          phone: meta.phone || "",
+          amountDueCents: amountDue,
+          amountPaidCents: amountPaid,
+          paymentMethod: "deposit",
+        });
+        await saveMembersState(members);
+      }
+
+      for (const s of sessions) {
+        await upsertGoogleEvent(
+          {
+            player: meta.player,
+            parent: meta.parent,
+            phone: meta.phone,
+            email: to,
+            type: meta.type,
+            focus: meta.focus,
+            date: s.date,
+            time: s.time,
+            loc: s.loc,
+            paymentMethod: meta.payment_mode || "card",
+            paymentStatus: meta.payment_status || "paid",
+            amountDueCents: amountDue,
+          },
+          settings.googleCalendarId
+        );
+      }
+    } catch {
+      /* booking still stands without calendar/finance */
     }
 
     const canEmail = Boolean(resendKey && to && (sessions.length || isMember));
@@ -421,16 +485,19 @@ export default async function handler(req, res) {
       return;
     }
 
-    // 3. Send it — membership always gets the member template (includes first
-    // lesson details when they picked one at checkout). Coach is BCC'd so
-    // they see the days chosen.
+    // Send confirmation — membership template includes first lesson when present.
+    // Coach is BCC'd so they see the days chosen.
+    const dueNote =
+      Number(meta.amount_due || 0) > 0
+        ? ` Balance due in cash: $${(Number(meta.amount_due) / 100).toFixed(2)}.`
+        : "";
     const mailBody = isMember
       ? {
           subject: sessions[0]
             ? `Membership confirmed — first lesson ${prettyDate(sessions[0].date)} at ${sessions[0].time}`
             : "You're in — pick this week's lesson | AP Academy",
-          html: memberEmailHtml(meta, origin, sessions, periodEndLabel),
-          text: memberEmailText(meta, origin, sessions, periodEndLabel),
+          html: memberEmailHtml(meta, origin, sessions, periodEndLabel) + (dueNote ? `<!-- ${dueNote} -->` : ""),
+          text: memberEmailText(meta, origin, sessions, periodEndLabel) + (dueNote ? `\n${dueNote}\n` : ""),
         }
       : {
           subject: `Thank you for booking with AP Academy — ${prettyDate(sessions[0].date)} at ${sessions[0].time}`,
@@ -454,15 +521,6 @@ export default async function handler(req, res) {
       const err = await mail.json().catch(() => ({}));
       res.status(200).json({ sent: false, error: err.message || "Email failed to send.", ...summary });
       return;
-    }
-
-    // 4. Flag it so refreshes don't re-send
-    if (target) {
-      await stripe(target.path, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ "metadata[confirmation_sent]": "1" }),
-      });
     }
 
     res.status(200).json({ sent: true, ...summary });

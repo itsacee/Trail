@@ -8,6 +8,7 @@
 
 import { durationFor } from "../lib/schedule.js";
 import { loadLessons, lessonsOnDate } from "../lib/lessons.js";
+import { loadManualBookings, bookingsOnDate } from "../lib/manualBookings.js";
 
 // Returns [{ time: "5:00 PM", mins: 60 }] — each taken slot with how long it
 // runs, so callers can block overlapping start times (a 1-hour lesson blocks
@@ -49,6 +50,13 @@ export async function bookedTimes(key, date) {
   try {
     const stored = await loadLessons();
     lessonsOnDate(stored, date).forEach((l) => add(l.time, durationFor(l.type || "membership")));
+  } catch {
+    /* blob optional */
+  }
+
+  try {
+    const manual = await loadManualBookings();
+    bookingsOnDate(manual, date).forEach((b) => add(b.time, durationFor(b.type || "single")));
   } catch {
     /* blob optional */
   }

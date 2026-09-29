@@ -70,10 +70,29 @@
             <li>Today you pick <strong>only your first lesson</strong>. You don't have to lock in all 4 days at once.</li>
             <li>After you pay, go to <strong>Members</strong> on the site, sign in with this email, and book the other lessons when you're ready — one per week.</li>
             <li>When you sign in you'll see <strong>how many lessons you have left</strong> and the <strong>date your credits end</strong>.</li>
+            <li>Pay <strong>in full by card</strong>, put down a <strong>card deposit</strong> and finish in cash, or reserve and <strong>pay all cash</strong> at the field.</li>
             <li>It <strong>does not auto-renew</strong>. After 4 weeks (or 4 lessons, whichever comes first), it ends. Want another month? Buy membership again.</li>
             <li>Lessons you don't use <strong>don't roll over</strong>.</li>
             <li>Hours: weeknights 5–9 PM, weekends 9 AM–7 PM. Cancel or move a portal-booked lesson with 12 hours notice. The field address is sent after you lock in a day.</li>
           </ul>
+        </div>
+
+        <div class="booking__step" id="payStep">
+          <h3 class="booking__step-title"><span class="booking__step-num">Pay</span> How do you want to pay?</h3>
+          <div class="booking__types booking__pay" role="radiogroup" aria-label="Payment method">
+            <button type="button" class="booking__type is-active" data-pay="card" role="radio" aria-checked="true">
+              <strong>Card</strong>
+              <span id="payCardHint">Pay in full online</span>
+            </button>
+            <button type="button" class="booking__type" data-pay="deposit" role="radio" aria-checked="false" id="payDepositBtn" hidden>
+              <strong>Deposit + cash</strong>
+              <span id="payDepositHint">Card deposit now, rest cash</span>
+            </button>
+            <button type="button" class="booking__type" data-pay="cash" role="radio" aria-checked="false" id="payCashBtn">
+              <strong>Cash</strong>
+              <span>Reserve now · pay at the field</span>
+            </button>
+          </div>
         </div>
 
         <div class="booking__step" id="focusField">

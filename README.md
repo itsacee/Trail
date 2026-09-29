@@ -26,28 +26,54 @@ Want different colors? Change `--accent` at the top of `css/styles.css`.
 
 Parents pick a lesson type on the homepage, then land on `book.html`.
 
-- **Single / 30-min:** pick a day and time, pay through Stripe Checkout.
-- **Membership ($240 / 4 weeks):** one-time payment (does not auto-renew).
-  At checkout they pick their **first** lesson day/time. Then they sign in
-  at `account.html` with the email they paid with (a sign-in *link*, not a
-  password) to book the remaining lessons — **one per week**, up to 4 in
-  those 4 weeks. The Members dashboard shows lessons left and the credit
-  end date. Unused lessons do not roll over. Buy again to continue.
+- **Single / 30-min:** pick a day and time. Pay by **card** (Stripe) or **cash**
+  (reserve online, pay at the field).
+- **Membership ($240 / 4 weeks):** one-time (does not auto-renew). Pick the
+  **first** lesson at checkout. Pay options:
+  - Card in full
+  - **Card deposit** (default $100) + cash balance later — still book lessons
+  - Full cash reserve
+  Then sign in at `account.html` to book the remaining lessons (one per week).
+  Dashboard shows lessons left and credit end date.
 
-Member lesson times are stored in Vercel Blob (`lessons.json`) and show up
-on the coach schedule and calendar feed. Single-lesson payments still live
-on Stripe metadata.
+### Coach Desk (`coach.html`)
 
-The payment is created by `api/checkout.js`, a serverless function that runs
-automatically when this repo is deployed on Vercel. **One-time setup:**
+Private passcode page with:
+
+- Schedule (all upcoming lessons, collect cash balances, cancel manual bookings)
+- Add booking (walk-ins / cash / comps)
+- Members (freeze one or **freeze all**, extend +7 days, collect balances)
+- Finances (today / week / month, card vs cash split, outstanding, ledger)
+- Hours & days off
+- Settings (prices, deposit amount, cash/deposit toggles, Google Calendar ID)
+
+### Google Calendar (in addition to Apple)
+
+Keep your Apple Calendar iCal subscribe link. To also **push** every booking
+into Google Calendar (`nubulah.fr4@gmail.com`):
+
+1. Google Cloud → enable **Google Calendar API**
+2. Create a **service account** → download JSON key
+3. Share that Gmail calendar with the service account email
+   (**Make changes to events**)
+4. Vercel env:
+   - `GOOGLE_SERVICE_ACCOUNT_JSON` = the JSON key (single line, or base64)
+   - `GOOGLE_CALENDAR_ID=nubulah.fr4@gmail.com` (optional; also editable in Coach Settings)
+
+Member lesson times are stored in Vercel Blob (`lessons.json`). Cash/manual
+bookings live in `manual-bookings.json`. Freeze/notes in `members.json`.
+Finance ledger in `finance.json`. Prices in `settings.json`.
+
+The payment is created by `api/checkout.js` (card) or `api/cash-book.js` (cash).
+**One-time setup:**
 
 1. In Vercel: your project → Settings → Environment Variables
 2. Add `STRIPE_SECRET_KEY` = your Stripe secret key
-   (Stripe Dashboard → Developers → API keys → "Secret key", starts with `sk_live_`)
 3. Redeploy
 
 Until that key is set (and on non-Vercel previews), the booking form shows a
-friendly "call or text to book" message instead of failing silently.
+friendly "call or text to book" message for card pays; cash still works if Blob
+is configured.
 
 ## Hours and locations
 
@@ -107,9 +133,8 @@ fills in the passcode automatically.
 
 ## Coach schedule page
 
-`/coach.html` is a private page showing all upcoming lessons (player, parent,
-phone, time) plus a lessons-this-week counter. It reads bookings straight
-from Stripe via `api/schedule.js`. Setup:
+`/coach.html` is the **Coach Desk** — schedule, add bookings, members/freeze,
+finances, hours, and settings. Setup:
 
 1. In Vercel: Settings → Environment Variables → add `COACH_PASS` with a
    passcode you make up, then redeploy

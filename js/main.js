@@ -205,6 +205,33 @@ const SESSIONS = {
   membership: { name: "Membership", price: "$240 · 4 weeks", label: "Start Membership — $240", picks: 1, focus: "full" },
 };
 
+let PRICING = {
+  prices: { single: 7000, thirty: 5000, membership: 24000 },
+  membershipDeposit: 10000,
+  allowCash: true,
+  allowDeposit: true,
+};
+
+let selectedPayMode = "card"; // card | cash | deposit
+
+async function loadPricing() {
+  try {
+    const res = await fetch("/api/pricing");
+    if (res.ok) {
+      const d = await res.json();
+      PRICING = { ...PRICING, ...d, prices: { ...PRICING.prices, ...(d.prices || {}) } };
+    }
+  } catch {
+    /* defaults */
+  }
+  syncPayOptions();
+  refreshSubmit();
+}
+
+function dollars(cents) {
+  return `$${(Number(cents) || 0) / 100}`;
+}
+
 const form = document.getElementById("bookingForm");
 const dateSelect = document.getElementById("bkDate");
 const timeSelect = document.getElementById("bkTime");
@@ -230,6 +257,37 @@ function syncTypeTabs() {
   });
 }
 
+function syncPayOptions() {
+  const depositBtn = document.getElementById("payDepositBtn");
+  const cashBtn = document.getElementById("payCashBtn");
+  const cardHint = document.getElementById("payCardHint");
+  const depositHint = document.getElementById("payDepositHint");
+  const isMem = selectedType === "membership";
+  const price = PRICING.prices[selectedType] || 0;
+  const deposit = PRICING.membershipDeposit || 10000;
+  const due = Math.max(0, price - deposit);
+
+  if (cardHint) {
+    cardHint.textContent = isMem ? `Pay ${dollars(price)} in full online` : `Pay ${dollars(price)} online`;
+  }
+  if (depositBtn) {
+    depositBtn.hidden = !(isMem && PRICING.allowDeposit);
+    if (depositHint) {
+      depositHint.textContent = `${dollars(deposit)} card now · ${dollars(due)} cash later`;
+    }
+  }
+  if (cashBtn) cashBtn.hidden = !PRICING.allowCash;
+
+  if (selectedPayMode === "deposit" && (depositBtn?.hidden || !isMem)) selectedPayMode = "card";
+  if (selectedPayMode === "cash" && cashBtn?.hidden) selectedPayMode = "card";
+
+  document.querySelectorAll("[data-pay]").forEach((el) => {
+    const on = el.dataset.pay === selectedPayMode;
+    el.classList.toggle("is-active", on);
+    el.setAttribute("aria-checked", on ? "true" : "false");
+  });
+}
+
 function updateMemberCheckout() {
   const isMem = selectedType === "membership";
   const memberNote = document.getElementById("memberNote");
@@ -252,6 +310,7 @@ function updateMemberCheckout() {
       ? "Choose your first day today. After you pay, sign in with your email on Members to book the other 3 — one at a time."
       : "Choose your lesson type, then lock in a time. We'll email the training address after you pay.";
   }
+  syncPayOptions();
 }
 
 function setType(type, { syncUrl = true } = {}) {
@@ -449,7 +508,21 @@ function chooseTime(time) {
 }
 
 function refreshSubmit() {
-  submitBtn.textContent = SESSIONS[selectedType].label;
+  const price = PRICING.prices[selectedType] || 0;
+  const deposit = PRICING.membershipDeposit || 10000;
+  if (selectedPayMode === "cash") {
+    submitBtn.textContent =
+      selectedType === "membership"
+        ? `Reserve Membership — Pay ${dollars(price)} Cash`
+        : `Reserve — Pay ${dollars(price)} Cash at Field`;
+  } else if (selectedPayMode === "deposit" && selectedType === "membership") {
+    submitBtn.textContent = `Pay ${dollars(deposit)} Deposit — Start Membership`;
+  } else {
+    submitBtn.textContent =
+      selectedType === "membership"
+        ? `Start Membership — ${dollars(price)}`
+        : `Pay ${dollars(price)} — Book Lesson`;
+  }
   submitBtn.disabled = false;
 }
 
@@ -461,6 +534,7 @@ if (form) {
   updateFocusField();
   updateMemberCheckout();
   syncTypeTabs();
+  loadPricing();
   loadAvailability().then(renderDays);
   dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
   timeSelect.addEventListener("change", () => chooseTime(timeSelect.value));
@@ -468,6 +542,15 @@ if (form) {
     el.addEventListener("click", (e) => {
       e.preventDefault();
       setType(el.dataset.book);
+    })
+  );
+  document.querySelectorAll("[data-pay]").forEach((el) =>
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (el.hidden) return;
+      selectedPayMode = el.dataset.pay;
+      syncPayOptions();
+      refreshSubmit();
     })
   );
   refreshSubmit();
@@ -489,20 +572,67 @@ if (form) {
       return;
     }
     submitBtn.disabled = true;
-    submitBtn.textContent = "Setting up secure checkout…";
+    submitBtn.textContent = selectedPayMode === "cash" ? "Reserving your spot…" : "Setting up secure checkout…";
+
+    const payload = {
+      type: selectedType,
+      sessions: picked,
+      focus: focusField && !focusField.hidden && focusSelect ? focusSelect.value : "",
+      player: form.elements.player.value.trim(),
+      parent: form.elements.parent.value.trim(),
+      phone: form.elements.phone.value.trim(),
+      email: form.elements.email.value.trim(),
+      payMode: selectedPayMode,
+      date: picked[0]?.date,
+      time: picked[0]?.time,
+    };
+
     try {
+      if (selectedPayMode === "cash") {
+        const res = await fetch("/api/cash-book", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          statusEl.textContent = data.error || "Couldn't reserve that spot. Call or text (405) 819-4401.";
+          if (res.status === 409) {
+            picked.forEach((p) => delete bookedCache[p.date]);
+            picked = [];
+            renderPicked();
+            loadTimes(dateSelect.value);
+          }
+          submitBtn.disabled = false;
+          refreshSubmit();
+          return;
+        }
+        statusEl.classList.add("booking__status--ok");
+        const when = (data.sessions || [])
+          .map((s) => `${prettyDate(s.date)} · ${s.time}`)
+          .join("<br />");
+        const due = data.amountDue ? `$${(data.amountDue / 100).toFixed(2)}` : "";
+        statusEl.innerHTML =
+          `<strong>✅ Spot reserved — pay cash at the field</strong>` +
+          (when ? `<br />${when}` : "") +
+          (due ? `<br />Bring ${due} cash.` : "") +
+          (data.places?.[0]?.address
+            ? `<br />Training location: <a href="${data.places[0].mapUrl}" target="_blank" rel="noopener">${data.places[0].address}</a>`
+            : "") +
+          (data.member
+            ? `<br />Next: <a href="account.html">sign in on Members</a> with ${data.email || "your email"} to book the rest.`
+            : "") +
+          (data.sent ? `<br />Details are on the way to ${data.email || "your inbox"}.` : "");
+        history.replaceState({}, "", window.location.pathname);
+        submitBtn.disabled = false;
+        refreshSubmit();
+        return;
+      }
+
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: selectedType,
-          sessions: picked,
-          focus: focusField && !focusField.hidden && focusSelect ? focusSelect.value : "",
-          player: form.elements.player.value.trim(),
-          parent: form.elements.parent.value.trim(),
-          phone: form.elements.phone.value.trim(),
-          email: form.elements.email.value.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) {
@@ -511,8 +641,6 @@ if (form) {
       }
       statusEl.textContent = data.error || "Online booking isn't live yet — call or text (405) 819-4401 to book.";
       if (res.status === 409) {
-        // A slot was taken while they were filling the form — clear the
-        // cached availability so the dropdown shows the truth.
         picked.forEach((p) => delete bookedCache[p.date]);
         picked = [];
         renderPicked();

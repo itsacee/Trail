@@ -121,11 +121,17 @@ function renderDash(data) {
   document.getElementById("acctCredits").textContent =
     `${left} of ${total} lessons left (${used} used)` +
     (endLabel ? ` · credits end ${endLabel}` : "");
-  document.getElementById("acctTitle").textContent = left ? "Book Your Next Lesson" : "This membership is done";
-  document.getElementById("acctLead").textContent =
-    left
-      ? "One lesson a week. Book a day in the next 10 days — when you know you can make it."
-      : "You've used this membership's 4 lessons. Buy another 4 weeks on the Book page when you're ready.";
+  if (data.frozen) {
+    document.getElementById("acctTitle").textContent = "Membership paused";
+    document.getElementById("acctLead").textContent =
+      data.freezeReason || "Your membership is paused right now. Call or text (405) 819-4401.";
+  } else {
+    document.getElementById("acctTitle").textContent = left ? "Book Your Next Lesson" : "This membership is done";
+    document.getElementById("acctLead").textContent =
+      left
+        ? "One lesson a week. Book a day in the next 10 days — when you know you can make it."
+        : "You've used this membership's 4 lessons. Buy another 4 weeks on the Book page when you're ready.";
+  }
 
   const expires = document.getElementById("acctExpires");
   if (expires) {
@@ -168,10 +174,13 @@ function renderDash(data) {
     });
   }
 
-  const canBook = left > 0 && !data.bookedThisWeek;
+  const canBook = left > 0 && !data.bookedThisWeek && !data.frozen;
   weekForm.hidden = !canBook;
   const msg = document.getElementById("acctMsg");
-  if (data.bookedThisWeek && left > 0) {
+  if (data.frozen) {
+    msg.hidden = false;
+    msg.textContent = data.freezeReason || "Membership is paused. Call or text (405) 819-4401.";
+  } else if (data.bookedThisWeek && left > 0) {
     msg.hidden = false;
     msg.textContent = `You're set this week (${prettyDate(data.bookedThisWeek.date)} at ${data.bookedThisWeek.time}). Come back to book next week.`;
   } else if (!left) {

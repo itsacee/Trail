@@ -15,6 +15,14 @@ import {
   canCancelLesson,
 } from "../lib/members.js";
 import { tokenFromRequest } from "../lib/memberAuth.js";
+import {
+  loadMembersState,
+  isFrozen,
+  periodBonusDays,
+} from "../lib/membersStore.js";
+import { loadManualBookings, activeBookings } from "../lib/manualBookings.js";
+import { upsertGoogleEvent, deleteGoogleEvent } from "../lib/googleCalendar.js";
+import { loadSettings } from "../lib/settings.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -71,8 +79,8 @@ async function emailWeeklyBook(to, lesson, player, summary) {
   }
 }
 
-function scheduledFor(sub, stored) {
-  const email = String(sub.metadata?.email || "").toLowerCase();
+async function scheduledFor(sub, stored) {
+  const email = String(sub.metadata?.email || sub.email || "").toLowerCase();
   const fromBlob = lessonsForEmail(stored, email);
   const fromStripe = lessonFromStripeMeta(sub.id, sub.metadata || {}, "membership");
   const seen = new Set(fromBlob.map((l) => `${l.date}|${l.time}`));
@@ -84,24 +92,50 @@ function scheduledFor(sub, stored) {
       merged.push(l);
     }
   });
+  try {
+    const manual = await loadManualBookings();
+    activeBookings(manual)
+      .filter((b) => String(b.email || "").toLowerCase() === email)
+      .forEach((b) => {
+        const k = `${b.date}|${b.time}`;
+        if (seen.has(k)) return;
+        seen.add(k);
+        merged.push({
+          id: b.id,
+          source: "manual",
+          type: "membership",
+          date: b.date,
+          time: b.time,
+          focus: b.focus || "",
+          email,
+        });
+      });
+  } catch {
+    /* optional */
+  }
   return merged;
 }
 
 async function loadAccount(key, email) {
-  const sub = await findMembership(key, email);
+  const sub = await findMembership(key || "", email);
   if (!sub) return null;
+  const membersState = await loadMembersState();
+  const freeze = isFrozen(membersState, email);
+  const bonus = periodBonusDays(membersState, email);
   const stored = await loadLessons();
-  const scheduled = scheduledFor(sub, stored);
-  return { sub, stored, scheduled, summary: membershipSummary(sub, scheduled) };
+  const scheduled = await scheduledFor(sub, stored);
+  return {
+    sub,
+    stored,
+    scheduled,
+    membersState,
+    summary: membershipSummary(sub, scheduled, { freeze, periodBonusDays: bonus }),
+  };
 }
 
 export default async function handler(req, res) {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = process.env.STRIPE_SECRET_KEY || "";
   const email = tokenFromRequest(req);
-  if (!key) {
-    res.status(500).json({ error: "Online membership isn't connected yet." });
-    return;
-  }
   if (!email) {
     res.status(401).json({ error: "Please sign in with the email on your membership." });
     return;
@@ -138,6 +172,12 @@ export default async function handler(req, res) {
       });
       return;
     }
+    if (lesson.source === "manual") {
+      res.status(400).json({
+        error: "That lesson was booked as cash/manual. Call or text (405) 819-4401 to change it.",
+      });
+      return;
+    }
     if (!canCancelLesson(lesson.date, lesson.time)) {
       res.status(400).json({ error: "Cancellations need 12 hours notice. Call or text (405) 819-4401." });
       return;
@@ -151,8 +191,15 @@ export default async function handler(req, res) {
       res.status(500).json({ error: "Couldn't update that lesson. Call or text (405) 819-4401." });
       return;
     }
-    acct.scheduled = scheduledFor(acct.sub, acct.stored);
-    acct.summary = membershipSummary(acct.sub, acct.scheduled);
+    if (lesson.googleEventId) {
+      const settings = await loadSettings();
+      await deleteGoogleEvent(lesson.googleEventId, settings.googleCalendarId);
+    }
+    acct.scheduled = await scheduledFor(acct.sub, acct.stored);
+    acct.summary = membershipSummary(acct.sub, acct.scheduled, {
+      freeze: isFrozen(acct.membersState, email),
+      periodBonusDays: periodBonusDays(acct.membersState, email),
+    });
     res.status(200).json({ ok: true, ...publicAccount(acct) });
     return;
   }
@@ -177,20 +224,24 @@ export default async function handler(req, res) {
     return;
   }
 
-  try {
-    const taken = await bookedTimes(key, date);
-    const start = labelToMin(time);
-    const dur = durationFor("membership");
-    const conflict = start !== null && taken.some((b) => {
-      const bStart = labelToMin(b.time);
-      return bStart !== null && start < bStart + b.mins && bStart < start + dur;
-    });
-    if (conflict) {
-      res.status(409).json({ error: "Sorry — that time was just booked. Pick another." });
-      return;
+  if (key) {
+    try {
+      const taken = await bookedTimes(key, date);
+      const start = labelToMin(time);
+      const dur = durationFor("membership");
+      const conflict =
+        start !== null &&
+        taken.some((b) => {
+          const bStart = labelToMin(b.time);
+          return bStart !== null && start < bStart + b.mins && bStart < start + dur;
+        });
+      if (conflict) {
+        res.status(409).json({ error: "Sorry — that time was just booked. Pick another." });
+        return;
+      }
+    } catch {
+      /* continue */
     }
-  } catch {
-    /* continue */
   }
 
   const lesson = makeMemberLesson({
@@ -201,6 +252,14 @@ export default async function handler(req, res) {
     availability,
   });
   lesson.email = email;
+
+  const settings = await loadSettings();
+  const g = await upsertGoogleEvent(
+    { ...lesson, paymentMethod: "membership", paymentStatus: "paid" },
+    settings.googleCalendarId
+  );
+  if (g.eventId) lesson.googleEventId = g.eventId;
+
   acct.stored.lessons.push(lesson);
   const saved = await saveLessons(acct.stored);
   if (!saved) {
@@ -208,8 +267,11 @@ export default async function handler(req, res) {
     return;
   }
 
-  acct.scheduled = scheduledFor(acct.sub, acct.stored);
-  acct.summary = membershipSummary(acct.sub, acct.scheduled);
+  acct.scheduled = await scheduledFor(acct.sub, acct.stored);
+  acct.summary = membershipSummary(acct.sub, acct.scheduled, {
+    freeze: isFrozen(acct.membersState, email),
+    periodBonusDays: periodBonusDays(acct.membersState, email),
+  });
   emailWeeklyBook(email, lesson, lesson.player, acct.summary);
   res.status(200).json({ ok: true, lesson, ...publicAccount(acct) });
 }

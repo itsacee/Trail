@@ -531,6 +531,7 @@ a.price-card .btn { text-align: center; }
   gap: 0.65rem;
   margin-bottom: 2.2rem;
 }
+.booking__pay { margin-bottom: 1.8rem; }
 .booking__type {
   background: var(--bg-alt);
   border: 1px solid var(--line);
