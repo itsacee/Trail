@@ -179,6 +179,7 @@ async function loadAvailability() {
       const d = await res.json();
       if (d && d.availability && d.availability.days) AVAIL = d.availability;
       if (d?.siteStatus) SITE_STATUS = d.siteStatus;
+      if (Array.isArray(d?.bookingWindow?.dates)) bookableDates = d.bookingWindow.dates;
     }
   } catch {
     /* keep defaults — static preview or offline */
@@ -231,7 +232,7 @@ function applySiteStatus() {
   updateFocusField();
 }
 
-const DAYS_AHEAD = 7; // only about a week ahead — keep in sync with BOOK_AHEAD_DAYS in lib/members.js
+let bookableDates = []; // from /api/availability → bookingWindow.dates (calendar week)
 
 const SESSIONS = {
   single: { name: "Single Lesson", price: "$80 · 1 hour", label: "Pay $80 — Book Lesson", picks: 1, focus: "full" },
@@ -295,7 +296,7 @@ function updateMemberCheckout() {
   }
   if (bookLead) {
     bookLead.textContent = isMem
-      ? "Pay today and lock in lesson 1 of 4. Book the other 3 one at a time, about a week ahead. It does not auto-renew."
+      ? "Pay today and lock in lesson 1 of 4. Book the other 3 one at a time — on Sundays the whole next week opens; other days through this Sunday. It does not auto-renew."
       : "Choose your lesson type, then lock in a time. We'll email the training address after you pay.";
   }
 }
@@ -371,13 +372,21 @@ function prettyDate(iso) {
 
 function renderDays() {
   dateSelect.length = 1; // keep the "Choose a day" placeholder, rebuild the rest
-  const now = new Date();
-  for (let i = 1; i <= DAYS_AHEAD; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-    const iso = isoDate(d);
-    if (!planFor(iso)) continue; // closed day or a blocked date — skip it
+  const dates = bookableDates.length
+    ? bookableDates
+    : (() => {
+        const out = [];
+        const now = new Date();
+        for (let i = 1; i <= 7; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+          out.push(isoDate(d));
+        }
+        return out;
+      })();
+  dates.forEach((iso) => {
+    if (!planFor(iso)) return; // closed day or a blocked date — skip it
     dateSelect.append(new Option(prettyDate(iso), iso));
-  }
+  });
 }
 
 function renderWhere() {

@@ -17,9 +17,9 @@ import {
   membershipSummary,
   bookingBlocked,
   bookWindowBlocked,
+  bookingWindow,
   MEMBER_CREDITS,
   MEMBER_PERIOD_DAYS,
-  BOOK_AHEAD_DAYS,
 } from "../lib/members.js";
 
 const NOW = "2026-08-26T17:00:00-05:00"; // Chicago afternoon, CDT
@@ -126,22 +126,41 @@ test("bookingBlocked enforces the window, credit cap, and one-per-day", () => {
       []
     );
     assert.match(bookingBlocked(endingSoon, "2026-08-29", []), /have to be used by/);
-    // A valid, open day this week passes.
+    // A valid day still inside this calendar week passes.
     assert.equal(bookingBlocked(summary, "2026-08-28", []), null);
-    // A week out is the last open day.
-    assert.equal(bookingBlocked(summary, "2026-09-02", []), null);
-    // Further than a week is closed.
-    assert.match(bookingBlocked(summary, "2026-09-03", []), /week ahead/);
+    // Next week is still closed on Wednesday.
+    assert.match(bookingBlocked(summary, "2026-09-02", []), /isn't open yet/);
+    assert.match(bookingBlocked(summary, "2026-09-03", []), /isn't open yet/);
   });
 });
 
-test("bookWindowBlocked only opens tomorrow through a week out", () => {
+test("bookingWindow opens through this Sunday on weekdays", () => {
+  atTime(NOW, () => {
+    const w = bookingWindow("2026-08-26");
+    assert.equal(w.startKey, "2026-08-27");
+    assert.equal(w.endKey, "2026-08-30");
+    assert.deepEqual(w.dates, ["2026-08-27", "2026-08-28", "2026-08-29", "2026-08-30"]);
+  });
+});
+
+test("bookingWindow on Sunday opens all of next week", () => {
+  atTime("2026-08-30T12:00:00-05:00", () => {
+    const w = bookingWindow("2026-08-30");
+    assert.equal(w.startKey, "2026-08-31");
+    assert.equal(w.endKey, "2026-09-06");
+    assert.equal(w.dates.length, 7);
+    assert.equal(w.dates[0], "2026-08-31");
+    assert.equal(w.dates[6], "2026-09-06");
+  });
+});
+
+test("bookWindowBlocked follows the calendar week", () => {
   atTime(NOW, () => {
     assert.match(bookWindowBlocked("2026-08-26"), /tomorrow onward/);
     assert.equal(bookWindowBlocked("2026-08-27"), null);
-    assert.equal(bookWindowBlocked("2026-09-02"), null);
-    assert.equal(BOOK_AHEAD_DAYS, 7);
-    assert.match(bookWindowBlocked("2026-09-03"), /week ahead/);
+    assert.equal(bookWindowBlocked("2026-08-30"), null);
+    assert.match(bookWindowBlocked("2026-08-31"), /isn't open yet/);
+    assert.match(bookWindowBlocked("2026-09-02"), /isn't open yet/);
   });
 });
 
@@ -179,18 +198,18 @@ test("reschedule: excluding the moved lesson frees its day", () => {
 });
 
 test("reschedule: a fully-used membership can still move an existing lesson", () => {
-  atTime(NOW, () => {
+  atTime("2026-08-30T12:00:00-05:00", () => {
     const all = [
-      lesson("a", "2026-08-27", "5:00 PM"),
-      lesson("b", "2026-08-28", "5:00 PM"),
-      lesson("c", "2026-08-29", "5:00 PM"),
-      lesson("d", "2026-08-30", "5:00 PM"),
+      lesson("a", "2026-08-31", "5:00 PM"),
+      lesson("b", "2026-09-01", "5:00 PM"),
+      lesson("c", "2026-09-02", "5:00 PM"),
+      lesson("d", "2026-09-03", "5:00 PM"),
     ];
     // All 4 credits used → a brand-new booking is refused.
-    assert.match(bookingBlocked(membershipSummary(SUB, all), "2026-08-31", all), /used all 4/);
-    // Moving lesson "a" excludes it, so remaining is 1 and the move is allowed.
+    assert.match(bookingBlocked(membershipSummary(SUB, all), "2026-09-04", all), /used all 4/);
+    // Moving lesson "a" excludes it, so remaining is 1 and the move is allowed within the open week.
     const others = all.filter((l) => l.id !== "a");
-    assert.equal(bookingBlocked(membershipSummary(SUB, others), "2026-08-31", others), null);
+    assert.equal(bookingBlocked(membershipSummary(SUB, others), "2026-09-04", others), null);
   });
 });
 

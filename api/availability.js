@@ -7,12 +7,20 @@
 import { getAvailability, normalizeAvailability } from "../lib/schedule.js";
 import { kvSet, storeConfigured } from "../lib/store.js";
 import { getSiteStatus } from "../lib/siteStatus.js";
+import { bookingWindow, todayChicago } from "../lib/members.js";
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
     const availability = await getAvailability();
+    const today = todayChicago();
+    const window = bookingWindow(today);
     res.setHeader("Cache-Control", "no-store");
-    res.status(200).json({ availability, editable: storeConfigured(), siteStatus: getSiteStatus() });
+    res.status(200).json({
+      availability,
+      editable: storeConfigured(),
+      siteStatus: getSiteStatus(),
+      bookingWindow: { today, start: window.startKey, end: window.endKey, dates: window.dates },
+    });
     return;
   }
 

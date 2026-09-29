@@ -1,8 +1,7 @@
 const TOKEN_KEY = "ap_member_token";
 // Safety net only — the real cutoff is the membership's own expiry date,
 // which the server sends back as `lastDay`.
-// Only about a week ahead — keep in sync with BOOK_AHEAD_DAYS in lib/members.js
-const MAX_AHEAD = 7;
+let bookableDates = []; // from /api/availability → bookingWindow.dates (calendar week)
 
 const loginCard = document.getElementById("loginCard");
 const dashCard = document.getElementById("dashCard");
@@ -264,14 +263,22 @@ function renderDash(data) {
   showDash();
 }
 
-// Open days from tomorrow through about a week ahead (and not past expiry).
+// Open days in the current booking window (and not past expiry).
 function renderDays() {
   dateSelect.length = 1;
   const lastDay = (account && account.lastDay) || "";
-  const now = new Date();
-  for (let i = 1; i <= MAX_AHEAD; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-    const iso = isoDate(d);
+  const dates = bookableDates.length
+    ? bookableDates
+    : (() => {
+        const out = [];
+        const now = new Date();
+        for (let i = 1; i <= 7; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+          out.push(isoDate(d));
+        }
+        return out;
+      })();
+  for (const iso of dates) {
     if (lastDay && iso > lastDay) break;
     if (!startsForDate(iso).length) continue;
     dateSelect.append(new Option(prettyDate(iso), iso));
@@ -497,6 +504,7 @@ document.getElementById("switchUser")?.addEventListener("click", signOut);
     if (res.ok) {
       const d = await res.json();
       if (d?.availability?.days) AVAIL = d.availability;
+      if (Array.isArray(d?.bookingWindow?.dates)) bookableDates = d.bookingWindow.dates;
     }
   } catch {
     /* defaults unused — days stay empty until availability loads */
