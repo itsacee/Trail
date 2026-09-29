@@ -350,11 +350,11 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   function applySiteStatus() {
     if (els.notice) {
+      // The frozen-clock message belongs to existing members, so it lives on
+      // the member page instead of being shown to everyone buying a lesson.
       const parts = [];
       if (SITE_STATUS.fieldingOnly && SITE_STATUS.fieldingOnlyReason) parts.push(SITE_STATUS.fieldingOnlyReason);
-      if (SITE_STATUS.membershipFrozen && SITE_STATUS.membershipFrozenReason) {
-        parts.push(SITE_STATUS.membershipFrozenReason);
-      } else if (SITE_STATUS.blockNewMemberships && SITE_STATUS.blockNewMembershipsReason) {
+      if (SITE_STATUS.blockNewMemberships && SITE_STATUS.blockNewMembershipsReason) {
         parts.push(SITE_STATUS.blockNewMembershipsReason);
       }
       els.notice.hidden = !parts.length;
