@@ -63,643 +63,607 @@ document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
 const yearEl = document.getElementById("year");
 if (yearEl) yearEl.textContent = new Date().getFullYear();
 
-/* ---------- Booking widget ---------- */
+/* ---------- Booking widget ----------
+ *
+ * Drives the form on book.html: month calendar, time chips, the add-another-
+ * athlete toggle, and the pay options. The slot math and the calendar itself
+ * come from js/booking-core.js (window.AP) so the member portal can reuse them.
+ */
+(function () {
+  const AP = window.AP;
 
-// Availability defaults — MIRROR lib/schedule.js. The live values are fetched
-// from /api/availability on load (the coach can edit them from the coach page);
-// these defaults are only the fallback if that request fails.
-const STEP_MINUTES = 60; // hourly starts — keep in sync with lib/schedule.js
-const DURATIONS = { single: 60, thirty: 30, membership: 60 };
-function durationFor(type) { return DURATIONS[type] || 60; }
+  let SITE_STATUS = {
+    blockNewMemberships: false,
+    blockNewMembershipsReason: "",
+    membershipFrozen: false,
+    membershipFrozenReason: "",
+    fieldingOnly: false,
+    fieldingOnlyReason: "",
+    membershipPaused: false,
+    membershipPausedReason: "",
+  };
 
-const DEFAULT_AVAILABILITY = {
-  slotMinutes: 60,
-  days: {
-    0: { open: false, start: "18:00", end: "20:00" },
-    1: { open: true, start: "18:00", end: "20:00" }, // Mon 6–8
-    2: { open: true, start: "18:00", end: "20:00" },
-    3: { open: true, start: "18:00", end: "20:00" },
-    4: { open: false, start: "18:00", end: "20:00" },
-    5: { open: false, start: "18:00", end: "20:00" },
-    6: { open: false, start: "18:00", end: "20:00" },
-  },
-  blocked: [],
-};
-let AVAIL = DEFAULT_AVAILABILITY;
-let SITE_STATUS = {
-  blockNewMemberships: false,
-  blockNewMembershipsReason: "",
-  membershipFrozen: false,
-  membershipFrozenReason: "",
-  fieldingOnly: false,
-  fieldingOnlyReason: "",
-  membershipPaused: false,
-  membershipPausedReason: "",
-};
+  /* ---------- membership availability (also used on the pricing page) ---------- */
 
-const PLACE_BLURB = {
-  "Mustang": "Lessons train at <strong>Mustang High School</strong>'s baseball field in Mustang, OK.",
-};
+  let membershipCapacity = { state: "loading", limit: 15, spotsAvailable: 0, available: false };
+  const form = document.getElementById("bookingForm");
 
-// Mirror lib/schedule.js: two players can share only with the same focus.
-const SLOT_CAPACITY = 2;
-function bookedFocusMatches(row, focus) {
-  const focuses = [...new Set((row.focuses || []).filter(Boolean))];
-  return Boolean(focus && focuses.length === 1 && focuses[0] === focus);
-}
-function slotIsBlocked(booked, label, dur, focus) {
-  const start = labelToMin(label);
-  if (start === null) return true;
-  const end = start + dur;
-  for (const b of booked || []) {
-    const bs = labelToMin(b.time);
-    if (bs === null) continue;
-    const be = bs + (b.mins || 60);
-    if (!(start < be && bs < end)) continue;
-    const n = Number(b.count) > 0 ? Number(b.count) : 1;
-    if (b.time === label && (b.mins || 60) === dur) {
-      if (!bookedFocusMatches(b, focus)) return true;
-      if (n >= SLOT_CAPACITY) return true;
-      continue;
+  function membershipsPaused() {
+    return Boolean(SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused);
+  }
+
+  function membershipCapacityText() {
+    if (membershipsPaused()) {
+      return SITE_STATUS.blockNewMembershipsReason || SITE_STATUS.membershipPausedReason;
     }
-    return true;
-  }
-  return false;
-}
-function spotsLeft(booked, label, dur, focus) {
-  const hit = (booked || []).find((b) => b.time === label);
-  if (!hit) return SLOT_CAPACITY;
-  if ((hit.mins || 60) !== dur || !bookedFocusMatches(hit, focus)) return 0;
-  const n = Number(hit.count) > 0 ? Number(hit.count) : 1;
-  return Math.max(0, SLOT_CAPACITY - n);
-}
-
-function toMinutes(hhmm) {
-  const [h, m] = String(hhmm).split(":").map(Number);
-  return h * 60 + m;
-}
-
-// "5:00 PM" -> minutes since midnight
-function labelToMin(label) {
-  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(String(label).trim());
-  if (!m) return null;
-  let h = parseInt(m[1], 10) % 12;
-  if (/PM/i.test(m[3])) h += 12;
-  return h * 60 + parseInt(m[2], 10);
-}
-
-// Slot start times ("HH:mm") for a date — one every 30 min, but only if a
-// lesson of durationMin fits before the day's close time.
-function startsForDate(iso, durationMin) {
-  const d = new Date(`${iso}T12:00:00`);
-  if (isNaN(d)) return [];
-  if ((AVAIL.blocked || []).includes(iso)) return [];
-  const cfg = (AVAIL.days || {})[d.getDay()];
-  if (!cfg || !cfg.open) return [];
-  const start = toMinutes(cfg.start);
-  const end = toMinutes(cfg.end);
-  const dur = durationMin || STEP_MINUTES;
-  const step = (AVAIL && AVAIL.slotMinutes) || STEP_MINUTES;
-  const out = [];
-  for (let t = start; t + dur <= end; t += step) {
-    out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
-  }
-  return out;
-}
-
-function planFor(iso) {
-  const times = startsForDate(iso);
-  return times.length ? { times, place: "Mustang" } : null;
-}
-
-async function loadAvailability() {
-  try {
-    const res = await fetch("/api/availability");
-    if (res.ok) {
-      const d = await res.json();
-      if (d && d.availability && d.availability.days) AVAIL = d.availability;
-      if (d?.siteStatus) SITE_STATUS = d.siteStatus;
-      if (Array.isArray(d?.bookingWindow?.dates)) bookableDates = d.bookingWindow.dates;
+    if (membershipCapacity.state === "loading") return "Checking membership availability…";
+    if (membershipCapacity.state !== "ready") {
+      return "Membership availability is temporarily unavailable. Please try again soon.";
     }
-  } catch {
-    /* keep defaults — static preview or offline */
-  }
-  applySiteStatus();
-}
-
-function applySiteStatus() {
-  const notice = document.getElementById("siteNotice");
-  if (notice) {
-    const parts = [];
-    if (SITE_STATUS.fieldingOnly && SITE_STATUS.fieldingOnlyReason) parts.push(SITE_STATUS.fieldingOnlyReason);
-    if (SITE_STATUS.membershipFrozen && SITE_STATUS.membershipFrozenReason) parts.push(SITE_STATUS.membershipFrozenReason);
-    else if (SITE_STATUS.blockNewMemberships && SITE_STATUS.blockNewMembershipsReason) {
-      parts.push(SITE_STATUS.blockNewMembershipsReason);
+    if (!membershipCapacity.available) {
+      return `Memberships are full — 0 of ${membershipCapacity.limit} spots available. A spot opens automatically when a current membership ends.`;
     }
-    if (parts.length) {
-      notice.hidden = false;
-      notice.innerHTML = parts.map((p) => `<p>${p}</p>`).join("");
-    } else {
-      notice.hidden = true;
-      notice.innerHTML = "";
+    return `${membershipCapacity.spotsAvailable} of ${membershipCapacity.limit} membership spots available.`;
+  }
+
+  function membershipBlocked() {
+    return (
+      membershipsPaused() || membershipCapacity.state !== "ready" || !membershipCapacity.available
+    );
+  }
+
+  function renderMembershipCapacity() {
+    document.querySelectorAll("[data-membership-availability]").forEach((el) => {
+      el.textContent = membershipCapacityText();
+      el.classList.toggle("is-full", membershipBlocked());
+    });
+    document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
+      el.classList.toggle("is-unavailable", membershipBlocked());
+      el.setAttribute("aria-disabled", membershipBlocked() ? "true" : "false");
+    });
+    if (form && AP) refreshSubmit();
+  }
+
+  async function loadMembershipCapacity() {
+    renderMembershipCapacity();
+    try {
+      const response = await fetch("/api/membership-capacity", { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || typeof data.spotsAvailable !== "number") throw new Error("unavailable");
+      membershipCapacity = { ...data, state: "ready" };
+    } catch {
+      membershipCapacity = { state: "error", limit: 15, spotsAvailable: 0, available: false };
     }
-  }
-
-  document.querySelectorAll('[data-book="membership"]').forEach((el) => {
-    const paused = Boolean(SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused);
-    el.disabled = paused;
-    el.classList.toggle("is-disabled", paused);
-    el.setAttribute("aria-disabled", paused ? "true" : "false");
-    const tag = el.querySelector(".booking__type-tag");
-    if (tag) tag.hidden = !paused;
-  });
-
-  if ((SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) && selectedType === "membership") {
-    setType("single", { syncUrl: true });
-  }
-
-  if (SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) {
-    membershipCapacity = {
-      state: "ready",
-      limit: membershipCapacity.limit || 15,
-      spotsAvailable: 0,
-      available: false,
-      paused: true,
-    };
     renderMembershipCapacity();
   }
 
-  updateFocusField();
-}
+  document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
+    el.addEventListener("click", (event) => {
+      if (membershipBlocked()) event.preventDefault();
+    });
+  });
 
-let bookableDates = []; // from /api/availability → bookingWindow.dates (calendar week)
+  if (form || document.querySelector("[data-membership-availability]")) loadMembershipCapacity();
 
-const SESSIONS = {
-  single: { name: "Single Lesson", price: "$80 · 1 hour", label: "Pay $80 — Book Lesson", picks: 1, focus: "full" },
-  thirty: { name: "30-Minute Lesson", price: "$60 · 30 min", label: "Pay $60 — Book Lesson", picks: 1, focus: "one" },
-  // Members pick lesson 1 of 4 here; the other 3 get booked later from account.html.
-  membership: { name: "Membership", price: "$280 · 4 lessons", label: "Start Membership — $280", picks: 1, focus: "full" },
-};
+  if (!form || !AP) return;
 
-let PRICING = {
-  prices: { single: 8000, thirty: 6000, membership: 28000 },
-  membershipDeposit: 10000,
-  allowCash: true,
-  allowDeposit: true,
-};
-let selectedPayMode = "card"; // card | cash | deposit
+  /* ---------- state ---------- */
 
-function dollars(cents) {
-  return `$${(Number(cents) || 0) / 100}`;
-}
+  const SESSIONS = {
+    single: { name: "Regular Lesson", picks: 1, focus: "full", shared: true },
+    private: { name: "Private 1-on-1", picks: 1, focus: "full", shared: false },
+    membership: { name: "Membership", picks: 1, focus: "full", shared: false },
+    thirty: { name: "30-Minute Lesson", picks: 1, focus: "one", shared: true },
+  };
 
-async function loadPricing() {
-  try {
-    const res = await fetch("/api/pricing", { cache: "no-store" });
-    if (res.ok) {
-      const d = await res.json();
-      PRICING = { ...PRICING, ...d, prices: { ...PRICING.prices, ...(d.prices || {}) } };
+  let AVAIL = AP.DEFAULT_AVAILABILITY;
+  let bookableDates = [];
+  let PRICING = {
+    prices: { single: 8000, thirty: 6000, membership: 28000, private: 10000 },
+    membershipDeposit: 8000,
+    allowCash: true,
+    allowDeposit: true,
+  };
+
+  let selectedType = "single";
+  let athletes = 1; // 1 or 2 — two names fill the hour
+  let selectedDate = "";
+  let selectedTime = "";
+  let payMode = "card";
+  const bookedCache = {}; // iso -> [{ time, mins, seats, exclusive, focuses }]
+
+  const els = {
+    calendar: document.getElementById("bkCalendar"),
+    times: document.getElementById("bkTimes"),
+    timesTitle: document.getElementById("bkTimesTitle"),
+    chips: document.getElementById("bkTimeChips"),
+    timesNote: document.getElementById("bkTimesNote"),
+    where: document.getElementById("bookingWhere"),
+    focusField: document.getElementById("focusField"),
+    focusSelect: document.getElementById("bkFocus"),
+    player: document.getElementById("bkPlayer"),
+    player2: document.getElementById("bkPlayer2"),
+    player2Field: document.getElementById("secondAthleteField"),
+    player2Hint: document.getElementById("secondAthleteHint"),
+    addAthlete: document.getElementById("addAthleteBtn"),
+    email: document.getElementById("bkEmail"),
+    phone: document.getElementById("bkPhone"),
+    submit: document.getElementById("bookingSubmit"),
+    status: document.getElementById("bookingStatus"),
+    total: document.getElementById("bookingTotal"),
+    typeNote: document.getElementById("typeNote"),
+    notice: document.getElementById("siteNotice"),
+    memberNote: document.getElementById("memberNote"),
+  };
+
+  const TYPE_NOTE = {
+    single: "One hour. A second athlete can share the hour with you unless you add one yourself.",
+    private: "One hour, yours alone. Nobody else can book into this time.",
+    membership: "Four one-hour lessons a month. You pick lesson 1 today.",
+    thirty: "A focused 30 minutes on one skill.",
+  };
+
+  // Starting checkout reserves the slot so nobody else can pay for it. That
+  // reservation must never block the person who created it — otherwise backing
+  // out of payment locks them out of the very time they were trying to buy.
+  const HOLD_KEY = "ap_checkout_session";
+  const myHold = () => {
+    try {
+      return sessionStorage.getItem(HOLD_KEY) || "";
+    } catch {
+      return "";
     }
-  } catch {
-    /* defaults */
-  }
-  syncPayOptions();
-  if (form) refreshSubmit();
-}
+  };
+  const rememberHold = (id) => {
+    try {
+      id ? sessionStorage.setItem(HOLD_KEY, id) : sessionStorage.removeItem(HOLD_KEY);
+    } catch {
+      /* private mode */
+    }
+  };
 
-function syncPayOptions() {
-  const depositBtn = document.getElementById("payDepositBtn");
-  const cashBtn = document.getElementById("payCashBtn");
-  const cardHint = document.getElementById("payCardHint");
-  const depositHint = document.getElementById("payDepositHint");
-  const payNote = document.getElementById("bookingPayNote");
-  const isMem = selectedType === "membership";
-  const price = PRICING.prices[selectedType] || 0;
-  const deposit = PRICING.membershipDeposit || 10000;
-  const due = Math.max(0, price - deposit);
-  if (cardHint) cardHint.textContent = `Pay ${dollars(price)} online`;
-  if (depositBtn) {
-    depositBtn.hidden = !(isMem && PRICING.allowDeposit);
-    if (depositHint) depositHint.textContent = `${dollars(deposit)} card · ${dollars(due)} cash later`;
+  /* ---------- derived values ---------- */
+
+  function sharedType() {
+    return Boolean(SESSIONS[selectedType].shared);
   }
-  if (cashBtn) cashBtn.hidden = !PRICING.allowCash;
-  if (selectedPayMode === "deposit" && (depositBtn?.hidden || !isMem)) selectedPayMode = "card";
-  if (selectedPayMode === "cash" && cashBtn?.hidden) selectedPayMode = "card";
-  document.querySelectorAll("[data-pay]").forEach((el) => {
-    const on = el.dataset.pay === selectedPayMode;
-    el.classList.toggle("is-active", on);
-    el.setAttribute("aria-checked", on ? "true" : "false");
+
+  function athleteCount() {
+    return sharedType() ? athletes : 1;
+  }
+
+  function want() {
+    // A private lesson buys the whole hour; two athletes fill both seats.
+    if (selectedType === "private") return { seats: AP.SLOT_CAPACITY, exclusive: true };
+    return { seats: AP.seatsFor(selectedType, athleteCount()), exclusive: false };
+  }
+
+  function unitPrice() {
+    return PRICING.prices[selectedType] || 0;
+  }
+
+  function totalPrice() {
+    return unitPrice() * athleteCount();
+  }
+
+  function depositAmount() {
+    return Math.min(PRICING.membershipDeposit || 8000, totalPrice());
+  }
+
+  function currentFocus() {
+    if (!els.focusField || els.focusField.hidden || !els.focusSelect) return "";
+    return els.focusSelect.value;
+  }
+
+  function openDay(iso) {
+    if (bookableDates.length && !bookableDates.includes(iso)) return false;
+    if (!AP.startsForDate(iso, AVAIL, AP.durationFor(selectedType)).length) return false;
+    // Days we've already checked and found nothing open on grey out too.
+    const booked = bookedCache[iso];
+    if (booked && !openTimesFor(iso, booked).length) return false;
+    return true;
+  }
+
+  function openTimesFor(iso, booked) {
+    const dur = AP.durationFor(selectedType);
+    const focus = currentFocus();
+    const need = want();
+    return AP.startsForDate(iso, AVAIL, dur)
+      .map((t) => AP.fmtTime(t))
+      .filter((label) => !AP.slotIsBlocked(booked || [], label, dur, focus, need));
+  }
+
+  /* ---------- loading ---------- */
+
+  async function loadAvailability() {
+    try {
+      const res = await fetch("/api/availability");
+      if (res.ok) {
+        const d = await res.json();
+        if (d && d.availability && d.availability.days) AVAIL = d.availability;
+        if (d && d.siteStatus) SITE_STATUS = d.siteStatus;
+        if (Array.isArray(d?.bookingWindow?.dates)) bookableDates = d.bookingWindow.dates;
+      }
+    } catch {
+      /* keep defaults — static preview or offline */
+    }
+    applySiteStatus();
+  }
+
+  async function loadPricing() {
+    try {
+      const res = await fetch("/api/pricing", { cache: "no-store" });
+      if (res.ok) {
+        const d = await res.json();
+        PRICING = { ...PRICING, ...d, prices: { ...PRICING.prices, ...(d.prices || {}) } };
+      }
+    } catch {
+      /* defaults */
+    }
+    renderPrices();
+    syncPayOptions();
+    refreshSubmit();
+  }
+
+  async function loadSlots(iso) {
+    if (!iso || bookedCache[iso]) return;
+    try {
+      const mine = myHold();
+      const res = await fetch(`/api/slots?date=${iso}${mine ? `&mine=${encodeURIComponent(mine)}` : ""}`);
+      bookedCache[iso] = res.ok ? (await res.json()).booked || [] : [];
+    } catch {
+      bookedCache[iso] = []; // static preview or offline — show all as open
+    }
+  }
+
+  // Check every day in the booking window up front so full days can grey out on
+  // the calendar instead of only revealing themselves once tapped. The window is
+  // one week and most days are closed, so this is a handful of requests.
+  async function prefetchWindow() {
+    const days = (bookableDates.length ? bookableDates : fallbackDates()).filter((iso) =>
+      AP.startsForDate(iso, AVAIL, 60).length
+    );
+    await Promise.all(days.map((iso) => loadSlots(iso)));
+    calendar.render();
+  }
+
+  function fallbackDates() {
+    const out = [];
+    const now = new Date();
+    for (let i = 1; i <= 7; i++) {
+      out.push(AP.isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + i)));
+    }
+    return out;
+  }
+
+  /* ---------- rendering ---------- */
+
+  function applySiteStatus() {
+    if (els.notice) {
+      const parts = [];
+      if (SITE_STATUS.fieldingOnly && SITE_STATUS.fieldingOnlyReason) parts.push(SITE_STATUS.fieldingOnlyReason);
+      if (SITE_STATUS.membershipFrozen && SITE_STATUS.membershipFrozenReason) {
+        parts.push(SITE_STATUS.membershipFrozenReason);
+      } else if (SITE_STATUS.blockNewMemberships && SITE_STATUS.blockNewMembershipsReason) {
+        parts.push(SITE_STATUS.blockNewMembershipsReason);
+      }
+      els.notice.hidden = !parts.length;
+      els.notice.innerHTML = parts.map((p) => `<p>${p}</p>`).join("");
+    }
+
+    document.querySelectorAll('[data-book="membership"]').forEach((el) => {
+      const paused = membershipsPaused();
+      el.disabled = paused;
+      el.classList.toggle("is-disabled", paused);
+      el.setAttribute("aria-disabled", paused ? "true" : "false");
+      const tag = el.querySelector(".booking__type-tag");
+      if (tag) tag.hidden = !paused;
+    });
+
+    if (membershipsPaused()) {
+      if (selectedType === "membership") setType("single");
+      membershipCapacity = {
+        state: "ready",
+        limit: membershipCapacity.limit || 15,
+        spotsAvailable: 0,
+        available: false,
+        paused: true,
+      };
+      renderMembershipCapacity();
+    }
+
+    updateFocusField();
+  }
+
+  function renderPrices() {
+    document.querySelectorAll("[data-price]").forEach((el) => {
+      const cents = PRICING.prices[el.dataset.price];
+      if (cents) el.textContent = AP.dollars(cents);
+    });
+    const memPrice = document.getElementById("memberNotePrice");
+    if (memPrice) memPrice.textContent = `${AP.dollars(PRICING.prices.membership)} for one month`;
+    const memDeposit = document.getElementById("memberNoteDeposit");
+    if (memDeposit) {
+      const due = Math.max(0, (PRICING.prices.membership || 0) - depositAmount());
+      memDeposit.innerHTML =
+        `Pay <strong>by card</strong>, put <strong>${AP.dollars(depositAmount())} down by card</strong> and bring ` +
+        `<strong>${AP.dollars(due)} cash to your first lesson</strong>, or <strong>pay all cash</strong> at the field.`;
+    }
+  }
+
+  function syncTypeTabs() {
+    document.querySelectorAll("[data-book]").forEach((el) => {
+      const on = el.dataset.book === selectedType;
+      el.classList.toggle("is-active", on);
+      if (el.getAttribute("role") === "tab") el.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    if (els.typeNote) els.typeNote.textContent = TYPE_NOTE[selectedType] || "";
+    const title = document.getElementById("bookTitle");
+    const lead = document.getElementById("bookLead");
+    const slotTitle = document.getElementById("slotStepTitle");
+    const isMem = selectedType === "membership";
+    if (els.memberNote) els.memberNote.hidden = !isMem;
+    if (slotTitle) slotTitle.textContent = isMem ? "Pick your first lesson" : "Pick a day";
+    if (title) title.textContent = isMem ? "Join. Pick Your First Day." : "Pick a Day. Grab Your Spot.";
+    if (lead) {
+      lead.textContent = isMem
+        ? "Pay today and lock in lesson 1 of 4. Book the other 3 one at a time from the Members page. It does not auto-renew."
+        : "Choose your lesson, pick a time, and we'll email the training address after you book.";
+    }
+  }
+
+  // Show the Hitting/Fielding focus picker per session type:
+  //   "full" → Hitting, Fielding, or Both (1-hour lessons)
+  //   "one"  → Hitting or Fielding only (30-minute lessons)
+  function updateFocusField() {
+    if (!els.focusField) return;
+    const mode = SESSIONS[selectedType].focus;
+    els.focusField.hidden = false;
+    const select = els.focusSelect;
+    if (!select) return;
+    const hitting = select.querySelector('option[value="Hitting"]');
+    const both = select.querySelector('option[value="Both"]');
+    const fieldingOnly = Boolean(SITE_STATUS.fieldingOnly);
+    if (hitting) hitting.hidden = fieldingOnly;
+    if (both) both.hidden = fieldingOnly || mode === "one";
+    if (fieldingOnly) select.value = "Fielding";
+    else if (mode === "one" && select.value === "Both") select.value = "Hitting";
+  }
+
+  function syncAthleteField() {
+    const canAdd = sharedType();
+    if (els.addAthlete) {
+      els.addAthlete.hidden = !canAdd;
+      els.addAthlete.classList.toggle("is-active", canAdd && athletes > 1);
+      els.addAthlete.innerHTML =
+        athletes > 1
+          ? '<span aria-hidden="true">−</span> Remove second athlete'
+          : '<span aria-hidden="true">+</span> Add another athlete';
+    }
+    const show = canAdd && athletes > 1;
+    if (els.player2Field) els.player2Field.hidden = !show;
+    if (els.player2) {
+      els.player2.required = show;
+      if (!show) els.player2.value = "";
+    }
+    if (els.player2Hint) {
+      els.player2Hint.textContent = show
+        ? `Two athletes fill the hour — nobody else can book it. ${AP.dollars(unitPrice())} each.`
+        : "";
+    }
+  }
+
+  function renderWhere() {
+    if (!els.where) return;
+    if (!selectedDate) {
+      els.where.hidden = true;
+      return;
+    }
+    els.where.hidden = false;
+    els.where.innerHTML =
+      "📍 Lessons train at <strong>Mustang High School</strong>'s baseball field in Mustang, OK. " +
+      "You'll get the exact address and directions in your confirmation email.";
+  }
+
+  function renderTimes() {
+    if (!els.chips || !els.times) return;
+    els.chips.innerHTML = "";
+    renderWhere();
+    if (!selectedDate) {
+      els.times.hidden = true;
+      return;
+    }
+    els.times.hidden = false;
+    if (els.timesTitle) els.timesTitle.textContent = `Open times · ${AP.prettyDate(selectedDate)}`;
+
+    const booked = bookedCache[selectedDate];
+    if (!booked) {
+      if (els.timesNote) els.timesNote.textContent = "Checking open times…";
+      return;
+    }
+
+    const dur = AP.durationFor(selectedType);
+    const focus = currentFocus();
+    const need = want();
+    const starts = AP.startsForDate(selectedDate, AVAIL, dur);
+    let open = 0;
+
+    starts.forEach((t) => {
+      const label = AP.fmtTime(t);
+      const blocked = AP.slotIsBlocked(booked, label, dur, focus, need);
+      const left = AP.seatsLeft(booked, label, dur, focus);
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.setAttribute("role", "radio");
+      chip.disabled = blocked;
+      chip.classList.toggle("is-off", blocked);
+      const on = !blocked && selectedTime === label;
+      chip.classList.toggle("is-selected", on);
+      chip.setAttribute("aria-checked", on ? "true" : "false");
+      const tag = blocked ? "Booked" : left === 1 && need.seats === 1 ? "1 spot left" : "";
+      chip.innerHTML = `<span class="chip__time">${label}</span>${tag ? `<span class="chip__tag">${tag}</span>` : ""}`;
+      if (!blocked) {
+        open++;
+        chip.addEventListener("click", () => {
+          selectedTime = label;
+          if (els.status) els.status.textContent = "";
+          renderTimes();
+          refreshSubmit();
+        });
+      }
+      els.chips.appendChild(chip);
+    });
+
+    if (els.timesNote) {
+      els.timesNote.textContent = !open
+        ? need.exclusive
+          ? "Nothing open for a private hour this day — try another day or book a regular lesson."
+          : need.seats > 1
+          ? "No hour on this day has room for two athletes. Try another day."
+          : "No open times this day."
+        : selectedTime
+        ? ""
+        : "Tap a time to pick it.";
+    }
+  }
+
+  function syncPayOptions() {
+    const isMem = selectedType === "membership";
+    const total = totalPrice();
+    const deposit = depositAmount();
+    const due = Math.max(0, total - deposit);
+
+    const depositBtn = document.getElementById("payDepositBtn");
+    const cashBtn = document.getElementById("payCashBtn");
+    if (depositBtn) depositBtn.hidden = !(isMem && PRICING.allowDeposit);
+    if (cashBtn) cashBtn.hidden = !PRICING.allowCash;
+    if (payMode === "deposit" && (!isMem || !PRICING.allowDeposit)) payMode = "card";
+    if (payMode === "cash" && !PRICING.allowCash) payMode = "card";
+
+    const cardHint = document.getElementById("payCardHint");
+    const depositHint = document.getElementById("payDepositHint");
+    const cardAmount = document.getElementById("payCardAmount");
+    const depositAmountEl = document.getElementById("payDepositAmount");
+    const cashAmount = document.getElementById("payCashAmount");
+    if (cardHint) cardHint.textContent = "Pay in full online now";
+    if (cardAmount) cardAmount.textContent = AP.dollars(total);
+    if (depositHint) {
+      depositHint.textContent = `${AP.dollars(due)} cash due at your first lesson`;
+    }
+    if (depositAmountEl) depositAmountEl.textContent = `${AP.dollars(deposit)} now`;
+    if (cashAmount) cashAmount.textContent = AP.dollars(total);
+
+    document.querySelectorAll("[data-pay]").forEach((el) => {
+      const on = el.dataset.pay === payMode;
+      el.classList.toggle("is-active", on);
+      el.setAttribute("aria-checked", on ? "true" : "false");
+    });
+
+    if (els.total) {
+      const perAthlete =
+        athleteCount() > 1 ? ` · 2 athletes × ${AP.dollars(unitPrice())}` : "";
+      els.total.innerHTML =
+        payMode === "deposit"
+          ? `<strong>${AP.dollars(deposit)} today</strong> by card · <strong>${AP.dollars(due)} in cash at your first lesson</strong>`
+          : payMode === "cash"
+          ? `<strong>Total ${AP.dollars(total)}</strong>${perAthlete} — bring it in cash to the field`
+          : `<strong>Total ${AP.dollars(total)}</strong>${perAthlete}`;
+    }
+
+    const note = document.getElementById("bookingPayNote");
+    if (note) {
+      note.textContent =
+        payMode === "cash"
+          ? "You'll reserve the spot now and pay cash at the field. We'll email the training address."
+          : payMode === "deposit"
+          ? "Card deposit today — the rest is due in cash at your first lesson. We'll email the training address."
+          : "🔒 Secure payment by Stripe. We'll email the training address after you book.";
+    }
+  }
+
+  function refreshSubmit() {
+    if (!els.submit) return;
+    syncPayOptions();
+    if (selectedType === "membership" && membershipsPaused()) {
+      els.submit.textContent = "Memberships Paused";
+      els.submit.disabled = true;
+      return;
+    }
+    if (selectedType === "membership" && membershipCapacity.state !== "ready") {
+      els.submit.textContent =
+        membershipCapacity.state === "loading" ? "Checking Membership Availability…" : "Membership Unavailable";
+      els.submit.disabled = true;
+      return;
+    }
+    if (selectedType === "membership" && !membershipCapacity.available) {
+      els.submit.textContent = `Memberships Full — 0 of ${membershipCapacity.limit} Spots`;
+      els.submit.disabled = true;
+      return;
+    }
+    const total = totalPrice();
+    els.submit.textContent =
+      payMode === "cash"
+        ? selectedType === "membership"
+          ? `Reserve Membership — Pay ${AP.dollars(total)} Cash`
+          : `Reserve — Pay ${AP.dollars(total)} Cash at the Field`
+        : payMode === "deposit"
+        ? `Pay ${AP.dollars(depositAmount())} Deposit — Start Membership`
+        : selectedType === "membership"
+        ? `Start Membership — ${AP.dollars(total)}`
+        : `Pay ${AP.dollars(total)} — Book Lesson`;
+    els.submit.disabled = false;
+  }
+
+  /* ---------- calendar ---------- */
+
+  const calendar = AP.createCalendar(els.calendar, {
+    isOpen: openDay,
+    dates: () => (bookableDates.length ? bookableDates : fallbackDates()),
+    onSelect: (iso) => pickDate(iso),
   });
-  if (payNote) {
-    payNote.textContent =
-      selectedPayMode === "cash"
-        ? "You'll reserve the spot now and pay cash at the field. We'll email the training address."
-        : selectedPayMode === "deposit"
-        ? "Card deposit today — pay the rest in cash at the field. We'll email the training address."
-        : "🔒 Secure payment by Stripe. We'll email the training address after you book.";
+
+  async function pickDate(iso) {
+    selectedDate = iso;
+    selectedTime = "";
+    renderTimes();
+    await loadSlots(iso);
+    if (selectedDate !== iso) return; // they moved on mid-request
+    renderTimes();
+    calendar.render(); // the day may have just turned out to be full
+    refreshSubmit();
   }
-}
 
-let membershipCapacity = { state: "loading", limit: 15, spotsAvailable: 0, available: false };
-const form = document.getElementById("bookingForm");
-const dateSelect = document.getElementById("bkDate");
-const timeSelect = document.getElementById("bkTime");
-const pickedList = document.getElementById("pickedList");
-const submitBtn = document.getElementById("bookingSubmit");
-const statusEl = document.getElementById("bookingStatus");
-const focusField = document.getElementById("focusField");
-const focusSelect = document.getElementById("bkFocus");
-
-let selectedType = "single";
-let picked = []; // chosen sessions: [{ date: "2026-08-06", time: "9:00 AM" }]
-const bookedCache = {}; // date -> array of taken times
-
-// Starting checkout reserves the slot so nobody else can pay for it. That
-// reservation must never block the person who created it — otherwise backing
-// out of payment locks them out of the very time they were trying to buy.
-const HOLD_KEY = "ap_checkout_session";
-const myHold = () => {
-  try { return sessionStorage.getItem(HOLD_KEY) || ""; } catch { return ""; }
-};
-const rememberHold = (id) => {
-  try { id ? sessionStorage.setItem(HOLD_KEY, id) : sessionStorage.removeItem(HOLD_KEY); } catch { /* private mode */ }
-};
-
-function maxPicks() {
-  return SESSIONS[selectedType].picks;
-}
-
-function syncTypeTabs() {
-  document.querySelectorAll("[data-book]").forEach((el) => {
-    const on = el.dataset.book === selectedType;
-    el.classList.toggle("is-active", on);
-    if (el.getAttribute("role") === "tab") el.setAttribute("aria-selected", on ? "true" : "false");
-  });
-}
-
-function updateMemberCheckout() {
-  const isMem = selectedType === "membership";
-  const memberNote = document.getElementById("memberNote");
-  const bookTitle = document.getElementById("bookTitle");
-  const bookLead = document.getElementById("bookLead");
-  const slotTitle = document.getElementById("slotStepTitle");
-  // Members pick their first lesson right here, same as a drop-in.
-  if (memberNote) memberNote.hidden = !isMem;
-  const whoNum = document.getElementById("whoStepNum");
-  if (whoNum) whoNum.textContent = "2";
-  if (slotTitle) {
-    slotTitle.textContent = isMem ? "Pick your first lesson" : "Pick a day & time";
+  function resetSlot() {
+    selectedTime = "";
+    if (selectedDate && !openDay(selectedDate)) {
+      selectedDate = "";
+      calendar.clear();
+    }
+    renderTimes();
+    calendar.render();
+    refreshSubmit();
   }
-  if (bookTitle) {
-    bookTitle.textContent = isMem ? "Join. Pick Your First Day." : "Pick a Day. Grab Your Spot.";
-  }
-  if (bookLead) {
-    bookLead.textContent = isMem
-      ? "Pay today and lock in lesson 1 of 4. Book the other 3 one at a time — on Sundays the whole next week opens; other days through this Sunday. It does not auto-renew."
-      : "Choose your lesson type, then lock in a time. We'll email the training address after you pay.";
-  }
-}
 
-function setType(type, { syncUrl = true } = {}) {
-  if (!SESSIONS[type]) return;
-  if ((SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) && type === "membership") return;
-  if (type !== selectedType) {
+  function setType(type) {
+    if (!SESSIONS[type]) return;
+    if (type === "membership" && membershipsPaused()) return;
+    if (type === selectedType) return;
     selectedType = type;
-    picked = [];
-  }
-  const selName = document.getElementById("selName");
-  const selPrice = document.getElementById("selPrice");
-  if (selName) selName.textContent = SESSIONS[type].name;
-  if (selPrice) selPrice.textContent = SESSIONS[type].price;
-  syncTypeTabs();
-  updateFocusField();
-  updateMemberCheckout();
-  renderTimeOptions();
-  renderPicked();
-  refreshSubmit();
-  if (syncUrl) {
+    if (!sharedType()) athletes = 1;
+    syncTypeTabs();
+    updateFocusField();
+    syncAthleteField();
+    resetSlot();
     const url = new URL(window.location.href);
     url.searchParams.set("type", type);
     url.searchParams.delete("booked");
     url.searchParams.delete("session_id");
     history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
   }
-}
 
-// Show the Hitting/Fielding focus picker per session type:
-//   "full" → Hitting, Fielding, or Both (1-hour lessons)
-//   "one"  → Hitting or Fielding only (30-minute lessons)
-//   "none" → hidden (membership)
-function updateFocusField() {
-  if (!focusField) return;
-  const mode = SESSIONS[selectedType].focus;
-  if (mode === "none") { focusField.hidden = true; return; }
-  focusField.hidden = false;
+  /* ---------- wiring ---------- */
 
-  const hitting = focusSelect ? focusSelect.querySelector('option[value="Hitting"]') : null;
-  const both = focusSelect ? focusSelect.querySelector('option[value="Both"]') : null;
-  const fieldingOnly = Boolean(SITE_STATUS.fieldingOnly);
-
-  if (hitting) hitting.hidden = fieldingOnly;
-  if (both) both.hidden = fieldingOnly || mode === "one";
-
-  if (fieldingOnly && focusSelect) {
-    focusSelect.value = "Fielding";
-  } else if (mode === "one" && focusSelect && focusSelect.value === "Both") {
-    focusSelect.value = "Hitting";
-  }
-}
-
-function fmtTime(t) {
-  const [h, m] = t.split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const hr = h % 12 === 0 ? 12 : h % 12;
-  return `${hr}:${String(m).padStart(2, "0")} ${ampm}`;
-}
-
-function isoDate(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function prettyDate(iso) {
-  const d = new Date(iso + "T12:00:00");
-  return `${DAY_NAMES[d.getDay()]}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
-}
-
-function renderDays() {
-  dateSelect.length = 1; // keep the "Choose a day" placeholder, rebuild the rest
-  const dates = bookableDates.length
-    ? bookableDates
-    : (() => {
-        const out = [];
-        const now = new Date();
-        for (let i = 1; i <= 7; i++) {
-          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-          out.push(isoDate(d));
-        }
-        return out;
-      })();
-  dates.forEach((iso) => {
-    if (!planFor(iso)) return; // closed day or a blocked date — skip it
-    dateSelect.append(new Option(prettyDate(iso), iso));
-  });
-}
-
-function renderWhere() {
-  const el = document.getElementById("bookingWhere");
-  if (!el) return;
-  const plan = planFor(dateSelect.value);
-  if (!plan) {
-    el.hidden = true;
-    return;
-  }
-  el.hidden = false;
-  el.innerHTML = `📍 ${PLACE_BLURB[plan.place] || ""} You'll get the exact address and directions in your confirmation email.`;
-}
-
-function renderPicked() {
-  if (maxPicks() === 1) {
-    pickedList.hidden = true;
-    pickedList.innerHTML = "";
-    return;
-  }
-  pickedList.hidden = false;
-  const done = picked.length === maxPicks();
-  pickedList.innerHTML = `<p class="booking__picked-title">Your lessons — ${picked.length} of ${maxPicks()} picked${done ? " ✓" : " · keep adding days &amp; times"}</p>`;
-  picked.forEach((p, i) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "booking__picked-chip";
-    b.innerHTML = `${prettyDate(p.date)} · ${p.time} <span aria-hidden="true">✕</span>`;
-    b.title = "Remove this lesson";
-    b.addEventListener("click", () => {
-      picked.splice(i, 1);
-      renderTimeOptions();
-      renderPicked();
-      refreshSubmit();
-    });
-    pickedList.appendChild(b);
-  });
-}
-
-// Rebuild the time dropdown for the currently selected day, marking
-// times that are already booked or already added to this order.
-function renderTimeOptions() {
-  const date = dateSelect.value;
-  timeSelect.innerHTML = "";
-  renderWhere();
-  if (!date) {
-    timeSelect.append(new Option("Pick a day first", ""));
-    timeSelect.disabled = true;
-    return;
-  }
-  const dur = durationFor(selectedType);
-  const focus = focusSelect ? focusSelect.value : "";
-  const starts = startsForDate(date, dur); // start times where this lesson fits
-  const booked = bookedCache[date] || []; // [{ time, mins, count }]
-  // Slots already added to THIS order block overlapping picks too
-  const mineRanges = picked
-    .filter((p) => p.date === date)
-    .map((p) => { const s = labelToMin(p.time); return s === null ? null : [s, s + dur]; })
-    .filter(Boolean);
-  const overlaps = (ranges, s, e) => ranges.some(([bs, be]) => s < be && bs < e);
-  timeSelect.disabled = false;
-  timeSelect.append(new Option("Choose a time", ""));
-  let open = 0;
-  starts.forEach((t) => {
-    const label = fmtTime(t);
-    const s = toMinutes(t);
-    const e = s + dur;
-    const thisPick = picked.some((p) => p.date === date && p.time === label);
-    const isBooked = slotIsBlocked(booked, label, dur, focus);
-    const mineHit = !thisPick && overlaps(mineRanges, s, e);
-    const left = spotsLeft(booked, label, dur, focus);
-    const name = isBooked
-      ? `${label} — booked`
-      : thisPick
-      ? `${label} — added`
-      : mineHit
-      ? `${label} — overlaps a pick`
-      : left === 1
-      ? `${label} · 1 spot left`
-      : label;
-    const opt = new Option(name, label);
-    opt.disabled = isBooked || thisPick || mineHit;
-    if (!opt.disabled) open++;
-    timeSelect.append(opt);
-  });
-  if (!open) {
-    timeSelect.options[0].text = "No open times this day";
-  }
-  // For single & 30-min the current pick stays shown in the dropdown
-  if (maxPicks() === 1 && picked.length && picked[0].date === date) {
-    timeSelect.value = picked[0].time;
-  }
-}
-
-async function loadTimes(date) {
-  if (!date) {
-    renderTimeOptions();
-    return;
-  }
-  if (!bookedCache[date]) {
-    timeSelect.innerHTML = "";
-    timeSelect.append(new Option("Checking open times…", ""));
-    timeSelect.disabled = true;
-    try {
-      const mine = myHold();
-      const res = await fetch(`/api/slots?date=${date}${mine ? `&mine=${encodeURIComponent(mine)}` : ""}`);
-      bookedCache[date] = res.ok ? (await res.json()).booked || [] : [];
-    } catch {
-      bookedCache[date] = []; // static preview or offline — show all as open
-    }
-    if (dateSelect.value !== date) return; // parent changed day mid-request
-  }
-  renderTimeOptions();
-}
-
-function chooseTime(time) {
-  statusEl.textContent = "";
-  const date = dateSelect.value;
-  if (!date || !time) return;
-
-  if (maxPicks() === 1) {
-    picked = [{ date, time }];
-  } else if (picked.length >= maxPicks()) {
-    statusEl.textContent = `You've already picked ${maxPicks()} lessons — remove one below to change it.`;
-    timeSelect.value = "";
-    return;
-  } else {
-    picked.push({ date, time });
-    timeSelect.value = ""; // ready for the next pick
-  }
-  renderTimeOptions();
-  renderPicked();
-  refreshSubmit();
-}
-
-function refreshSubmit() {
-  if (selectedType === "membership" && (SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused)) {
-    submitBtn.textContent = "Memberships Paused";
-    submitBtn.disabled = true;
-    return;
-  }
-  if (selectedType === "membership" && membershipCapacity.state !== "ready") {
-    submitBtn.textContent =
-      membershipCapacity.state === "loading" ? "Checking Membership Availability…" : "Membership Unavailable";
-    submitBtn.disabled = true;
-    return;
-  }
-  if (selectedType === "membership" && !membershipCapacity.available) {
-    submitBtn.textContent = `Memberships Full — 0 of ${membershipCapacity.limit} Spots`;
-    submitBtn.disabled = true;
-    return;
-  }
-  const price = PRICING.prices[selectedType] || 0;
-  const deposit = PRICING.membershipDeposit || 10000;
-  if (selectedPayMode === "cash") {
-    submitBtn.textContent =
-      selectedType === "membership"
-        ? `Reserve Membership — Pay ${dollars(price)} Cash`
-        : `Reserve — Pay ${dollars(price)} Cash at Field`;
-  } else if (selectedPayMode === "deposit" && selectedType === "membership") {
-    submitBtn.textContent = `Pay ${dollars(deposit)} Deposit — Start Membership`;
-  } else {
-    submitBtn.textContent =
-      selectedType === "membership"
-        ? `Start Membership — ${dollars(price)}`
-        : `Pay ${dollars(price)} — Book Lesson`;
-  }
-  submitBtn.disabled = false;
-  syncPayOptions();
-}
-
-function membershipCapacityText(capacity) {
-  if (SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) {
-    return SITE_STATUS.blockNewMembershipsReason || SITE_STATUS.membershipPausedReason;
-  }
-  if (capacity.state === "loading") return "Checking membership availability…";
-  if (capacity.state !== "ready") return "Membership availability is temporarily unavailable. Please try again soon.";
-  if (!capacity.available) {
-    return `Memberships are full — 0 of ${capacity.limit} spots available. A spot opens automatically when a current membership ends.`;
-  }
-  return `${capacity.spotsAvailable} of ${capacity.limit} membership spots available.`;
-}
-
-function renderMembershipCapacity() {
-  document.querySelectorAll("[data-membership-availability]").forEach((el) => {
-    el.textContent = membershipCapacityText(membershipCapacity);
-    el.classList.toggle(
-      "is-full",
-      SITE_STATUS.blockNewMemberships ||
-      SITE_STATUS.membershipPaused ||
-      (membershipCapacity.state === "ready" && !membershipCapacity.available)
-    );
-  });
-  document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
-    const blocked =
-      SITE_STATUS.blockNewMemberships ||
-      SITE_STATUS.membershipPaused ||
-      membershipCapacity.state !== "ready" ||
-      !membershipCapacity.available;
-    el.classList.toggle("is-unavailable", blocked);
-    el.setAttribute("aria-disabled", blocked ? "true" : "false");
-  });
-  if (form) refreshSubmit();
-}
-
-async function loadMembershipCapacity() {
-  renderMembershipCapacity();
-  try {
-    const response = await fetch("/api/membership-capacity", { cache: "no-store" });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || typeof data.spotsAvailable !== "number") throw new Error();
-    membershipCapacity = { ...data, state: "ready" };
-  } catch {
-    membershipCapacity = { state: "error", limit: 15, spotsAvailable: 0, available: false };
-  }
-  renderMembershipCapacity();
-}
-
-document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
-  el.addEventListener("click", (event) => {
-    if (SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused || membershipCapacity.state !== "ready" || !membershipCapacity.available) {
-      event.preventDefault();
-    }
-  });
-});
-if (form || document.querySelector("[data-membership-availability]")) loadMembershipCapacity();
-
-if (form) {
-  const params = new URLSearchParams(window.location.search);
-
-  updateFocusField();
-  updateMemberCheckout();
-  syncTypeTabs();
-  loadPricing();
-  loadAvailability().then(() => {
-    const typeFromUrl = params.get("type");
-    if (SESSIONS[typeFromUrl] && !((SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) && typeFromUrl === "membership")) {
-      selectedType = typeFromUrl;
-      syncTypeTabs();
-      updateFocusField();
-      updateMemberCheckout();
-      refreshSubmit();
-    }
-    renderDays();
-  });
-  dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
-  timeSelect.addEventListener("change", () => chooseTime(timeSelect.value));
-  if (focusSelect) {
-    focusSelect.addEventListener("change", () => {
-      picked = [];
-      renderPicked();
-      renderTimeOptions();
-    });
-  }
   document.querySelectorAll("[data-book]").forEach((el) =>
     el.addEventListener("click", (e) => {
       e.preventDefault();
@@ -707,52 +671,110 @@ if (form) {
       setType(el.dataset.book);
     })
   );
+
   document.querySelectorAll("[data-pay]").forEach((el) =>
     el.addEventListener("click", (e) => {
       e.preventDefault();
       if (el.hidden) return;
-      selectedPayMode = el.dataset.pay;
+      payMode = el.dataset.pay;
       syncPayOptions();
       refreshSubmit();
     })
   );
+
+  if (els.focusSelect) {
+    els.focusSelect.addEventListener("change", () => resetSlot());
+  }
+
+  if (els.addAthlete) {
+    els.addAthlete.addEventListener("click", () => {
+      athletes = athletes > 1 ? 1 : 2;
+      syncAthleteField();
+      resetSlot();
+      if (athletes > 1 && els.player2) els.player2.focus();
+    });
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  syncTypeTabs();
+  updateFocusField();
+  syncAthleteField();
+  renderPrices();
   refreshSubmit();
+  loadPricing();
+  loadAvailability().then(() => {
+    const typeFromUrl = params.get("type");
+    if (SESSIONS[typeFromUrl] && !(typeFromUrl === "membership" && membershipsPaused())) {
+      selectedType = typeFromUrl;
+      if (!sharedType()) athletes = 1;
+      syncTypeTabs();
+      updateFocusField();
+      syncAthleteField();
+    }
+    calendar.render();
+    refreshSubmit();
+    prefetchWindow();
+  });
+
+  /* ---------- submit ---------- */
+
+  function clearSlotCache() {
+    Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
+  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    statusEl.textContent = "";
-    statusEl.classList.remove("booking__status--ok");
-    if (picked.length < maxPicks() || !form.elements.player.value.trim()) {
-      statusEl.textContent =
-        selectedType === "membership"
-          ? "Please pick your first lesson day and time, and enter the player's name."
-          : "Please pick a day, a time, and enter the player's name.";
+    els.status.textContent = "";
+    els.status.classList.remove("booking__status--ok");
+
+    if (!selectedDate || !selectedTime) {
+      els.status.textContent = "Please pick a day and a time.";
       return;
     }
-    if (!form.elements.email.checkValidity()) {
-      statusEl.textContent = "Please enter a valid email — that's where your confirmation and the training address are sent.";
-      form.elements.email.focus();
+    if (!els.player.value.trim()) {
+      els.status.textContent = "Please enter the athlete's name.";
+      els.player.focus();
       return;
     }
-    submitBtn.disabled = true;
-    submitBtn.textContent = selectedPayMode === "cash" ? "Reserving your spot…" : "Setting up secure checkout…";
+    if (athleteCount() > 1 && !els.player2.value.trim()) {
+      els.status.textContent = "Please enter the second athlete's name, or remove the second athlete.";
+      els.player2.focus();
+      return;
+    }
+    if (!els.email.checkValidity() || !els.email.value.trim()) {
+      els.status.textContent =
+        "Please enter a valid email — that's where your confirmation and the training address are sent.";
+      els.email.focus();
+      return;
+    }
+
+    els.submit.disabled = true;
+    els.submit.textContent = payMode === "cash" ? "Reserving your spot…" : "Setting up secure checkout…";
 
     const payload = {
       type: selectedType,
-      sessions: picked,
-      focus: focusField && !focusField.hidden && focusSelect ? focusSelect.value : "",
-      player: form.elements.player.value.trim(),
-      parent: form.elements.parent.value.trim(),
-      phone: form.elements.phone.value.trim(),
-      email: form.elements.email.value.trim(),
-      payMode: selectedPayMode,
-      date: picked[0]?.date,
-      time: picked[0]?.time,
+      sessions: [{ date: selectedDate, time: selectedTime }],
+      focus: currentFocus(),
+      player: els.player.value.trim(),
+      player2: athleteCount() > 1 ? els.player2.value.trim() : "",
+      athletes: athleteCount(),
+      phone: els.phone ? els.phone.value.trim() : "",
+      email: els.email.value.trim(),
+      payMode,
+      date: selectedDate,
+      time: selectedTime,
       previousSession: myHold(),
     };
 
+    const onConflict = () => {
+      clearSlotCache();
+      selectedTime = "";
+      renderTimes();
+      pickDate(selectedDate);
+    };
+
     try {
-      if (selectedPayMode === "cash") {
+      if (payMode === "cash") {
         const res = await fetch("/api/cash-book", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -760,25 +782,22 @@ if (form) {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          statusEl.textContent = data.error || "Couldn't reserve that spot. Call or text (405) 819-4401.";
+          els.status.textContent = data.error || "Couldn't reserve that spot. Call or text (405) 819-4401.";
           if (data.code === "membership_full") {
             membershipCapacity = { state: "ready", limit: 15, spotsAvailable: 0, available: false };
             renderMembershipCapacity();
           } else if (res.status === 409) {
-            picked.forEach((p) => delete bookedCache[p.date]);
-            picked = [];
-            renderPicked();
-            loadTimes(dateSelect.value);
+            onConflict();
           }
-          submitBtn.disabled = false;
+          els.submit.disabled = false;
           refreshSubmit();
           return;
         }
-        statusEl.classList.add("booking__status--ok");
-        const when = (data.sessions || []).map((s) => `${prettyDate(s.date)} · ${s.time}`).join("<br />");
-        const due = data.amountDue ? `$${(data.amountDue / 100).toFixed(2)}` : "";
-        statusEl.innerHTML =
-          `<strong>✅ Spot reserved — pay cash at the field</strong>` +
+        els.status.classList.add("booking__status--ok");
+        const when = (data.sessions || []).map((s) => `${AP.prettyDate(s.date)} · ${s.time}`).join("<br />");
+        const due = data.amountDue ? AP.dollars(data.amountDue) : "";
+        els.status.innerHTML =
+          "<strong>✅ Spot reserved — pay cash at the field</strong>" +
           (when ? `<br />${when}` : "") +
           (due ? `<br />Bring ${due} cash.` : "") +
           (data.places?.[0]?.address
@@ -787,7 +806,7 @@ if (form) {
           (data.member ? `<br />Next: <a href="account.html">Members</a> to book the rest.` : "") +
           (data.sent ? `<br />Details sent to ${data.email || "your inbox"}.` : "");
         history.replaceState({}, "", window.location.pathname);
-        submitBtn.disabled = false;
+        els.submit.disabled = false;
         refreshSubmit();
         return;
       }
@@ -803,55 +822,52 @@ if (form) {
         window.location.href = data.url;
         return;
       }
-      statusEl.textContent = data.error || "Online booking isn't live yet — call or text (405) 819-4401 to book.";
+      els.status.textContent = data.error || "Online booking isn't live yet — call or text (405) 819-4401 to book.";
       if (data.code === "membership_full") {
         membershipCapacity = { state: "ready", limit: 15, spotsAvailable: 0, available: false };
         renderMembershipCapacity();
       } else if (res.status === 409) {
-        picked.forEach((p) => delete bookedCache[p.date]);
-        picked = [];
-        renderPicked();
-        loadTimes(dateSelect.value);
+        onConflict();
       }
     } catch {
-      statusEl.textContent = "Online booking isn't live yet — call or text (405) 819-4401 to book.";
+      els.status.textContent = "Online booking isn't live yet — call or text (405) 819-4401 to book.";
     }
-    submitBtn.disabled = false;
+    els.submit.disabled = false;
     refreshSubmit();
   });
+
+  /* ---------- returning from Stripe ---------- */
 
   // Backed out of Stripe without paying — hand the slot straight back rather
   // than leaving it reserved against everyone else until the hold expires.
   const cancelled = params.get("cancelled") || "";
   if (/^cs_[A-Za-z0-9_]+$/.test(cancelled)) {
     rememberHold("");
-    Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
+    clearSlotCache();
     fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "release", sessionId: cancelled }),
     })
       .catch(() => {})
-      .finally(() => loadTimes(dateSelect.value));
+      .finally(() => {
+        if (selectedDate) pickDate(selectedDate);
+      });
     const url = new URL(window.location.href);
     url.searchParams.delete("cancelled");
     history.replaceState({}, "", url.pathname + (url.searchParams.toString() ? "?" + url.searchParams : ""));
   }
 
-  // Back from Stripe: confirm the payment, send the confirmation email,
-  // and show the training address on screen.
+  // Back from Stripe: confirm the payment, send the confirmation email, and show
+  // the training address on screen.
   if (params.get("booked") === "1") {
-    // Paid, so the reservation has done its job and the booking itself now
-    // covers the slot.
     rememberHold("");
-    statusEl.classList.add("booking__status--ok");
-    statusEl.textContent = "✅ You're booked! Getting your details…";
+    els.status.classList.add("booking__status--ok");
+    els.status.textContent = "✅ You're booked! Getting your details…";
     document.getElementById("book")?.scrollIntoView();
 
     const finish = (d = {}) => {
-      const when = (d.sessions || [])
-        .map((s) => `${prettyDate(s.date)} · ${s.time}`)
-        .join("<br />");
+      const when = (d.sessions || []).map((s) => `${AP.prettyDate(s.date)} · ${s.time}`).join("<br />");
       const where = (d.places || [])
         .map((p) =>
           p.mapUrl
@@ -859,14 +875,16 @@ if (form) {
             : `${p.name} — we'll send you the exact address shortly`
         )
         .join("<br />");
-      statusEl.innerHTML =
-        `<strong>✅ You're booked!</strong>` +
+      els.status.innerHTML =
+        "<strong>✅ You're booked!</strong>" +
         (when ? `<br />${when}` : "") +
         (where ? `<br />Training location: ${where}` : "") +
+        (d.amountDue
+          ? `<br />Bring <strong>${AP.dollars(d.amountDue)} in cash</strong> to your first lesson.`
+          : "") +
         (d.sent
           ? `<br />A confirmation with directions is on its way to ${d.email || "your inbox"}.`
-          : `<br />Questions? Call or text (405) 819-4401.`);
-      // Clean the URL so a refresh doesn't re-run this
+          : "<br />Questions? Call or text (405) 819-4401.");
       history.replaceState({}, "", window.location.pathname);
     };
 
@@ -880,4 +898,4 @@ if (form) {
       finish();
     }
   }
-}
+})();

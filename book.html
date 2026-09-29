@@ -57,58 +57,52 @@
       <div class="site-notice reveal" id="siteNotice" hidden></div>
 
       <form class="booking reveal" id="bookingForm" novalidate>
-        <div class="booking__types" role="tablist" aria-label="Lesson type">
-          <button type="button" class="booking__type is-active" data-book="single" role="tab" aria-selected="true">
-            <strong>Single Lesson</strong>
-            <span>$80 · 1 hour</span>
-          </button>
-          <button type="button" class="booking__type" data-book="membership" role="tab" aria-selected="false">
-            <strong>Membership</strong>
-            <span>$280 · 4 lessons / month</span>
-            <span class="booking__type-tag" hidden>Paused</span>
-          </button>
-          <button type="button" class="booking__type" data-book="thirty" role="tab" aria-selected="false">
-            <strong>30-Minute</strong>
-            <span>$60 · 30 min</span>
-          </button>
+        <div class="booking__step">
+          <h3 class="booking__step-title"><span class="booking__step-num">1</span> Choose your lesson</h3>
+          <div class="booking__types" role="tablist" aria-label="Lesson type">
+            <button type="button" class="booking__type is-active" data-book="single" role="tab" aria-selected="true">
+              <strong>Regular Lesson</strong>
+              <span class="booking__type-price" data-price="single">$80</span>
+              <span>1 hour · up to 2 athletes</span>
+            </button>
+            <button type="button" class="booking__type" data-book="private" role="tab" aria-selected="false">
+              <strong>Private 1-on-1</strong>
+              <span class="booking__type-price" data-price="private">$100</span>
+              <span>1 hour · just you, nobody added</span>
+            </button>
+            <button type="button" class="booking__type" data-book="membership" role="tab" aria-selected="false">
+              <strong>Membership</strong>
+              <span class="booking__type-price" data-price="membership">$280</span>
+              <span>4 lessons a month</span>
+              <span class="booking__type-tag" hidden>Paused</span>
+            </button>
+            <button type="button" class="booking__type" data-book="thirty" role="tab" aria-selected="false">
+              <strong>30-Minute</strong>
+              <span class="booking__type-price" data-price="thirty">$60</span>
+              <span>30 min · up to 2 athletes</span>
+            </button>
+          </div>
+          <p class="booking__note booking__note--tight" id="typeNote"></p>
         </div>
-        <p class="booking__note" style="margin: 0.85rem 0 1.4rem;">Ages 11 through college.</p>
 
         <div class="booking__member-note" id="memberNote" hidden>
           <strong>How membership works</strong>
           <p class="membership-availability" data-membership-availability>Checking membership availability…</p>
           <ul>
-            <li><strong>$280 for one month</strong> — 4 one-hour lessons (that's $70 each vs. $80 drop-in). Ages 11 through college.</li>
+            <li><strong id="memberNotePrice">$280 for one month</strong> — 4 one-hour lessons.</li>
             <li>You <strong>only pick your first day today</strong>. That's lesson 1 of 4.</li>
-            <li>Book the other 3 <strong>week by week</strong> — on Sundays the whole next week opens; other days you can book through this Sunday. Sign in at <a href="account.html">the Members page</a> with this same email; it shows how many lessons you have left and the date they expire.</li>
-            <li>Pay <strong>card in full</strong>, put a <strong>card deposit</strong> down and finish in cash, or <strong>reserve with cash</strong> and pay at the field.</li>
-            <li>It <strong>does not auto-renew</strong>. When the month is up (or you've used all 4 lessons), it ends and nothing is charged again. Want another month? Buy membership again — it never charges you on its own.</li>
-            <li>Lessons you don't use <strong>don't roll over</strong>.</li>
-            <li>Need to move a day? Sign in on the <a href="account.html">Members page</a> and tap Reschedule — at least 12 hours before the lesson. Drop-in (single / 30-min) lessons can't be changed online; text (405) 819-4401.</li>
+            <li>Book the other 3 <strong>week by week</strong> — sign in at <a href="account.html">the Members page</a> with this same email. It shows how many lessons are left and the date they expire.</li>
+            <li id="memberNoteDeposit">Pay <strong>by card</strong>, put a <strong>card deposit</strong> down and bring the rest in cash to your first lesson, or <strong>pay all cash</strong> at the field.</li>
+            <li>It <strong>does not auto-renew</strong> — nothing is ever charged on its own.</li>
+            <li>Unused lessons <strong>don't roll over</strong>.</li>
+            <li>Need to move a day? Sign in and tap <strong>Move</strong>, at least 12 hours before the lesson.</li>
           </ul>
         </div>
 
-        <div class="booking__step" id="payStep">
-          <h3 class="booking__step-title"><span class="booking__step-num">Pay</span> How do you want to pay?</h3>
-          <div class="booking__types booking__pay" role="radiogroup" aria-label="Payment method">
-            <button type="button" class="booking__type is-active" data-pay="card" role="radio" aria-checked="true">
-              <strong>Card</strong>
-              <span id="payCardHint">Pay in full online</span>
-            </button>
-            <button type="button" class="booking__type" data-pay="deposit" role="radio" aria-checked="false" id="payDepositBtn" hidden>
-              <strong>Deposit + cash</strong>
-              <span id="payDepositHint">Card now, rest cash</span>
-            </button>
-            <button type="button" class="booking__type" data-pay="cash" role="radio" aria-checked="false" id="payCashBtn">
-              <strong>Cash</strong>
-              <span>Reserve now · pay at the field</span>
-            </button>
-          </div>
-        </div>
-
         <div class="booking__step" id="focusField">
+          <h3 class="booking__step-title"><span class="booking__step-num">2</span> What should we work on?</h3>
           <div class="booking__field">
-            <label for="bkFocus">What should we work on?</label>
+            <label class="sr-only" for="bkFocus">Training focus</label>
             <select id="bkFocus" name="focus" autocomplete="off">
               <option value="Fielding">Fielding</option>
               <option value="Both">Hitting &amp; Fielding</option>
@@ -118,36 +112,28 @@
         </div>
 
         <div class="booking__step" id="slotStep">
-          <h3 class="booking__step-title"><span class="booking__step-num">1</span> <span id="slotStepTitle">Pick a day &amp; time</span> <span class="booking__step-hint">Open times appear once you pick a day</span></h3>
-          <div class="booking__grid">
-            <div class="booking__field">
-              <label for="bkDate">Day</label>
-              <select id="bkDate" name="date">
-                <option value="">Choose a day</option>
-              </select>
-            </div>
-            <div class="booking__field">
-              <label for="bkTime">Time</label>
-              <select id="bkTime" name="time" disabled>
-                <option value="">Pick a day first</option>
-              </select>
-            </div>
+          <h3 class="booking__step-title"><span class="booking__step-num" id="slotStepNum">3</span> <span id="slotStepTitle">Pick a day</span></h3>
+          <div class="booking__calendar" id="bkCalendar"></div>
+          <div class="booking__times" id="bkTimes" hidden>
+            <p class="booking__times-title" id="bkTimesTitle">Open times</p>
+            <div class="booking__chips" id="bkTimeChips" role="radiogroup" aria-label="Lesson time"></div>
+            <p class="booking__note booking__note--tight" id="bkTimesNote"></p>
           </div>
-          <p class="booking__note" style="margin: 0.75rem 0 0;">Up to 2 players can share a time only when both choose the same focus: Hitting, Fielding, or Hitting &amp; Fielding.</p>
           <p class="booking__where" id="bookingWhere" hidden></p>
           <div class="booking__picked" id="pickedList" hidden></div>
         </div>
 
         <div class="booking__step">
-          <h3 class="booking__step-title"><span class="booking__step-num" id="whoStepNum">2</span> Who's training?</h3>
+          <h3 class="booking__step-title"><span class="booking__step-num" id="whoStepNum">4</span> Who's training?</h3>
           <div class="booking__grid">
-            <div class="booking__field">
-              <label for="bkPlayer">Player's name *</label>
-              <input type="text" id="bkPlayer" name="player" placeholder="Player's name" autocomplete="name" required />
+            <div class="booking__field booking__field--wide">
+              <label for="bkPlayer">Athlete's name *</label>
+              <input type="text" id="bkPlayer" name="player" placeholder="Athlete's name" autocomplete="name" required />
             </div>
-            <div class="booking__field">
-              <label for="bkParent">Parent name</label>
-              <input type="text" id="bkParent" name="parent" placeholder="Parent name" autocomplete="name" />
+            <div class="booking__field booking__field--wide" id="secondAthleteField" hidden>
+              <label for="bkPlayer2">Second athlete's name *</label>
+              <input type="text" id="bkPlayer2" name="player2" placeholder="Second athlete's name" autocomplete="off" />
+              <p class="booking__hint" id="secondAthleteHint"></p>
             </div>
             <div class="booking__field">
               <label for="bkEmail">Email *</label>
@@ -158,6 +144,40 @@
               <input type="tel" id="bkPhone" name="phone" placeholder="(405) 555-0123" autocomplete="tel" inputmode="tel" />
             </div>
           </div>
+          <button type="button" class="booking__add" id="addAthleteBtn">
+            <span aria-hidden="true">+</span> Add another athlete
+          </button>
+        </div>
+
+        <div class="booking__step" id="payStep">
+          <h3 class="booking__step-title"><span class="booking__step-num" id="payStepNum">5</span> How do you want to pay?</h3>
+          <div class="booking__pay" role="radiogroup" aria-label="Payment method">
+            <button type="button" class="pay-option is-active" data-pay="card" role="radio" aria-checked="true">
+              <span class="pay-option__mark" aria-hidden="true"></span>
+              <span class="pay-option__body">
+                <strong>Pay by card</strong>
+                <span id="payCardHint">Pay in full online now</span>
+              </span>
+              <span class="pay-option__amount" id="payCardAmount"></span>
+            </button>
+            <button type="button" class="pay-option" data-pay="deposit" role="radio" aria-checked="false" id="payDepositBtn" hidden>
+              <span class="pay-option__mark" aria-hidden="true"></span>
+              <span class="pay-option__body">
+                <strong>Card deposit + cash</strong>
+                <span id="payDepositHint">Deposit now, rest in cash at your first lesson</span>
+              </span>
+              <span class="pay-option__amount" id="payDepositAmount"></span>
+            </button>
+            <button type="button" class="pay-option" data-pay="cash" role="radio" aria-checked="false" id="payCashBtn">
+              <span class="pay-option__mark" aria-hidden="true"></span>
+              <span class="pay-option__body">
+                <strong>Cash at the field</strong>
+                <span>Reserve the spot now, pay when you get there</span>
+              </span>
+              <span class="pay-option__amount" id="payCashAmount"></span>
+            </button>
+          </div>
+          <p class="booking__total" id="bookingTotal"></p>
         </div>
 
         <button type="submit" class="btn btn--primary btn--lg booking__submit" id="bookingSubmit">Pay $80 — Book Lesson</button>
@@ -214,6 +234,7 @@
     </div>
   </footer>
 
+  <script src="js/booking-core.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

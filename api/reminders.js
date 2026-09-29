@@ -19,6 +19,7 @@ import {
   todayChicago,
 } from "../lib/members.js";
 import { loadLessons, scheduledFor } from "../lib/lessons.js";
+import { isCoachPass } from "../lib/coachAuth.js";
 import { signMemberToken } from "../lib/memberAuth.js";
 import { LOCATIONS, LOCATION_KEY } from "../lib/schedule.js";
 import {
@@ -185,8 +186,7 @@ function authorised(req) {
   // better, and takes precedence above.
   if (req.headers?.["x-vercel-cron"]) return true;
 
-  const pass = process.env.COACH_PASS;
-  return Boolean(pass && String(req.query?.key || "") === pass);
+  return isCoachPass(req.query?.key);
 }
 
 export default async function handler(req, res) {

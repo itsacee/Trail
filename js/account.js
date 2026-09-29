@@ -1,238 +1,337 @@
-const TOKEN_KEY = "ap_member_token";
-// Safety net only — the real cutoff is the membership's own expiry date,
-// which the server sends back as `lastDay`.
-let bookableDates = []; // from /api/availability → bookingWindow.dates (calendar week)
+/* Member portal: sign in, see remaining lessons, book / move / cancel them.
+ *
+ * Wrapped in a function so nothing here collides with js/main.js, which the
+ * page also loads. The slot math and the calendar come from js/booking-core.js.
+ */
+(function () {
+  const AP = window.AP;
+  const loginCard = document.getElementById("loginCard");
+  const dashCard = document.getElementById("dashCard");
+  if (!loginCard || !dashCard || !AP) return;
 
-const loginCard = document.getElementById("loginCard");
-const dashCard = document.getElementById("dashCard");
-if (!loginCard || !dashCard) {
-  /* not on the account page */
-} else {
+  const TOKEN_KEY = "ap_member_token";
 
-const loginForm = document.getElementById("loginForm");
-const loginStatus = document.getElementById("loginStatus");
-const loginSubmit = document.getElementById("loginSubmit");
-const weekForm = document.getElementById("weekForm");
-const weekStatus = document.getElementById("weekStatus");
-const dateSelect = document.getElementById("memDate");
-const timeSelect = document.getElementById("memTime");
-const bookedCache = {};
-let AVAIL = {
-  slotMinutes: 60,
-  days: {
-    0: { open: false, start: "18:00", end: "20:00" },
-    1: { open: true, start: "18:00", end: "20:00" },
-    2: { open: true, start: "18:00", end: "20:00" },
-    3: { open: true, start: "18:00", end: "20:00" },
-    4: { open: false, start: "18:00", end: "20:00" },
-    5: { open: false, start: "18:00", end: "20:00" },
-    6: { open: false, start: "18:00", end: "20:00" },
-  },
-  blocked: [],
-};
-let account = null;
-let rescheduleId = null;
+  const loginForm = document.getElementById("loginForm");
+  const loginStatus = document.getElementById("loginStatus");
+  const loginSubmit = document.getElementById("loginSubmit");
+  const weekForm = document.getElementById("weekForm");
+  const weekStatus = document.getElementById("weekStatus");
+  const focusSelect = document.getElementById("memFocus");
+  const timesBox = document.getElementById("memTimes");
+  const timesTitle = document.getElementById("memTimesTitle");
+  const chips = document.getElementById("memTimeChips");
+  const timesNote = document.getElementById("memTimesNote");
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  let AVAIL = AP.DEFAULT_AVAILABILITY;
+  let bookableDates = []; // from /api/availability → bookingWindow.dates
+  let account = null;
+  let rescheduleId = null;
+  let selectedDate = "";
+  let selectedTime = "";
+  const bookedCache = {};
 
-function token() {
-  return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || "";
-}
-function setToken(t) {
-  localStorage.setItem(TOKEN_KEY, t);
-  sessionStorage.setItem(TOKEN_KEY, t);
-}
-function clearToken() {
-  localStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(TOKEN_KEY);
-}
+  const LESSON_MINUTES = 60;
 
-function prettyDate(iso) {
-  const d = new Date(iso + "T12:00:00");
-  return `${DAY_NAMES[d.getDay()]}, ${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
-}
+  function token() {
+    return sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || "";
+  }
+  function setToken(t) {
+    localStorage.setItem(TOKEN_KEY, t);
+    sessionStorage.setItem(TOKEN_KEY, t);
+  }
+  function clearToken() {
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+  }
 
-function isoDate(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-const SLOT_CAPACITY = 2;
-function bookedFocusMatches(row, focus) {
-  const focuses = [...new Set((row.focuses || []).filter(Boolean))];
-  return Boolean(focus && focuses.length === 1 && focuses[0] === focus);
-}
-function slotIsBlocked(booked, label, dur, focus) {
-  const start = labelToMinutes(label);
-  if (start === null) return true;
-  const end = start + dur;
-  for (const b of booked || []) {
-    const bs = labelToMinutes(b.time);
-    if (bs === null) continue;
-    const be = bs + (b.mins || 60);
-    if (!(start < be && bs < end)) continue;
-    const n = Number(b.count) > 0 ? Number(b.count) : 1;
-    if (b.time === label && (b.mins || 60) === dur) {
-      if (!bookedFocusMatches(b, focus)) return true;
-      if (n >= SLOT_CAPACITY) return true;
-      continue;
+  async function api(path, opts = {}) {
+    const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+    const t = token();
+    if (t) headers.Authorization = `Bearer ${t}`;
+    const res = await fetch(path, { ...opts, headers });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      clearToken();
+      showLogin();
     }
+    return { res, data };
+  }
+
+  function showLogin(msg) {
+    dashCard.hidden = true;
+    loginCard.hidden = false;
+    if (msg) loginStatus.textContent = msg;
+  }
+
+  function showDash() {
+    loginCard.hidden = true;
+    dashCard.hidden = false;
+  }
+
+  /* ---------- day & time picking ---------- */
+
+  // A member can book any open day inside the booking window that still falls on
+  // or before the day their credits expire.
+  function bookableWindow() {
+    const lastDay = (account && account.lastDay) || "";
+    const dates = bookableDates.length ? bookableDates : fallbackDates();
+    return lastDay ? dates.filter((iso) => iso <= lastDay) : dates;
+  }
+
+  function fallbackDates() {
+    const out = [];
+    const now = new Date();
+    for (let i = 1; i <= 7; i++) {
+      out.push(AP.isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + i)));
+    }
+    return out;
+  }
+
+  function openTimes(iso, booked) {
+    const focus = focusSelect ? focusSelect.value : "";
+    return AP.startsForDate(iso, AVAIL, LESSON_MINUTES)
+      .map((t) => AP.fmtTime(t))
+      .filter((label) => !AP.slotIsBlocked(booked || [], label, LESSON_MINUTES, focus, 1));
+  }
+
+  function dayIsOpen(iso) {
+    if (!bookableWindow().includes(iso)) return false;
+    if (!AP.startsForDate(iso, AVAIL, LESSON_MINUTES).length) return false;
+    const booked = bookedCache[iso];
+    if (booked && !openTimes(iso, booked).length) return false;
     return true;
   }
-  return false;
-}
-function spotsLeft(booked, label, dur, focus) {
-  const hit = (booked || []).find((b) => b.time === label);
-  if (!hit) return SLOT_CAPACITY;
-  if ((hit.mins || 60) !== dur || !bookedFocusMatches(hit, focus)) return 0;
-  const n = Number(hit.count) > 0 ? Number(hit.count) : 1;
-  return Math.max(0, SLOT_CAPACITY - n);
-}
 
-function toMinutes(hhmm) {
-  const [h, m] = String(hhmm).split(":").map(Number);
-  return h * 60 + m;
-}
+  const calendar = AP.createCalendar(document.getElementById("memCalendar"), {
+    isOpen: dayIsOpen,
+    dates: () => bookableWindow(),
+    onSelect: (iso) => pickDate(iso),
+  });
 
-function fmtTime(t) {
-  const [h, m] = t.split(":").map(Number);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const hr = h % 12 === 0 ? 12 : h % 12;
-  return `${hr}:${String(m).padStart(2, "0")} ${ampm}`;
-}
-
-// "5:00 PM" -> minutes since midnight, for comparing against booked ranges.
-function labelToMinutes(label) {
-  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(String(label).trim());
-  if (!m) return null;
-  let h = parseInt(m[1], 10) % 12;
-  if (/PM/i.test(m[3])) h += 12;
-  return h * 60 + parseInt(m[2], 10);
-}
-
-function startsForDate(iso) {
-  if (!AVAIL) return [];
-  if ((AVAIL.blocked || []).includes(iso)) return [];
-  const d = new Date(`${iso}T12:00:00`);
-  const cfg = (AVAIL.days || {})[d.getDay()];
-  if (!cfg || !cfg.open) return [];
-  const start = toMinutes(cfg.start);
-  const end = toMinutes(cfg.end);
-  const out = [];
-  const step = (AVAIL && AVAIL.slotMinutes) || 60;
-  for (let t = start; t + 60 <= end; t += step) {
-    out.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
+  async function loadSlots(iso) {
+    if (!iso || bookedCache[iso]) return;
+    try {
+      const res = await fetch(`/api/slots?date=${iso}`);
+      bookedCache[iso] = res.ok ? (await res.json()).booked || [] : [];
+    } catch {
+      bookedCache[iso] = [];
+    }
   }
-  return out;
-}
 
-async function api(path, opts = {}) {
-  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
-  const t = token();
-  if (t) headers.Authorization = `Bearer ${t}`;
-  const res = await fetch(path, { ...opts, headers });
-  const data = await res.json().catch(() => ({}));
-  if (res.status === 401) {
-    clearToken();
-    showLogin();
+  async function pickDate(iso) {
+    selectedDate = iso;
+    selectedTime = "";
+    renderTimes();
+    await loadSlots(iso);
+    if (selectedDate !== iso) return;
+    renderTimes();
+    calendar.render();
   }
-  return { res, data };
-}
 
-function showLogin(msg) {
-  dashCard.hidden = true;
-  loginCard.hidden = false;
-  if (msg) loginStatus.textContent = msg;
-}
+  function renderTimes() {
+    if (!chips || !timesBox) return;
+    chips.innerHTML = "";
+    if (!selectedDate) {
+      timesBox.hidden = true;
+      return;
+    }
+    timesBox.hidden = false;
+    if (timesTitle) timesTitle.textContent = `Open times · ${AP.prettyDate(selectedDate)}`;
+    const booked = bookedCache[selectedDate];
+    if (!booked) {
+      if (timesNote) timesNote.textContent = "Checking open times…";
+      return;
+    }
+    const focus = focusSelect ? focusSelect.value : "";
+    let open = 0;
+    AP.startsForDate(selectedDate, AVAIL, LESSON_MINUTES).forEach((t) => {
+      const label = AP.fmtTime(t);
+      const blocked = AP.slotIsBlocked(booked, label, LESSON_MINUTES, focus, 1);
+      const left = AP.seatsLeft(booked, label, LESSON_MINUTES, focus);
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.setAttribute("role", "radio");
+      chip.disabled = blocked;
+      chip.classList.toggle("is-off", blocked);
+      const on = !blocked && selectedTime === label;
+      chip.classList.toggle("is-selected", on);
+      chip.setAttribute("aria-checked", on ? "true" : "false");
+      const tag = blocked ? "Booked" : left === 1 ? "1 spot left" : "";
+      chip.innerHTML = `<span class="chip__time">${label}</span>${tag ? `<span class="chip__tag">${tag}</span>` : ""}`;
+      if (!blocked) {
+        open++;
+        chip.addEventListener("click", () => {
+          selectedTime = label;
+          weekStatus.textContent = "";
+          renderTimes();
+        });
+      }
+      chips.appendChild(chip);
+    });
+    if (timesNote) {
+      timesNote.textContent = !open
+        ? "No open times this day."
+        : selectedTime
+        ? ""
+        : "Tap a time to pick it.";
+    }
+  }
 
-function showDash() {
-  loginCard.hidden = true;
-  dashCard.hidden = false;
-}
+  function resetPicker() {
+    selectedTime = "";
+    if (selectedDate && !dayIsOpen(selectedDate)) {
+      selectedDate = "";
+      calendar.clear();
+    }
+    renderTimes();
+    calendar.render();
+  }
 
-function renderDash(data) {
-  account = data;
-  const status = data.siteStatus || {};
-  const notice = document.getElementById("acctNotice");
-  if (notice) {
-    const parts = [];
-    if (data.bookingPaused && data.bookingPausedReason) parts.push(data.bookingPausedReason);
-    if (status.fieldingOnly && status.fieldingOnlyReason) parts.push(status.fieldingOnlyReason);
-    if (status.membershipFrozen && status.membershipFrozenReason) parts.push(status.membershipFrozenReason);
-    else if (status.blockNewMemberships && status.blockNewMembershipsReason) parts.push(status.blockNewMembershipsReason);
-    if (parts.length) {
-      notice.hidden = false;
+  /* ---------- dashboard ---------- */
+
+  function renderDash(data) {
+    account = data;
+    const status = data.siteStatus || {};
+    const notice = document.getElementById("acctNotice");
+    if (notice) {
+      const parts = [];
+      if (data.bookingPaused && data.bookingPausedReason) parts.push(data.bookingPausedReason);
+      if (status.fieldingOnly && status.fieldingOnlyReason) parts.push(status.fieldingOnlyReason);
+      if (status.membershipFrozen && status.membershipFrozenReason) parts.push(status.membershipFrozenReason);
+      else if (status.blockNewMemberships && status.blockNewMembershipsReason) {
+        parts.push(status.blockNewMembershipsReason);
+      }
+      notice.hidden = !parts.length;
       notice.innerHTML = parts.map((p) => `<p>${p}</p>`).join("");
-    } else {
-      notice.hidden = true;
-      notice.innerHTML = "";
     }
-  }
 
-  const left = data.remaining || 0;
-  const expires = data.lastDayPretty || (data.lastDay ? prettyDate(data.lastDay) : "");
-  document.getElementById("acctPlayer").textContent = data.player ? `${data.player}'s membership` : "Your membership";
-  const whoName = document.getElementById("acctWhoName");
-  if (whoName) whoName.textContent = data.email || data.player || "this member";
-  document.getElementById("acctCredits").textContent =
-    `${left} of ${data.credits || 4} lessons left${expires ? status.membershipFrozen ? ` · paused clock · use by ${expires}` : ` · use by ${expires}` : ""}`;
-  document.getElementById("acctTitle").textContent = data.bookingPaused
-    ? "Membership paused"
-    : left && !data.expired
-    ? status.membershipFrozen
-      ? "Book a Fielding Lesson"
-      : "Book Your Next Lesson"
-    : "This membership is used up";
-  document.getElementById("acctLead").textContent = data.bookingPaused
-    ? data.bookingPausedReason || "This membership is paused. Call or text (405) 819-4401."
-    : left && !data.expired
-    ? status.membershipFrozen
-      ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Book fielding only — your expiry date is paused while the facility is renovated, but each lesson you book uses one credit.`
-      : `You have ${left} lesson${left === 1 ? "" : "s"} left. Pick any day that works${
-          expires ? ` — they expire ${expires}` : ""
-        }. Book one at a time; you don't have to plan them all now.`
-    : `You've used all ${data.credits || 4} lessons. Buy another membership on the Book page when you're ready for 4 more.`;
+    const left = data.remaining || 0;
+    const expires = data.lastDayPretty || (data.lastDay ? AP.prettyDate(data.lastDay) : "");
+    document.getElementById("acctPlayer").textContent = data.player
+      ? `${data.player}'s membership`
+      : "Your membership";
+    const whoName = document.getElementById("acctWhoName");
+    if (whoName) whoName.textContent = data.email || data.player || "this member";
+    document.getElementById("acctCredits").textContent =
+      `${left} of ${data.credits || 4} lessons left${
+        expires ? (status.membershipFrozen ? ` · paused clock · use by ${expires}` : ` · use by ${expires}`) : ""
+      }`;
+    document.getElementById("acctTitle").textContent = data.bookingPaused
+      ? "Membership paused"
+      : left && !data.expired
+      ? status.membershipFrozen
+        ? "Book a Fielding Lesson"
+        : "Book Your Next Lesson"
+      : "This membership is used up";
+    document.getElementById("acctLead").textContent = data.bookingPaused
+      ? data.bookingPausedReason || "This membership is paused. Call or text (405) 819-4401."
+      : left && !data.expired
+      ? status.membershipFrozen
+        ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Book fielding only — your expiry date is paused while the facility is renovated, but each lesson you book uses one credit.`
+        : `You have ${left} lesson${left === 1 ? "" : "s"} left. Pick any day that works${
+            expires ? ` — they expire ${expires}` : ""
+          }. Book one at a time; you don't have to plan them all now.`
+      : `You've used all ${data.credits || 4} lessons. Buy another membership on the Book page when you're ready for 4 more.`;
 
-  const expiry = document.getElementById("acctExpiry");
-  if (expiry) {
-    if (expires && left) {
-      expiry.hidden = false;
-      const days = typeof data.daysLeft === "number" ? data.daysLeft : null;
-      expiry.innerHTML =
-        `⏳ <strong>${left} lesson${left === 1 ? "" : "s"} left</strong> · must be used by <strong>${expires}</strong>` +
-        (days !== null && !status.membershipFrozen ? ` (${days} day${days === 1 ? "" : "s"} from today)` : "") +
-        (status.membershipFrozen ? `<br />Your expiry clock is paused during facility work — booking a lesson still uses one credit.` : "") +
-        `<br />Unused lessons don't roll over, and your membership does not auto-renew.`;
-    } else {
-      expiry.hidden = true;
+    const expiry = document.getElementById("acctExpiry");
+    if (expiry) {
+      if (expires && left) {
+        expiry.hidden = false;
+        const days = typeof data.daysLeft === "number" ? data.daysLeft : null;
+        expiry.innerHTML =
+          `⏳ <strong>${left} lesson${left === 1 ? "" : "s"} left</strong> · must be used by <strong>${expires}</strong>` +
+          (days !== null && !status.membershipFrozen ? ` (${days} day${days === 1 ? "" : "s"} from today)` : "") +
+          (status.membershipFrozen
+            ? "<br />Your expiry clock is paused during facility work — booking a lesson still uses one credit."
+            : "") +
+          "<br />Unused lessons don't roll over, and your membership does not auto-renew.";
+      } else {
+        expiry.hidden = true;
+      }
     }
+
+    const where = document.getElementById("acctWhere");
+    if (data.location?.address) {
+      where.hidden = false;
+      const map = data.location.mapUrl
+        ? ` <a href="${data.location.mapUrl}" target="_blank" rel="noopener">Directions</a>`
+        : "";
+      where.innerHTML = `📍 ${data.location.name} — ${data.location.address}.${map}<br />${data.location.note || ""}`;
+    } else {
+      where.hidden = true;
+    }
+
+    if (data.cashDue) {
+      const msgEl = document.getElementById("acctExpiry");
+      if (msgEl && !msgEl.hidden) {
+        msgEl.innerHTML += `<br />💵 <strong>${AP.dollars(data.cashDue)} in cash is due at your first lesson.</strong>`;
+      }
+    }
+
+    renderLessons(data, status);
+
+    exitReschedule();
+    const canBook = left > 0 && !data.expired && !data.bookingPaused;
+    weekForm.hidden = !canBook;
+    const msg = document.getElementById("acctMsg");
+    if (data.bookingPaused) {
+      msg.hidden = false;
+      msg.textContent = data.bookingPausedReason || "This membership is paused. Call or text (405) 819-4401.";
+    } else if (data.expired) {
+      msg.hidden = false;
+      msg.innerHTML = `This membership ended${
+        expires ? ` on ${expires}` : ""
+      }. <a href="book.html?type=membership">Buy another month</a> when you're ready.`;
+    } else if (!left) {
+      msg.hidden = false;
+      msg.innerHTML =
+        'This membership is used up. <a href="book.html?type=membership">Buy another month</a> when you\'re ready for 4 more.';
+    } else {
+      msg.hidden = true;
+    }
+
+    if (canBook) {
+      if (focusSelect && status.fieldingOnly) {
+        focusSelect.querySelectorAll('option[value="Hitting"], option[value="Both"]').forEach((o) => {
+          o.hidden = true;
+        });
+        focusSelect.value = "Fielding";
+      }
+      resetPicker();
+    }
+    showDash();
   }
 
-  const where = document.getElementById("acctWhere");
-  if (data.location?.address) {
-    where.hidden = false;
-    const map = data.location.mapUrl
-      ? ` <a href="${data.location.mapUrl}" target="_blank" rel="noopener">Directions</a>`
-      : "";
-    where.innerHTML = `📍 ${data.location.name} — ${data.location.address}.${map}<br />${data.location.note || ""}`;
-  } else {
-    where.hidden = true;
-  }
-
-  const list = document.getElementById("acctLessons");
-  const upcoming = data.lessons || [];
-  if (!upcoming.length) {
-    list.innerHTML = `<p class="acct__empty">No lessons on the calendar yet.</p>`;
-  } else {
-    list.innerHTML = `<p class="booking__picked-title">Upcoming</p>` + upcoming.map((l) => {
-      return `<div class="acct__row">
-        <div><strong>${prettyDate(l.date)}</strong> · ${l.time}${l.focus ? ` · ${l.focus}` : ""}</div>
-        <span class="acct__actions">
-          <button type="button" class="acct__btn" data-reschedule="${l.id}">Reschedule</button>
-          <button type="button" class="acct__btn acct__btn--quiet" data-cancel="${l.id}">Cancel</button>
-        </span>
+  function renderLessons(data, status) {
+    const list = document.getElementById("acctLessons");
+    const upcoming = data.lessons || [];
+    if (!upcoming.length) {
+      list.innerHTML = '<p class="acct__empty">No lessons on the calendar yet.</p>';
+      return;
+    }
+    list.innerHTML =
+      '<p class="booking__picked-title">Upcoming</p>' +
+      upcoming
+        .map((l) => {
+          // Inside the 12-hour window the buttons would only fail, so say so here.
+          const locked = l.canChange === false;
+          return `<div class="acct__row">
+        <div><strong>${AP.prettyDate(l.date)}</strong> · ${l.time}${l.focus ? ` · ${l.focus}` : ""}</div>
+        <span class="acct__actions">${
+          locked
+            ? '<span class="acct__locked">Less than 12 hours out — <a href="tel:+14058194401">call or text</a></span>'
+            : `<button type="button" class="acct__btn" data-reschedule="${l.id}">Move</button>
+          <button type="button" class="acct__btn acct__btn--quiet" data-cancel="${l.id}">Cancel</button>`
+        }</span>
       </div>`;
-    }).join("") + `<p class="acct__hint">${status.membershipFrozen ? "Fielding only right now. Reschedule or cancel at least 12 hours before the lesson — that credit stays on your membership." : "Need a different day? Reschedule or cancel at least 12 hours before the lesson. That credit stays on your membership so you can book another day."}</p>`;
+        })
+        .join("") +
+      `<p class="acct__hint">${
+        status.membershipFrozen
+          ? "Fielding only right now. Move or cancel at least 12 hours before the lesson — that credit stays on your membership."
+          : "Need a different day? Tap Move and pick a new time, at least 12 hours before the lesson. That credit stays on your membership either way."
+      }</p>`;
     list.querySelectorAll("[data-cancel]").forEach((btn) => {
       btn.addEventListener("click", () => cancelLesson(btn.dataset.cancel));
     });
@@ -241,285 +340,197 @@ function renderDash(data) {
     });
   }
 
-  exitReschedule();
-  const canBook = left > 0 && !data.expired && !data.bookingPaused;
-  weekForm.hidden = !canBook;
-  const msg = document.getElementById("acctMsg");
-  if (data.bookingPaused) {
-    msg.hidden = false;
-    msg.textContent = data.bookingPausedReason || "This membership is paused. Call or text (405) 819-4401.";
-  } else if (data.expired) {
-    msg.hidden = false;
-    msg.innerHTML = `This membership ended${expires ? ` on ${expires}` : ""}. <a href="book.html?type=membership">Buy another month</a> when you're ready.`;
-  } else if (!left) {
-    msg.hidden = false;
-    msg.innerHTML = `This membership is used up. <a href="book.html?type=membership">Buy another month</a> when you're ready for 4 more.`;
-  } else {
-    msg.hidden = true;
-  }
-
-  if (canBook) {
-    const memFocus = document.getElementById("memFocus");
-    if (memFocus && status.fieldingOnly) {
-      memFocus.querySelectorAll('option[value="Hitting"], option[value="Both"]').forEach((o) => {
-        o.hidden = true;
-      });
-      memFocus.value = "Fielding";
+  async function loadAccount() {
+    const { res, data } = await api("/api/member");
+    if (!res.ok) {
+      showLogin(data.error || "");
+      return;
     }
-    renderDays();
+    renderDash(data);
   }
-  showDash();
-}
 
-// Open days in the current booking window (and not past expiry).
-function renderDays() {
-  dateSelect.length = 1;
-  const lastDay = (account && account.lastDay) || "";
-  const dates = bookableDates.length
-    ? bookableDates
-    : (() => {
-        const out = [];
-        const now = new Date();
-        for (let i = 1; i <= 7; i++) {
-          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-          out.push(isoDate(d));
-        }
-        return out;
-      })();
-  for (const iso of dates) {
-    if (lastDay && iso > lastDay) break;
-    if (!startsForDate(iso).length) continue;
-    dateSelect.append(new Option(prettyDate(iso), iso));
-  }
-  if (dateSelect.length === 1) {
-    dateSelect.options[0].text = "No open days left in this membership";
-  }
-}
+  /* ---------- move / cancel ---------- */
 
-async function loadTimes(date) {
-  timeSelect.innerHTML = "";
-  if (!date) {
-    timeSelect.append(new Option("Pick a day first", ""));
-    timeSelect.disabled = true;
-    return;
+  function exitReschedule() {
+    rescheduleId = null;
+    const title = document.getElementById("weekFormTitle");
+    if (title) title.innerHTML = '<span class="booking__step-num">+</span> Book another lesson';
+    const submit = document.getElementById("weekSubmit");
+    if (submit) submit.textContent = "Lock in this lesson";
+    const keep = document.getElementById("keepTime");
+    if (keep) keep.hidden = true;
+    weekStatus.textContent = "";
+    weekStatus.classList.remove("booking__status--ok");
   }
-  if (!bookedCache[date]) {
-    timeSelect.append(new Option("Checking open times…", ""));
-    timeSelect.disabled = true;
-    try {
-      const res = await fetch(`/api/slots?date=${date}`);
-      bookedCache[date] = res.ok ? (await res.json()).booked || [] : [];
-    } catch {
-      bookedCache[date] = [];
+
+  function startReschedule(id) {
+    const lesson = (account?.lessons || []).find((l) => l.id === id);
+    if (!lesson) return;
+    rescheduleId = id;
+
+    if (focusSelect && lesson.focus) focusSelect.value = lesson.focus;
+
+    const title = document.getElementById("weekFormTitle");
+    if (title) {
+      title.innerHTML = `<span class="booking__step-num">↻</span> Move ${AP.prettyDate(lesson.date)} · ${lesson.time}`;
     }
+    const submit = document.getElementById("weekSubmit");
+    if (submit) submit.textContent = "Move this lesson";
+
+    // A one-click way back out of reschedule mode, created the first time it's needed.
+    let keep = document.getElementById("keepTime");
+    if (!keep) {
+      keep = document.createElement("button");
+      keep.type = "button";
+      keep.id = "keepTime";
+      keep.className = "booking__change";
+      keep.style.marginTop = "0.6rem";
+      keep.textContent = "Keep my current time";
+      keep.addEventListener("click", () => renderDash(account));
+      weekForm.appendChild(keep);
+    }
+    keep.hidden = false;
+
+    weekStatus.classList.remove("booking__status--ok");
+    weekStatus.textContent = "Pick a new day and time — your old slot is freed up when the change goes through.";
+
+    weekForm.hidden = false;
+    // Start on the day they already have, so a time-only change is two taps and
+    // the open times are on screen immediately.
+    if (bookableWindow().includes(lesson.date)) {
+      calendar.set(lesson.date);
+      pickDate(lesson.date);
+    } else {
+      resetPicker();
+    }
+    weekForm.scrollIntoView({ behavior: "smooth", block: "center" });
   }
-  const taken = bookedCache[date] || [];
-  const focus = document.getElementById("memFocus").value;
-  const starts = startsForDate(date);
-  timeSelect.innerHTML = "";
-  timeSelect.append(new Option("Choose a time", ""));
-  let open = 0;
-  starts.forEach((t) => {
-    const label = fmtTime(t);
-    const hit = slotIsBlocked(taken, label, 60, focus);
-    const left = spotsLeft(taken, label, 60, focus);
-    const opt = new Option(hit ? `${label} — booked` : left === 1 ? `${label} · 1 spot left` : label, label);
-    opt.disabled = hit;
-    if (!hit) open++;
-    timeSelect.append(opt);
-  });
-  if (!open) timeSelect.options[0].text = "No open times this day";
-  timeSelect.disabled = false;
-}
 
-async function loadAccount() {
-  const { res, data } = await api("/api/member");
-  if (!res.ok) {
-    showLogin(data.error || "");
-    return;
-  }
-  renderDash(data);
-}
-
-function exitReschedule() {
-  rescheduleId = null;
-  const title = document.getElementById("weekFormTitle");
-  if (title) title.innerHTML = `<span class="booking__step-num">+</span> Book another lesson`;
-  const submit = document.getElementById("weekSubmit");
-  if (submit) submit.textContent = "Lock in this lesson";
-  const keep = document.getElementById("keepTime");
-  if (keep) keep.hidden = true;
-  weekStatus.textContent = "";
-  weekStatus.classList.remove("booking__status--ok");
-}
-
-function startReschedule(id) {
-  const lesson = (account?.lessons || []).find((l) => l.id === id);
-  if (!lesson) return;
-  rescheduleId = id;
-
-  const focus = document.getElementById("memFocus");
-  if (focus && lesson.focus) focus.value = lesson.focus;
-
-  const title = document.getElementById("weekFormTitle");
-  if (title) title.innerHTML = `<span class="booking__step-num">↻</span> Move your ${prettyDate(lesson.date)} lesson`;
-  const submit = document.getElementById("weekSubmit");
-  if (submit) submit.textContent = "Move this lesson";
-
-  // A one-click way back out of reschedule mode, created the first time it's needed.
-  let keep = document.getElementById("keepTime");
-  if (!keep) {
-    keep = document.createElement("button");
-    keep.type = "button";
-    keep.id = "keepTime";
-    keep.className = "booking__change";
-    keep.style.marginTop = "0.6rem";
-    keep.textContent = "Keep my current time";
-    keep.addEventListener("click", () => renderDash(account));
-    weekForm.appendChild(keep);
-  }
-  keep.hidden = false;
-
-  weekStatus.classList.remove("booking__status--ok");
-  weekStatus.textContent = "Pick a new day and time — your old slot is freed up when the change goes through.";
-
-  dateSelect.value = "";
-  loadTimes("");
-  renderDays();
-  weekForm.hidden = false;
-  weekForm.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
-async function cancelLesson(id) {
-  const lesson = (account?.lessons || []).find((l) => l.id === id);
-  const label = lesson ? `${prettyDate(lesson.date)} at ${lesson.time}` : "this lesson";
-  if (!window.confirm(`Cancel ${label}?\n\nYou'll get that credit back and can book another day.`)) return;
-  weekStatus.textContent = "";
-  const { res, data } = await api("/api/member", {
-    method: "POST",
-    body: JSON.stringify({ action: "cancel", id }),
-  });
-  if (!res.ok) {
-    weekStatus.textContent = data.error || "Couldn't cancel that lesson.";
-    return;
-  }
-  delete bookedCache[""];
-  Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
-  renderDash(data);
-}
-
-loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  loginStatus.textContent = "";
-  loginSubmit.disabled = true;
-  loginSubmit.textContent = "Sending…";
-  try {
-    const { data } = await api("/api/member-login", {
+  async function cancelLesson(id) {
+    const lesson = (account?.lessons || []).find((l) => l.id === id);
+    const label = lesson ? `${AP.prettyDate(lesson.date)} at ${lesson.time}` : "this lesson";
+    if (!window.confirm(`Cancel ${label}?\n\nYou'll get that credit back and can book another day.`)) return;
+    weekStatus.textContent = "";
+    const { res, data } = await api("/api/member", {
       method: "POST",
-      body: JSON.stringify({ email: loginForm.elements.email.value.trim() }),
+      body: JSON.stringify({ action: "cancel", id }),
     });
-    // Only show it green when a link actually went out.
-    loginStatus.classList.toggle("booking__status--ok", data.sent !== false);
-    loginStatus.textContent = data.message || "Check your email for a sign-in link.";
-  } catch {
-    loginStatus.classList.remove("booking__status--ok");
-    loginStatus.textContent = "Couldn't send that. Call or text (405) 819-4401.";
-  }
-  loginSubmit.disabled = false;
-  loginSubmit.textContent = "Email me a sign-in link";
-});
-
-weekForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  weekStatus.textContent = "";
-  weekStatus.classList.remove("booking__status--ok");
-  const date = dateSelect.value;
-  const time = timeSelect.value;
-  if (!date || !time) {
-    weekStatus.textContent = "Pick a day and a time.";
-    return;
-  }
-  const moving = Boolean(rescheduleId);
-  const btn = document.getElementById("weekSubmit");
-  const restoreLabel = moving ? "Move this lesson" : "Lock in this lesson";
-  btn.disabled = true;
-  btn.textContent = moving ? "Moving…" : "Booking…";
-  const { res, data } = await api("/api/member", {
-    method: "POST",
-    body: JSON.stringify({
-      action: moving ? "reschedule" : "book",
-      id: rescheduleId || undefined,
-      date,
-      time,
-      focus: document.getElementById("memFocus").value,
-    }),
-  });
-  if (!res.ok) {
-    weekStatus.textContent = data.error || (moving ? "Couldn't move that lesson." : "Couldn't book that time.");
-    if (res.status === 409) delete bookedCache[date];
-    btn.disabled = false;
-    btn.textContent = restoreLabel;
-    loadTimes(date);
-    return;
-  }
-  Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
-  renderDash(data);
-  btn.disabled = false;
-});
-
-dateSelect.addEventListener("change", () => loadTimes(dateSelect.value));
-document.getElementById("memFocus").addEventListener("change", () => loadTimes(dateSelect.value));
-function signOut() {
-  clearToken();
-  account = null;
-  const status = document.getElementById("loginStatus");
-  if (status) {
-    status.classList.remove("booking__status--ok");
-    status.textContent = "";
-  }
-  const emailField = document.getElementById("loginEmail");
-  if (emailField) emailField.value = "";
-  showLogin();
-}
-
-document.getElementById("signOut").addEventListener("click", signOut);
-// Same thing, worded for someone who didn't expect to be signed in at all.
-document.getElementById("switchUser")?.addEventListener("click", signOut);
-
-(async function init() {
-  const params = new URLSearchParams(window.location.search);
-  const k = params.get("k");
-  if (k) {
-    setToken(k);
-    history.replaceState({}, "", window.location.pathname);
+    if (!res.ok) {
+      weekStatus.textContent = data.error || "Couldn't cancel that lesson.";
+      return;
+    }
+    Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
+    renderDash(data);
   }
 
-  const sid = params.get("session_id");
-  if (params.get("welcome") === "1" && sid) {
-    loginStatus.textContent = "Finishing signup…";
+  /* ---------- wiring ---------- */
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginStatus.textContent = "";
+    loginSubmit.disabled = true;
+    loginSubmit.textContent = "Sending…";
     try {
-      const conf = await fetch(`/api/confirm?session_id=${encodeURIComponent(sid)}`);
-      const d = await conf.json().catch(() => ({}));
-      if (d.memberToken) setToken(d.memberToken);
+      const { data } = await api("/api/member-login", {
+        method: "POST",
+        body: JSON.stringify({ email: loginForm.elements.email.value.trim() }),
+      });
+      // Only show it green when a link actually went out.
+      loginStatus.classList.toggle("booking__status--ok", data.sent !== false);
+      loginStatus.textContent = data.message || "Check your email for a sign-in link.";
     } catch {
-      /* still try the token we have */
+      loginStatus.classList.remove("booking__status--ok");
+      loginStatus.textContent = "Couldn't send that. Call or text (405) 819-4401.";
     }
-    history.replaceState({}, "", window.location.pathname);
+    loginSubmit.disabled = false;
+    loginSubmit.textContent = "Email me a sign-in link";
+  });
+
+  weekForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    weekStatus.textContent = "";
+    weekStatus.classList.remove("booking__status--ok");
+    if (!selectedDate || !selectedTime) {
+      weekStatus.textContent = "Pick a day and a time.";
+      return;
+    }
+    const moving = Boolean(rescheduleId);
+    const btn = document.getElementById("weekSubmit");
+    const restoreLabel = moving ? "Move this lesson" : "Lock in this lesson";
+    btn.disabled = true;
+    btn.textContent = moving ? "Moving…" : "Booking…";
+    const date = selectedDate;
+    const { res, data } = await api("/api/member", {
+      method: "POST",
+      body: JSON.stringify({
+        action: moving ? "reschedule" : "book",
+        id: rescheduleId || undefined,
+        date,
+        time: selectedTime,
+        focus: focusSelect ? focusSelect.value : "",
+      }),
+    });
+    btn.disabled = false;
+    if (!res.ok) {
+      weekStatus.textContent = data.error || (moving ? "Couldn't move that lesson." : "Couldn't book that time.");
+      btn.textContent = restoreLabel;
+      delete bookedCache[date];
+      pickDate(date);
+      return;
+    }
+    Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
+    renderDash(data);
+  });
+
+  if (focusSelect) focusSelect.addEventListener("change", () => resetPicker());
+
+  function signOut() {
+    clearToken();
+    account = null;
+    loginStatus.classList.remove("booking__status--ok");
+    loginStatus.textContent = "";
+    const emailField = document.getElementById("loginEmail");
+    if (emailField) emailField.value = "";
+    showLogin();
   }
 
-  try {
-    const res = await fetch("/api/availability");
-    if (res.ok) {
-      const d = await res.json();
-      if (d?.availability?.days) AVAIL = d.availability;
-      if (Array.isArray(d?.bookingWindow?.dates)) bookableDates = d.bookingWindow.dates;
-    }
-  } catch {
-    /* defaults unused — days stay empty until availability loads */
-  }
+  document.getElementById("signOut").addEventListener("click", signOut);
+  // Same thing, worded for someone who didn't expect to be signed in at all.
+  document.getElementById("switchUser")?.addEventListener("click", signOut);
 
-  if (token()) loadAccount();
-  else showLogin();
+  (async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const k = params.get("k");
+    if (k) {
+      setToken(k);
+      history.replaceState({}, "", window.location.pathname);
+    }
+
+    const sid = params.get("session_id");
+    if (params.get("welcome") === "1" && sid) {
+      loginStatus.textContent = "Finishing signup…";
+      try {
+        const conf = await fetch(`/api/confirm?session_id=${encodeURIComponent(sid)}`);
+        const d = await conf.json().catch(() => ({}));
+        if (d.memberToken) setToken(d.memberToken);
+      } catch {
+        /* still try the token we have */
+      }
+      history.replaceState({}, "", window.location.pathname);
+    }
+
+    try {
+      const res = await fetch("/api/availability");
+      if (res.ok) {
+        const d = await res.json();
+        if (d?.availability?.days) AVAIL = d.availability;
+        if (Array.isArray(d?.bookingWindow?.dates)) bookableDates = d.bookingWindow.dates;
+      }
+    } catch {
+      /* defaults */
+    }
+
+    if (token()) loadAccount();
+    else showLogin();
+  })();
 })();
-
-}

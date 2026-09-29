@@ -10,52 +10,20 @@
 // removes the lesson, so it disappears on the next refresh.
 
 import { fetchBookings } from "../lib/bookings.js";
-import { LOCATIONS, locationKeyFor } from "../lib/schedule.js";
-import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
+import { buildCalendar, stamp, bookingEvent } from "../lib/ics.js";
+import { isCoachPass } from "../lib/coachAuth.js";
 
-const TYPE_LABEL = { single: "1 hour", thirty: "30-min", membership: "Membership" };
-const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
-
-// Shared by the feed and the emailed invite so an event looks the same
-// wherever it's added from.
-export function bookingEvent(b, now) {
-  const who = b.player || "Lesson";
-  const kind = TYPE_LABEL[b.type] || "Lesson";
-  const focusText = FOCUS_LABELS[b.focus] || b.focus || "";
-  const place = LOCATIONS[b.loc || locationKeyFor(b.date)] || null;
-
-  return eventLines({
-    uid: `${b.id}@apacademybsb.com`,
-    date: b.date,
-    time: b.time,
-    // 30-minute lessons run half an hour; everything else is a full hour.
-    durationMin: b.type === "thirty" ? 30 : 60,
-    summary: `${who} — ${kind}${focusText ? ` · ${focusText}` : ""}${place ? ` @ ${place.name}` : ""}`,
-    location: place ? place.address || place.name : "",
-    description: [
-      focusText ? `Working on: ${focusText}` : "",
-      b.parent ? `Parent: ${b.parent}` : "",
-      b.phone ? `Phone: ${b.phone}` : "",
-      b.email ? `Email: ${b.email}` : "",
-      `Session: ${kind}`,
-      place ? `Location: ${place.name}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    alarmMinutes: 60,
-    now,
-  });
-}
+// Kept here so existing imports (`api/member.js`) keep working.
+export { bookingEvent };
 
 export default async function handler(req, res) {
   const key = process.env.STRIPE_SECRET_KEY;
-  const pass = process.env.COACH_PASS;
 
-  if (!key || !pass) {
+  if (!key) {
     res.status(500).send("Calendar feed is not set up yet.");
     return;
   }
-  if (String(req.query?.key || "") !== pass) {
+  if (!isCoachPass(req.query?.key)) {
     res.status(401).send("Wrong passcode.");
     return;
   }

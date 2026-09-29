@@ -5,6 +5,7 @@
 //          same one the coach page uses. Requires the KV store to be set up.
 
 import { getAvailability, normalizeAvailability } from "../lib/schedule.js";
+import { requireCoach } from "../lib/coachAuth.js";
 import { kvSet, storeConfigured } from "../lib/store.js";
 import { getSiteStatus } from "../lib/siteStatus.js";
 import { loadCoachStatus } from "../lib/coachStatus.js";
@@ -27,16 +28,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-    const pass = process.env.COACH_PASS;
-    if (!pass) {
-      res.status(500).json({ error: "Coach page isn't set up yet (COACH_PASS is missing)." });
-      return;
-    }
-    const key = String(req.query?.key || req.body?.key || "");
-    if (key !== pass) {
-      res.status(401).json({ error: "Wrong passcode." });
-      return;
-    }
+    if (!requireCoach(req, res)) return;
     if (!storeConfigured()) {
       res.status(503).json({
         error:

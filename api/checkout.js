@@ -3,7 +3,16 @@
 // environment variable to be set in the Vercel project settings.
 
 import { bookedTimes } from "./slots.js";
-import { allowedTimes, locationKeyFor, getAvailability, durationFor, slotBlocked } from "../lib/schedule.js";
+import {
+  allowedTimes,
+  locationKeyFor,
+  getAvailability,
+  durationFor,
+  slotBlocked,
+  seatsFor,
+  isExclusiveType,
+  SLOT_CAPACITY,
+} from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
 import { bookWindowBlocked } from "../lib/members.js";
 import {
@@ -18,11 +27,23 @@ import { loadCoachStatus } from "../lib/coachStatus.js";
 const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 
 const SESSION_TYPES = {
-  single: { amount: 8000, quantity: 1, picks: 1, label: "Lesson (1 hour)", mode: "payment" },
-  thirty: { amount: 6000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
+  // Per-athlete price. Two athletes can share the hour; booking two athletes
+  // here charges for both and fills the hour.
+  single: { amount: 8000, quantity: 1, picks: 1, label: "Regular Lesson (1 hour)", mode: "payment", perAthlete: true },
+  thirty: { amount: 6000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment", perAthlete: true },
+  // Private buys the whole hour, so nobody else can book into it.
+  private: { amount: 10000, quantity: 1, picks: 1, label: "Private 1-on-1 Lesson (1 hour, just you)", mode: "payment" },
   // Members pick lesson 1 of 4 here; the other 3 get booked from /account.html.
   membership: { amount: 28000, quantity: 1, picks: 1, label: "Membership — 4 one-hour lessons (1 month, does not auto-renew)", mode: "payment" },
 };
+
+// Only shared-hour lessons can add a second athlete; a private lesson is 1-on-1
+// by definition and a membership's credits belong to one player.
+function athleteCountFor(type, raw) {
+  if (!SESSION_TYPES[type]?.perAthlete) return 1;
+  const n = Math.round(Number(raw) || 1);
+  return Math.min(SLOT_CAPACITY, Math.max(1, n));
+}
 
 const FOCUS_LABELS = { Hitting: "Hitting", Fielding: "Fielding", Both: "Hitting & Fielding" };
 
@@ -68,6 +89,7 @@ export default async function handler(req, res) {
   if (SESSION_ID_RE.test(previous)) await releaseHold(previous);
 
   const { type, player, parent, phone } = req.body || {};
+  const player2 = String(req.body?.player2 || "").trim();
   const payMode = req.body?.payMode === "deposit" ? "deposit" : "card";
   // Stored lowercase so member sign-in can find them later — Stripe's metadata
   // search is case-sensitive, and parents type their address however they like.
@@ -102,7 +124,14 @@ export default async function handler(req, res) {
     sessions = [{ date: req.body.date, time: req.body.time }];
   }
   const isMember = type === "membership";
+  // Two names means two athletes in one booking — that fills the hour.
+  const athletes = athleteCountFor(type, player2 ? 2 : req.body?.athletes);
+  const seats = isExclusiveType(type) ? SLOT_CAPACITY : seatsFor(type, athletes);
   const emailOk = email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  if (athletes > 1 && !player2) {
+    res.status(400).json({ error: "Add the second athlete's name, or remove the second athlete." });
+    return;
+  }
   const valid =
     session &&
     player &&
@@ -172,13 +201,21 @@ export default async function handler(req, res) {
     const takenByDate = Object.fromEntries(
       await Promise.all(dates.map(async (d) => [d, await bookedTimes(key, d)]))
     );
-    // Two players can share only when start, length, and training focus match.
+    // Two athletes can share only when start, length, and training focus match —
+    // and only if this booking isn't buying the whole hour.
     const conflict = sessions.find((s) =>
-      slotBlocked(takenByDate[s.date] || [], s.time, lessonMins, focus)
+      slotBlocked(takenByDate[s.date] || [], s.time, lessonMins, focus, {
+        seats,
+        exclusive: isExclusiveType(type),
+      })
     );
     if (conflict) {
       res.status(409).json({
-        error: `Sorry — ${conflict.date} at ${conflict.time} is full or has a different training focus. Please pick another time.`,
+        error: isExclusiveType(type)
+          ? `Sorry — ${conflict.date} at ${conflict.time} already has a lesson on it, so it can't be a private hour. Please pick another time.`
+          : athletes > 1
+          ? `Sorry — ${conflict.date} at ${conflict.time} doesn't have room for two athletes. Please pick another time.`
+          : `Sorry — ${conflict.date} at ${conflict.time} is full or has a different training focus. Please pick another time.`,
       });
       return;
     }
@@ -188,9 +225,10 @@ export default async function handler(req, res) {
 
   const origin = `https://${req.headers.host}`;
   const ADDRESS = "231 W Juniper Dr, Mustang, OK 73064";
+  const who = player2 ? `${player} & ${player2}` : player;
   const sessionLabel = sessions.length
-    ? sessions.map((s) => `${s.date} at ${s.time}`).join(", ") + ` — ${player}`
-    : `Membership — ${player}`;
+    ? sessions.map((s) => `${s.date} at ${s.time}`).join(", ") + ` — ${who}`
+    : `Membership — ${who}`;
 
   const successUrl = isMember
       ? `${origin}/account.html?welcome=1&session_id={CHECKOUT_SESSION_ID}`
@@ -211,14 +249,18 @@ export default async function handler(req, res) {
   );
   params.append("line_items[0][quantity]", String(session.quantity));
   params.append("line_items[0][price_data][currency]", "usd");
-  const fullAmount = settings.prices?.[type] || session.amount;
+  const unitAmount = settings.prices?.[type] || session.amount;
+  // Per-athlete lessons charge once per athlete on the booking.
+  const fullAmount = unitAmount * athletes;
   let chargeAmount = fullAmount;
   let amountDue = 0;
-  let productLabel = session.label;
+  let productLabel = athletes > 1 ? `${session.label} × ${athletes} athletes` : session.label;
   if (payMode === "deposit" && type === "membership") {
-    chargeAmount = Math.min(settings.membershipDeposit || 10000, fullAmount);
+    chargeAmount = Math.min(settings.membershipDeposit || 8000, fullAmount);
     amountDue = Math.max(0, fullAmount - chargeAmount);
-    productLabel = `Membership deposit ($${(chargeAmount / 100).toFixed(0)}) — balance $${(amountDue / 100).toFixed(0)} cash`;
+    productLabel = `Membership deposit ($${(chargeAmount / 100).toFixed(0)}) — $${(amountDue / 100).toFixed(
+      0
+    )} cash due at your first lesson`;
   }
   params.append("line_items[0][price_data][unit_amount]", String(chargeAmount));
   params.append("line_items[0][price_data][product_data][name]", productLabel);
@@ -235,6 +277,9 @@ export default async function handler(req, res) {
   );
   const meta = [
     ["player", player],
+    ["player2", player2],
+    ["athletes", String(athletes)],
+    ["seats", String(seats)],
     ["parent", parent || ""],
     ["phone", phone || ""],
     ["email", email || ""],
@@ -306,7 +351,7 @@ export default async function handler(req, res) {
   // nothing else marks it as taken, so without this a second parent could pay
   // for the same time while this one is still entering their card.
   if (data.id && sessions.length) {
-    await placeHold(data.id, sessions, lessonMins, focus);
+    await placeHold(data.id, sessions, lessonMins, focus, { seats, type });
   }
 
   // The browser keeps this so it can ignore — and later release — its own hold.

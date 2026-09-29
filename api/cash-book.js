@@ -6,6 +6,9 @@ import {
   getAvailability,
   durationFor,
   slotBlocked,
+  seatsFor,
+  isExclusiveType,
+  SLOT_CAPACITY,
   LOCATIONS,
 } from "../lib/schedule.js";
 import { bookWindowBlocked, MEMBER_PERIOD_DAYS } from "../lib/members.js";
@@ -67,17 +70,22 @@ export default async function handler(req, res) {
 
   const key = process.env.STRIPE_SECRET_KEY || "";
   const body = req.body || {};
-  const type = ["single", "thirty", "membership"].includes(body.type) ? body.type : "";
+  const type = ["single", "thirty", "private", "membership"].includes(body.type) ? body.type : "";
   const player = String(body.player || "").trim();
+  const player2 = String(body.player2 || "").trim();
   const parent = String(body.parent || "").trim();
   const phone = String(body.phone || "").trim();
   const email = String(body.email || "").trim().toLowerCase();
   const focusRaw = FOCUS[body.focus] ? String(body.focus) : "";
   const date = String(body.date || body.sessions?.[0]?.date || "");
   const time = String(body.time || body.sessions?.[0]?.time || "");
+  // A second athlete is only possible on the shared-hour lesson types.
+  const canShare = type === "single" || type === "thirty";
+  const athletes = canShare && player2 ? 2 : 1;
+  const seats = isExclusiveType(type) ? SLOT_CAPACITY : seatsFor(type, athletes);
 
   if (!type || !player || !email || !DATE_RE.test(date) || !TIME_RE.test(time)) {
-    res.status(400).json({ error: "Please pick a day and time, enter the player's name and email, and choose cash." });
+    res.status(400).json({ error: "Please pick a day and time, enter the athlete's name and email, and choose cash." });
     return;
   }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
@@ -131,8 +139,14 @@ export default async function handler(req, res) {
   if (key) {
     try {
       const taken = await bookedTimes(key, date);
-      if (slotBlocked(taken, time, lessonMins, focus)) {
-        res.status(409).json({ error: "Sorry — that time is full or has a different focus. Pick another." });
+      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive: isExclusiveType(type) })) {
+        res.status(409).json({
+          error: isExclusiveType(type)
+            ? "Sorry — that hour already has a lesson on it, so it can't be private. Pick another."
+            : athletes > 1
+            ? "Sorry — that hour doesn't have room for two athletes. Pick another."
+            : "Sorry — that time is full or has a different focus. Pick another.",
+        });
         return;
       }
     } catch {
@@ -140,11 +154,13 @@ export default async function handler(req, res) {
     }
   }
 
-  const price = settings.prices[type] || 0;
+  const price = (settings.prices[type] || 0) * athletes;
   const isMember = type === "membership";
   const booking = makeManualBooking({
     type,
     player,
+    player2,
+    athletes,
     parent,
     phone,
     email,
@@ -188,16 +204,19 @@ export default async function handler(req, res) {
 
   const loc = LOCATIONS.mustang || {};
   const dollars = (price / 100).toFixed(2);
+  const who = player2 ? `${player} & ${player2}` : player;
   const sent = await sendMail({
     to: email,
     subject: isMember
       ? `Membership reserved — first lesson ${date} at ${time}`
       : `Lesson reserved — ${date} at ${time} (pay cash)`,
     text:
-      `${player}'s ${isMember ? "membership first lesson" : "lesson"} is reserved for ${date} at ${time}.\n\n` +
+      `${who}'s ${isMember ? "membership first lesson" : "lesson"} is reserved for ${date} at ${time}.\n\n` +
       `Pay $${dollars} cash at the field` +
-      (isMember ? " (covers all 4 lessons)." : ".") +
+      (isMember ? " (covers all 4 lessons)." : athletes > 1 ? ` (covers both athletes).` : ".") +
       `\n\n` +
+      (type === "private" ? `This is a private 1-on-1 hour — nobody else will be added to it.\n\n` : "") +
+      (athletes > 1 ? `Both athletes are on this hour, so the time is now full.\n\n` : "") +
       (loc.address ? `Where: ${loc.address}\n${loc.note || ""}\n\n` : "") +
       (isMember ? `Sign in at apacademybsb.com/account.html with ${email} to book the other lessons.\n\n` : "") +
       `Questions? (405) 819-4401`,

@@ -16,10 +16,21 @@
 // slot. Without the passcode only times and durations are returned — names and
 // booking ids are never exposed publicly.
 
-import { durationFor } from "../lib/schedule.js";
+import { durationFor, seatsFor, isExclusiveType, SLOT_CAPACITY } from "../lib/schedule.js";
 import { loadLessons, lessonsOnDate, isVoided } from "../lib/lessons.js";
 import { loadHolds, holdsOnDate } from "../lib/holds.js";
 import { loadManualBookings, bookingsOnDate } from "../lib/manualBookings.js";
+import { isCoachPass } from "../lib/coachAuth.js";
+
+// How many of the hour's two athlete seats a booking occupies. Private lessons
+// take both; a sibling pair takes both; a lone athlete takes one.
+function seatsOn(row) {
+  const type = String(row?.type || "");
+  if (isExclusiveType(type)) return SLOT_CAPACITY;
+  const explicit = Number(row?.seats);
+  if (explicit > 0) return Math.min(SLOT_CAPACITY, explicit);
+  return seatsFor(type, row?.athletes);
+}
 
 // Returns [{ time: "5:00 PM", mins: 60, sources: [...] }] — each taken slot with
 // how long it runs, so callers can block overlapping start times (a 1-hour
@@ -64,8 +75,10 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
         kind: "paid",
         id: item.id,
         player: m.player || "",
+        player2: m.player2 || "",
         type: m.type || "",
         focus: m.focus || "",
+        seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes }),
         created: item.created || 0,
       });
     });
@@ -97,6 +110,7 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
         player: l.player || "",
         email: l.email || "",
         focus: l.focus || "",
+        seats: seatsOn({ type: l.type || "membership", seats: l.seats, athletes: l.athletes }),
         createdAt: l.createdAt || 0,
       })
     );
@@ -115,6 +129,7 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
         kind: "hold",
         id: h.sessionId,
         focus: h.focus || "",
+        seats: seatsOn({ type: h.type, seats: h.seats, athletes: h.athletes }),
         expiresAt: h.expiresAt,
         expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
       })
@@ -125,13 +140,17 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
 
   try {
     const manual = await loadManualBookings();
-    bookingsOnDate(manual, date).forEach((b) =>
+    bookingsOnDate(manual, date)
+      .filter((b) => !ignoreSourceId || b.id !== ignoreSourceId)
+      .forEach((b) =>
       add(b.time, durationFor(b.type || "single"), {
         kind: "cash",
         id: b.id,
         player: b.player || "",
+        player2: b.player2 || "",
         email: b.email || "",
         focus: b.focus || "",
+        seats: seatsOn({ type: b.type || "single", seats: b.seats, athletes: b.athletes }),
         createdAt: b.createdAt || 0,
       })
     );
@@ -139,13 +158,19 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
     /* optional */
   }
 
-  return [...byTime.entries()].map(([time, v]) => ({
-    time,
-    mins: v.mins,
-    count: v.sources.length,
-    focuses: [...new Set(v.sources.map((source) => source.focus || "").filter(Boolean))],
-    sources: v.sources,
-  }));
+  return [...byTime.entries()].map(([time, v]) => {
+    const seats = v.sources.reduce((n, source) => n + (Number(source.seats) || 1), 0);
+    return {
+      time,
+      mins: v.mins,
+      count: v.sources.length,
+      seats,
+      // Private lessons (and sibling pairs) own the hour outright.
+      exclusive: seats >= SLOT_CAPACITY,
+      focuses: [...new Set(v.sources.map((source) => source.focus || "").filter(Boolean))],
+      sources: v.sources,
+    };
+  });
 }
 
 export default async function handler(req, res) {
@@ -155,8 +180,7 @@ export default async function handler(req, res) {
     res.status(200).json({ booked: [] });
     return;
   }
-  const pass = process.env.COACH_PASS;
-  const isCoach = Boolean(pass && String(req.query?.key || "") === pass);
+  const isCoach = isCoachPass(req.query?.key);
   // The browser passes back the checkout it last started, so someone who
   // abandoned payment doesn't see their own hold sitting on the slot.
   const mine = /^cs_[A-Za-z0-9_]+$/.test(String(req.query?.mine || "")) ? String(req.query.mine) : "";
@@ -167,7 +191,14 @@ export default async function handler(req, res) {
       // Names and ids stay private unless the coach asked.
       booked: isCoach
         ? booked
-        : booked.map(({ time, mins, count, focuses }) => ({ time, mins, count, focuses })),
+        : booked.map(({ time, mins, count, seats, exclusive, focuses }) => ({
+            time,
+            mins,
+            count,
+            seats,
+            exclusive,
+            focuses,
+          })),
     });
   } catch {
     res.status(200).json({ booked: [] });

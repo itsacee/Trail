@@ -7,6 +7,7 @@
 // the tab before the success page loaded, or email wasn't connected yet).
 // Each link signs that person in for 30 days — treat them like passwords.
 
+import { isCoachPass } from "../lib/coachAuth.js";
 import { membershipSummary, MEMBER_PERIOD_DAYS, prettyDate } from "../lib/members.js";
 import {
   listActiveMemberships,
@@ -25,13 +26,12 @@ function esc(v) {
 
 export default async function handler(req, res) {
   const key = process.env.STRIPE_SECRET_KEY;
-  const pass = process.env.COACH_PASS;
 
-  if (!key || !pass) {
+  if (!key) {
     res.status(500).send("Not set up yet.");
     return;
   }
-  if (String(req.query?.key || "") !== pass) {
+  if (!isCoachPass(req.query?.key)) {
     res.status(401).send("Wrong passcode.");
     return;
   }
