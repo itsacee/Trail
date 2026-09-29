@@ -13,6 +13,9 @@ import {
   isOpenOn,
   locationKeyFor,
   slotBlocked,
+  seatsFor,
+  seatsLeft,
+  isExclusiveType,
   SLOT_CAPACITY,
   DEFAULT_AVAILABILITY,
   migrateSavedAvailability,
@@ -134,4 +137,67 @@ test("slotBlocked lets a second player join only with the same focus", () => {
 test("old bookings without a focus stay exclusive", () => {
   const legacy = [{ time: "5:00 PM", mins: 60, count: 1, focuses: [] }];
   assert.equal(slotBlocked(legacy, "5:00 PM", 60, "Hitting"), true);
+});
+
+test("seatsFor caps at the hour's capacity and a private lesson takes it all", () => {
+  assert.equal(seatsFor("single", 1), 1);
+  assert.equal(seatsFor("single", 2), 2);
+  assert.equal(seatsFor("single", 9), SLOT_CAPACITY);
+  assert.equal(seatsFor("single", 0), 1);
+  assert.equal(seatsFor("thirty", 2), 2);
+  // A private hour is exclusive by definition, whatever the athlete count says.
+  assert.equal(seatsFor("private", 1), SLOT_CAPACITY);
+  assert.equal(isExclusiveType("private"), true);
+  assert.equal(isExclusiveType("single"), false);
+});
+
+test("a second athlete fills the hour so nobody else can join", () => {
+  const oneAthlete = [{ time: "6:00 PM", mins: 60, seats: 1, focuses: ["Fielding"] }];
+  // One athlete leaves a seat open at the same focus...
+  assert.equal(slotBlocked(oneAthlete, "6:00 PM", 60, "Fielding", 1), false);
+  // ...but not room for a pair.
+  assert.equal(slotBlocked(oneAthlete, "6:00 PM", 60, "Fielding", 2), true);
+
+  const pair = [{ time: "6:00 PM", mins: 60, seats: 2, exclusive: true, focuses: ["Fielding"] }];
+  assert.equal(slotBlocked(pair, "6:00 PM", 60, "Fielding", 1), true);
+});
+
+test("a private lesson refuses an hour that already has anyone in it", () => {
+  const want = { seats: SLOT_CAPACITY, exclusive: true };
+  const oneAthlete = [{ time: "6:00 PM", mins: 60, seats: 1, focuses: ["Fielding"] }];
+  assert.equal(slotBlocked(oneAthlete, "6:00 PM", 60, "Fielding", want), true);
+  assert.equal(slotBlocked([], "6:00 PM", 60, "Fielding", want), false);
+});
+
+test("nobody can book into an hour a private lesson owns", () => {
+  const priv = [{ time: "6:00 PM", mins: 60, seats: 2, exclusive: true, focuses: ["Fielding"] }];
+  assert.equal(slotBlocked(priv, "6:00 PM", 60, "Fielding", 1), true);
+  assert.equal(slotBlocked(priv, "7:00 PM", 60, "Fielding", 1), false);
+});
+
+test("seatsLeft counts down from two and hits zero on an exclusive hour", () => {
+  assert.equal(seatsLeft([], "6:00 PM", 60, "Fielding"), SLOT_CAPACITY);
+  assert.equal(
+    seatsLeft([{ time: "6:00 PM", mins: 60, seats: 1, focuses: ["Fielding"] }], "6:00 PM", 60, "Fielding"),
+    1
+  );
+  assert.equal(
+    seatsLeft([{ time: "6:00 PM", mins: 60, seats: 2, focuses: ["Fielding"] }], "6:00 PM", 60, "Fielding"),
+    0
+  );
+  assert.equal(
+    seatsLeft([{ time: "6:00 PM", mins: 60, seats: 2, exclusive: true, focuses: ["Fielding"] }], "6:00 PM", 60, "Fielding"),
+    0
+  );
+  // A different focus can't share at all.
+  assert.equal(
+    seatsLeft([{ time: "6:00 PM", mins: 60, seats: 1, focuses: ["Hitting"] }], "6:00 PM", 60, "Fielding"),
+    0
+  );
+});
+
+test("slotBlocked still works for callers that don't pass a seat count", () => {
+  const oneAthlete = [{ time: "6:00 PM", mins: 60, count: 1, focuses: ["Fielding"] }];
+  assert.equal(slotBlocked(oneAthlete, "6:00 PM", 60, "Fielding"), false);
+  assert.equal(slotBlocked(oneAthlete, "6:00 PM", 60, "Hitting"), true);
 });

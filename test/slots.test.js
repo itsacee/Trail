@@ -37,6 +37,62 @@ test("bookedTimes exposes focus and counts one payment only once", async () => {
   }
 });
 
+test("bookedTimes reports seats, so one athlete leaves the hour joinable", async () => {
+  const item = {
+    id: "pi_one_athlete",
+    status: "succeeded",
+    metadata: { type: "single", player: "Sam", focus: "Fielding", date1: "2026-09-28", time1: "6:00 PM" },
+  };
+  mock.method(globalThis, "fetch", async () => stripeResult(item));
+  try {
+    const rows = await bookedTimes("sk_test", "2026-09-28");
+    assert.equal(rows[0].seats, 1);
+    assert.equal(rows[0].exclusive, false);
+  } finally {
+    mock.restoreAll();
+  }
+});
+
+test("bookedTimes marks a sibling pair and a private hour as exclusive", async () => {
+  const pair = {
+    id: "pi_two_athletes",
+    status: "succeeded",
+    metadata: {
+      type: "single",
+      player: "Sam",
+      player2: "Max",
+      athletes: "2",
+      seats: "2",
+      focus: "Fielding",
+      date1: "2026-09-28",
+      time1: "6:00 PM",
+    },
+  };
+  mock.method(globalThis, "fetch", async () => stripeResult(pair));
+  try {
+    const rows = await bookedTimes("sk_test", "2026-09-28");
+    assert.equal(rows[0].seats, 2);
+    assert.equal(rows[0].exclusive, true);
+  } finally {
+    mock.restoreAll();
+  }
+
+  // A private lesson owns the hour even without a seat count on the metadata.
+  const priv = {
+    id: "pi_private",
+    status: "succeeded",
+    metadata: { type: "private", player: "Sam", focus: "Fielding", date1: "2026-09-28", time1: "6:00 PM" },
+  };
+  mock.method(globalThis, "fetch", async () => stripeResult(priv));
+  try {
+    const rows = await bookedTimes("sk_test", "2026-09-28");
+    assert.equal(rows[0].seats, 2);
+    assert.equal(rows[0].exclusive, true);
+  } finally {
+    mock.restoreAll();
+  }
+});
+
 test("bookedTimes can exclude the lesson being rescheduled", async () => {
   const item = {
     id: "pi_moving",

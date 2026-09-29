@@ -7,673 +7,1448 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Coach | AP Academy</title>
+  <title>Coach Desk | AP Academy</title>
   <link rel="icon" type="image/png" href="img/logo-mark.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    /* Built for a phone held upright, one thumb. Everything readable without
-       rotating: no side-by-side columns, no text under 15px, nothing that
-       needs a precise tap. */
+    /* Coach Desk.
+       Phone first: one column, nothing under 15px, every tap target 44px+, and
+       the tab bar sits at the bottom where a thumb already is. On a desktop the
+       tab bar becomes a sidebar and cards flow into two columns. */
     :root {
-      --bg: #050505; --surface: #111114; --surface2: #17171c; --line: #26262b;
-      --text: #f5f6f8; --dim: #a8adb6; --btn: #dfe4ea; --on-btn: #0a0a0c;
-      --good: #9fe8b9; --bad: #ff8d7e; --warn: #e0b457;
-      --pad: env(safe-area-inset-bottom, 0px);
+      --bg: #050505;
+      --bg-soft: #0b0b0d;
+      --surface: #111114;
+      --surface2: #17171c;
+      --line: #26262b;
+      --line-soft: #1c1c21;
+      --text: #f5f6f8;
+      --dim: #a8adb6;
+      --faint: #70747c;
+      --btn: #dfe4ea;
+      --on-btn: #0a0a0c;
+      --good: #9fe8b9;
+      --bad: #ff8d7e;
+      --warn: #e0b457;
+      --r: 16px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --font: "Inter", system-ui, -apple-system, sans-serif;
+      --display: "Bebas Neue", sans-serif;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html { -webkit-text-size-adjust: 100%; }
     body {
-      font-family: "Inter", system-ui, -apple-system, sans-serif;
-      background: var(--bg); color: var(--text);
-      font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased;
-      padding: 1rem 0.9rem calc(2rem + var(--pad));
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
-    .wrap { max-width: 680px; margin: 0 auto; }
+    [hidden] { display: none !important; }
+    button { font-family: inherit; }
 
-    header { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1rem; }
-    header img { height: 40px; width: 40px; border-radius: 9px; flex: 0 0 auto; }
-    header h1 { font-family: "Bebas Neue", sans-serif; font-weight: 400; font-size: 1.7rem; letter-spacing: 0.04em; line-height: 1.05; }
-    header small { display: block; color: var(--dim); font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; font-size: 0.85rem; color: var(--dim); margin-bottom: 0.9rem; }
-    .topbar button { background: none; border: none; color: var(--dim); font: inherit; text-decoration: underline; cursor: pointer; padding: 0.4rem 0; min-height: 34px; }
-
-    /* Tabs — sticky so switching never needs a scroll back up */
-    .tabs {
-      position: sticky; top: 0; z-index: 20;
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
-      background: var(--bg); padding: 0.5rem 0 0.7rem;
+    /* ---------- shell ---------- */
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 1rem 0.9rem calc(5.6rem + var(--safe-b));
     }
-    @media (min-width: 520px) {
-      .tabs { grid-template-columns: repeat(5, 1fr); }
+    .masthead {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding-bottom: 0.9rem;
+      margin-bottom: 0.9rem;
+      border-bottom: 1px solid var(--line-soft);
     }
-    .tabs button {
-      background: var(--surface); border: 1px solid var(--line); color: var(--dim);
-      border-radius: 11px; padding: 0.75rem 0.3rem; font: inherit; font-size: 0.92rem;
-      font-weight: 700; cursor: pointer; min-height: 48px;
+    .masthead img { height: 38px; width: 38px; border-radius: 9px; flex: 0 0 auto; }
+    .masthead h1 {
+      font-family: var(--display);
+      font-weight: 400;
+      font-size: 1.6rem;
+      letter-spacing: 0.05em;
+      line-height: 1;
     }
-    .tabs button[aria-selected="true"] { background: var(--btn); border-color: var(--btn); color: var(--on-btn); }
-    .tabs .count { display: block; font-size: 0.68rem; font-weight: 600; opacity: 0.75; letter-spacing: 0.04em; }
-
-    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 15px; padding: 1.1rem; margin-bottom: 0.9rem; }
-    .card-title { font-family: "Bebas Neue", sans-serif; font-size: 1.3rem; letter-spacing: 0.04em; }
-    .muted { color: var(--dim); font-size: 0.9rem; }
-    .error { color: var(--bad); font-weight: 600; margin-top: 0.6rem; }
-    .ok-msg { color: var(--good); font-weight: 600; margin-top: 0.6rem; }
-    .empty { text-align: center; color: var(--dim); padding: 2.2rem 1rem; }
-
-    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.9rem; }
-    .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0.9rem 0.6rem; text-align: center; }
-    .stat b { display: block; font-family: "Bebas Neue", sans-serif; font-size: 2.1rem; color: var(--btn); line-height: 1.05; }
-    .stat span { color: var(--dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 700; }
-
-    .status { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.82rem; color: var(--dim); margin-bottom: 0.9rem; }
-    .status .ok { color: var(--good); }
-    .status .off { color: var(--bad); }
-
-    .subscribe {
-      display: flex; align-items: center; gap: 0.8rem;
-      background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
-      padding: 0.9rem 1rem; margin-bottom: 0.55rem; text-decoration: none; color: var(--text);
-      min-height: 60px; width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+    .masthead small {
+      display: block;
+      color: var(--faint);
+      font-family: var(--font);
+      font-size: 0.64rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
     }
-    .subscribe:hover { border-color: var(--btn); }
-    .subscribe .ico { font-size: 1.4rem; flex: 0 0 auto; }
-    .subscribe b { display: block; font-size: 0.95rem; }
-    .subscribe small { color: var(--dim); font-size: 0.8rem; }
-    .cal-hint { color: var(--dim); font-size: 0.85rem; margin: 0.35rem 0 0.9rem; line-height: 1.45; overflow-wrap: anywhere; }
-    .cal-hint code { color: var(--text); font-size: 0.78rem; word-break: break-all; }
-
-    /* ---- lessons: stacked, never side-by-side ---- */
-    .day-head {
-      font-family: "Bebas Neue", sans-serif; font-size: 1.25rem; letter-spacing: 0.05em;
-      margin: 1.4rem 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--line);
+    .masthead__side { margin-left: auto; display: flex; align-items: center; gap: 0.35rem; }
+    .icon-btn {
+      min-width: 40px;
+      min-height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--dim);
+      font-size: 1.05rem;
+      cursor: pointer;
     }
-    .day-head.today { color: var(--btn); }
-    .lesson { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0.95rem 1rem; margin-bottom: 0.6rem; }
+    .icon-btn:hover { border-color: var(--btn); color: var(--text); }
+    .stamp { color: var(--faint); font-size: 0.72rem; text-align: right; }
+
+    /* ---------- tab bar (bottom on phone, sidebar on desktop) ---------- */
+    .tabbar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 40;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2px;
+      background: rgba(5, 5, 5, 0.92);
+      backdrop-filter: blur(14px);
+      border-top: 1px solid var(--line);
+      padding: 0.4rem 0.4rem calc(0.4rem + var(--safe-b));
+    }
+    .tabbar button {
+      background: none;
+      border: 0;
+      border-radius: 12px;
+      color: var(--faint);
+      display: grid;
+      justify-items: center;
+      gap: 0.1rem;
+      padding: 0.45rem 0.1rem;
+      min-height: 52px;
+      cursor: pointer;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .tabbar button .ico { font-size: 1.15rem; line-height: 1; }
+    .tabbar button[aria-selected="true"] { color: var(--text); background: var(--surface); }
+    .tabbar .badge {
+      font-size: 0.6rem;
+      font-weight: 800;
+      color: var(--on-btn);
+      background: var(--btn);
+      border-radius: 999px;
+      padding: 0 0.32rem;
+      min-width: 1.05rem;
+      text-align: center;
+    }
+
+    /* ---------- cards ---------- */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 1.1rem;
+      margin-bottom: 0.8rem;
+    }
+    .card__title {
+      font-family: var(--display);
+      font-size: 1.28rem;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+    }
+    .card__title .muted { font-family: var(--font); }
+    .muted { color: var(--dim); font-size: 0.88rem; }
+    .faint { color: var(--faint); font-size: 0.82rem; }
+    .error { color: var(--bad); font-weight: 600; }
+    .ok-msg { color: var(--good); font-weight: 600; }
+    .empty {
+      text-align: center;
+      color: var(--faint);
+      padding: 2.2rem 1rem;
+      border: 1px dashed var(--line);
+      border-radius: var(--r);
+    }
+    .stack { display: grid; gap: 0.55rem; }
+    .row-gap { margin-top: 0.7rem; }
+
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.55rem; margin-bottom: 0.8rem; }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0.85rem 0.6rem;
+      text-align: center;
+    }
+    .stat b {
+      display: block;
+      font-family: var(--display);
+      font-size: 2rem;
+      color: var(--btn);
+      line-height: 1.05;
+    }
+    .stat span {
+      color: var(--faint);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      font-weight: 800;
+    }
+
+    .dots { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--faint); margin-bottom: 0.8rem; }
+    .dots .on { color: var(--good); }
+    .dots .off { color: var(--bad); }
+
+    /* ---------- lessons ---------- */
+    .dayhead {
+      font-family: var(--display);
+      font-size: 1.2rem;
+      letter-spacing: 0.06em;
+      margin: 1.3rem 0 0.55rem;
+      padding-bottom: 0.3rem;
+      border-bottom: 1px solid var(--line);
+      color: var(--dim);
+    }
+    .dayhead.is-today { color: var(--btn); }
+    .lesson {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0.9rem 1rem;
+      margin-bottom: 0.55rem;
+    }
     .lesson__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
-    .lesson__time { font-family: "Bebas Neue", sans-serif; font-size: 1.5rem; letter-spacing: 0.03em; color: var(--btn); line-height: 1.1; }
-    .lesson__who { font-size: 1.12rem; font-weight: 700; margin-top: 0.15rem; overflow-wrap: anywhere; }
-    .lesson__sub { color: var(--dim); font-size: 0.88rem; overflow-wrap: anywhere; }
-    .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.6rem; }
+    .lesson__time {
+      font-family: var(--display);
+      font-size: 1.45rem;
+      letter-spacing: 0.03em;
+      color: var(--btn);
+      line-height: 1.1;
+    }
+    .lesson__who { font-size: 1.1rem; font-weight: 700; margin-top: 0.1rem; overflow-wrap: anywhere; }
+    .lesson__sub { color: var(--dim); font-size: 0.86rem; overflow-wrap: anywhere; }
+    .tags { display: flex; flex-wrap: wrap; gap: 0.32rem; margin-top: 0.55rem; }
     .tag {
-      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
-      padding: 0.3rem 0.6rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); white-space: nowrap;
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 0.28rem 0.58rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--dim);
+      white-space: nowrap;
     }
-    .tag.membership { border-color: var(--btn); color: var(--btn); }
-    .tag.place { border-color: #6b6b73; color: #e2e4e8; }
-    /* Real tap targets instead of tiny links */
-    .actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.8rem; }
-    .actions a {
-      flex: 1 1 auto; min-width: 92px; min-height: 44px;
-      display: flex; align-items: center; justify-content: center; gap: 0.35rem;
-      background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
-      color: var(--text); text-decoration: none; font-size: 0.9rem; font-weight: 600;
+    .tag--key { border-color: var(--btn); color: var(--btn); }
+    .tag--full { border-color: #6d7cff; color: #aeb7ff; }
+    .tag--owed { border-color: var(--warn); color: var(--warn); }
+    .acts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
+    .acts > * {
+      flex: 1 1 auto;
+      min-width: 86px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      background: var(--surface2);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.87rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0 0.7rem;
     }
-    .actions a:active { background: var(--line); }
+    .acts > *:hover { border-color: var(--btn); }
+    .acts .danger { color: var(--bad); }
 
-    /* ---- members ---- */
-    .pill {
-      display: inline-block; border-radius: 999px; padding: 0.3rem 0.7rem;
-      font-size: 0.76rem; font-weight: 700; border: 1px solid var(--warn); color: var(--warn); background: #1a1206;
+    /* ---------- forms ---------- */
+    label.field { display: block; margin-top: 0.7rem; }
+    label.field > span {
+      display: block;
+      color: var(--faint);
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 0.3rem;
     }
-    .pill.done { border-color: var(--bad); color: var(--bad); background: #1d0c0a; }
-    .member__name { font-size: 1.15rem; font-weight: 700; }
-    .member__list { list-style: none; margin: 0.7rem 0 0; padding: 0; }
-    .member__list li { color: #cfd4da; font-size: 0.9rem; padding: 0.2rem 0 0.2rem 1rem; position: relative; }
-    .member__list li::before { content: "•"; position: absolute; left: 0; color: var(--dim); }
-    .member__list li.none { color: #7a7f88; padding-left: 0; }
-    .member__list li.none::before { content: ""; }
-
-    /* ---- availability ---- */
-    .day-row { border: 1px solid var(--line); border-radius: 13px; padding: 0.8rem 0.9rem; margin-bottom: 0.55rem; background: var(--bg); }
-    .day-row.closed { opacity: 0.55; }
-    .day-row__head { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; min-height: 34px; }
-    .day-row__name { font-weight: 700; font-size: 1.02rem; }
-    .day-row__times { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.4rem; align-items: center; margin-top: 0.7rem; }
-    .day-row.closed .day-row__times { display: none; }
-    .day-row__times .to { color: var(--dim); font-size: 0.85rem; }
-    select {
-      width: 100%; background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
-      color: var(--text); font-family: inherit;
+    input[type="text"], input[type="email"], input[type="tel"],
+    input[type="number"], input[type="date"], input[type="password"], select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: var(--text);
+      font-family: inherit;
       font-size: 16px; /* under 16px makes iOS zoom the page */
-      min-height: 46px; appearance: none; text-overflow: ellipsis;
-      /* Tight enough that "10:30 AM" still fits beside the arrow on a 320px
-         screen — any more padding and the label clips. */
-      padding: 0.7rem 1.3rem 0.7rem 0.5rem;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23a8adb6' d='M2 4l4 4 4-4z'/></svg>");
-      background-repeat: no-repeat; background-position: right 0.45rem center; background-size: 11px;
+      min-height: 48px;
+      padding: 0.7rem 0.8rem;
     }
-    /* Switch, because a 13px checkbox is unusable with a thumb */
-    .switch { position: relative; display: inline-block; width: 52px; height: 31px; flex: 0 0 auto; }
+    input:focus, select:focus { outline: none; border-color: var(--btn); }
+    select {
+      appearance: none;
+      padding-right: 2rem;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23a8adb6' d='M2 4l4 4 4-4z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 0.6rem center;
+      background-size: 11px;
+      cursor: pointer;
+      text-overflow: ellipsis;
+    }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .btn {
+      width: 100%;
+      background: var(--btn);
+      color: var(--on-btn);
+      border: none;
+      border-radius: 999px;
+      padding: 0.9rem;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      min-height: 50px;
+      margin-top: 0.9rem;
+    }
+    .btn:active { opacity: 0.85; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn--ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    .btn--danger { background: transparent; border: 1px solid var(--bad); color: var(--bad); }
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--line-soft);
+      min-height: 52px;
+    }
+    .toggle:last-of-type { border-bottom: 0; }
+    .toggle > span { font-size: 0.94rem; font-weight: 600; }
+    .toggle small { display: block; color: var(--faint); font-size: 0.78rem; font-weight: 400; }
+    /* A 13px checkbox is unusable with a thumb. */
+    .switch { position: relative; display: inline-block; width: 52px; height: 31px; flex: 0 0 52px; }
     .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
     .switch .track {
-      position: absolute; inset: 0; background: #3a3a41; border-radius: 999px; transition: background 0.15s; cursor: pointer;
+      position: absolute;
+      inset: 0;
+      background: #3a3a41;
+      border-radius: 999px;
+      transition: background 0.15s;
+      cursor: pointer;
     }
     .switch .track::after {
-      content: ""; position: absolute; top: 3px; left: 3px; width: 25px; height: 25px;
-      background: #fff; border-radius: 50%; transition: transform 0.15s;
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 25px;
+      height: 25px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.15s;
     }
     .switch input:checked + .track { background: #2f8f52; }
     .switch input:checked + .track::after { transform: translateX(21px); }
     .switch input:focus-visible + .track { outline: 2px solid var(--btn); outline-offset: 2px; }
 
-    /* ---- days-off calendar ---- */
-    .cal { border: 1px solid var(--line); border-radius: 14px; padding: 0.7rem 0.5rem; background: var(--bg); }
-    .cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
-    .cal__label { font-weight: 700; font-size: 1.02rem; }
-    .cal__nav {
-      width: 44px; height: 44px; background: var(--surface2); color: var(--text);
-      border: 1px solid var(--line); border-radius: 11px; font-size: 1.3rem; line-height: 1; cursor: pointer;
+    /* ---------- calendar links ---------- */
+    .linkrow {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.5rem;
+      text-decoration: none;
+      color: var(--text);
+      min-height: 58px;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
     }
-    /* minmax(0,1fr) lets the columns shrink to fit a 375px screen. With plain
-       1fr the cells refuse to go below their content width and the Saturday
-       column spills outside the card. */
+    .linkrow:hover { border-color: var(--btn); }
+    .linkrow .ico { font-size: 1.3rem; flex: 0 0 auto; }
+    .linkrow b { display: block; font-size: 0.93rem; }
+    .linkrow small { color: var(--faint); font-size: 0.78rem; }
+    .calhint { color: var(--faint); font-size: 0.82rem; margin: 0.3rem 0 0.9rem; overflow-wrap: anywhere; }
+    .calhint code { color: var(--dim); font-size: 0.76rem; word-break: break-all; }
+
+    /* ---------- members ---------- */
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.26rem 0.68rem;
+      font-size: 0.74rem;
+      font-weight: 800;
+      border: 1px solid var(--warn);
+      color: var(--warn);
+    }
+    .pill.spent { border-color: var(--bad); color: var(--bad); }
+    .pill.frozen { border-color: #7ec8ff; color: #7ec8ff; }
+    .member__name { font-size: 1.1rem; font-weight: 700; }
+    .member__list { list-style: none; margin: 0.6rem 0 0; }
+    .member__list li { color: #cfd4da; font-size: 0.86rem; padding: 0.15rem 0 0.15rem 0.95rem; position: relative; }
+    .member__list li::before { content: "•"; position: absolute; left: 0; color: var(--faint); }
+    .member__list li.none { color: var(--faint); padding-left: 0; }
+    .member__list li.none::before { content: ""; }
+
+    /* ---------- hours ---------- */
+    .day-row {
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 0.75rem 0.85rem;
+      margin-bottom: 0.5rem;
+      background: var(--bg-soft);
+    }
+    .day-row.closed { opacity: 0.5; }
+    .day-row__head { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; min-height: 34px; }
+    .day-row__name { font-weight: 700; font-size: 1rem; }
+    .day-row__times { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.4rem; align-items: center; margin-top: 0.65rem; }
+    .day-row.closed .day-row__times { display: none; }
+    .day-row__times .to { color: var(--faint); font-size: 0.82rem; }
+
+    .cal { border: 1px solid var(--line); border-radius: 14px; padding: 0.7rem 0.5rem; background: var(--bg-soft); }
+    .cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+    .cal__label { font-weight: 700; font-size: 1rem; }
+    .cal__nav {
+      width: 44px;
+      height: 44px;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    /* minmax(0,1fr) lets the columns shrink on a 320px screen; plain 1fr makes
+       the Saturday column spill outside the card. */
     .cal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
     .cal__dow { margin-bottom: 4px; }
-    .cal__dow span { text-align: center; font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0; font-weight: 700; }
-    .cal__day {
-      aspect-ratio: 1; min-width: 0; display: flex; align-items: center; justify-content: center;
-      border-radius: 10px; background: var(--surface2); border: 1px solid transparent;
-      cursor: pointer; font-size: 0.95rem; font-weight: 600; user-select: none;
+    .cal__dow span {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--faint);
+      text-transform: uppercase;
+      font-weight: 800;
     }
-    .cal__day.empty { background: none; cursor: default; }
+    .cal__day {
+      aspect-ratio: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      background: var(--surface2);
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 0.92rem;
+      font-weight: 700;
+      user-select: none;
+    }
+    .cal__day.pad { background: none; cursor: default; }
     .cal__day.past { color: #45454c; cursor: not-allowed; background: none; }
     .cal__day.off { background: #c6402f; color: #fff; border-color: #e0604e; }
-    .cal__day.today { border-color: var(--btn); }
+    .cal__day.is-today { border-color: var(--btn); }
 
-    .btn {
-      width: 100%; background: var(--btn); color: var(--on-btn); border: none; border-radius: 999px;
-      padding: 0.95rem; font-size: 1rem; font-weight: 700; font-family: inherit; cursor: pointer; min-height: 50px;
+    /* ---------- sheet ---------- */
+    .sheet {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(3, 3, 4, 0.72);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0;
     }
-    .btn:active { opacity: 0.85; }
-    input[type="password"] {
-      width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 11px;
-      color: var(--text); padding: 0.9rem 1rem; font-size: 16px; font-family: inherit; margin-bottom: 0.9rem; min-height: 50px;
+    .sheet__card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 20px 20px 0 0;
+      padding: 1.2rem 1.1rem calc(1.4rem + var(--safe-b));
+      max-height: 92vh;
+      overflow-y: auto;
     }
-    input[type="password"]:focus { outline: none; border-color: var(--btn); }
+    .sheet__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.3rem; }
+    .sheet__title { font-family: var(--display); font-size: 1.35rem; letter-spacing: 0.04em; }
 
-    [hidden] { display: none !important; }
+    /* ---------- login ---------- */
+    .gate { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem 1rem; }
+    .gate__card { width: 100%; max-width: 380px; text-align: center; }
+    .gate__card img { height: 56px; width: 56px; border-radius: 13px; margin-bottom: 0.9rem; }
+    .gate__card h1 { font-family: var(--display); font-weight: 400; font-size: 1.9rem; letter-spacing: 0.05em; }
 
-    /* iPhone SE and similar. Two time dropdowns side by side is tight at this
-       width, so claw back the padding rather than let "10:30 AM" clip.
-       A select opens a native picker on tap, so dropping below 16px here
-       doesn't trigger iOS zoom the way it would on a text field. */
     @media (max-width: 360px) {
-      body { padding-left: 0.7rem; padding-right: 0.7rem; }
+      .shell { padding-left: 0.7rem; padding-right: 0.7rem; }
       .card { padding: 0.9rem; }
-      .day-row { padding: 0.8rem 0.7rem; }
+      .two { grid-template-columns: 1fr; }
       .day-row__times { gap: 0.3rem; }
-      .day-row__times .to { font-size: 0.78rem; }
-      select { font-size: 15px; padding-right: 1.15rem; padding-left: 0.4rem; }
+      select { padding-left: 0.5rem; padding-right: 1.6rem; }
     }
 
-    @media (min-width: 620px) {
-      body { padding: 2rem 1.5rem 4rem; }
-      .lesson__top { align-items: center; }
-      .actions a { flex: 0 1 auto; padding: 0 1.1rem; }
+    /* Desktop: the tab bar becomes a sidebar and cards use the extra width. */
+    @media (min-width: 860px) {
+      .shell {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr);
+        grid-template-areas: "head head" "nav main";
+        column-gap: 1.6rem;
+        padding: 1.6rem 1.6rem 3rem;
+      }
+      .masthead { grid-area: head; }
+      .tabbar {
+        grid-area: nav;
+        position: sticky;
+        top: 1.6rem;
+        align-self: start;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+        background: none;
+        backdrop-filter: none;
+        border: 0;
+        padding: 0;
+        inset: auto;
+      }
+      .tabbar button {
+        grid-template-columns: 1.6rem 1fr auto;
+        justify-items: start;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.7rem 0.85rem;
+        font-size: 0.93rem;
+        border: 1px solid transparent;
+        min-height: 46px;
+      }
+      .tabbar button .ico { font-size: 1.05rem; }
+      .tabbar button[aria-selected="true"] { border-color: var(--line); }
+      .panels { grid-area: main; min-width: 0; }
+      .stats { grid-template-columns: repeat(4, 1fr); }
+      .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; align-items: start; }
+      .grid2 .card { margin-bottom: 0; }
+      .sheet { align-items: center; padding: 1.5rem; }
+      .sheet__card { border-radius: 20px; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
+
+  <!-- ================= LOGIN ================= -->
+  <div class="gate" id="gate">
+    <div class="gate__card">
       <img src="img/logo-mark.png" alt="AP Academy" />
-      <h1>Coach<small>AP Academy</small></h1>
+      <h1>Coach Desk</h1>
+      <p class="muted" style="margin:0.4rem 0 1.2rem">Private. Enter your passcode.</p>
+      <div class="card" style="text-align:left">
+        <label class="field" style="margin-top:0">
+          <span>Passcode</span>
+          <input type="password" id="passInput" placeholder="••••••••" autocomplete="current-password" />
+        </label>
+        <button class="btn" id="passBtn">Open Coach Desk</button>
+        <p class="error" id="gateError" style="margin-top:0.7rem"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= APP ================= -->
+  <div class="shell" id="app" hidden>
+    <header class="masthead">
+      <img src="img/logo-mark.png" alt="" />
+      <h1>Coach Desk<small>AP Academy</small></h1>
+      <div class="masthead__side">
+        <span class="stamp" id="stamp"></span>
+        <button type="button" class="icon-btn" id="refreshBtn" title="Refresh" aria-label="Refresh">⟳</button>
+        <button type="button" class="icon-btn" id="logoutBtn" title="Log out" aria-label="Log out">⎋</button>
+      </div>
     </header>
 
-    <div id="login" class="card" hidden>
-      <p class="muted" style="margin-bottom:0.9rem">Enter your coach passcode.</p>
-      <input type="password" id="passInput" placeholder="Passcode" autocomplete="current-password" />
-      <button class="btn" id="passBtn">View My Schedule</button>
-      <p class="error" id="loginError"></p>
-    </div>
+    <nav class="tabbar" role="tablist" aria-label="Sections">
+      <button role="tab" data-tab="lessons" aria-selected="true"><span class="ico" aria-hidden="true">📋</span><span>Lessons</span><span class="badge" id="badgeLessons" hidden></span></button>
+      <button role="tab" data-tab="members" aria-selected="false"><span class="ico" aria-hidden="true">👥</span><span>Members</span><span class="badge" id="badgeMembers" hidden></span></button>
+      <button role="tab" data-tab="money" aria-selected="false"><span class="ico" aria-hidden="true">💵</span><span>Money</span><span class="badge" id="badgeMoney" hidden></span></button>
+      <button role="tab" data-tab="hours" aria-selected="false"><span class="ico" aria-hidden="true">🕒</span><span>Hours</span></button>
+      <button role="tab" data-tab="settings" aria-selected="false"><span class="ico" aria-hidden="true">⚙️</span><span>Setup</span></button>
+    </nav>
 
-    <div id="app" hidden>
-      <div class="topbar">
-        <span id="updated"></span>
-        <span><button id="refresh">Refresh</button> · <button id="logout">Log out</button></span>
-      </div>
-
-      <div class="tabs" role="tablist">
-        <button role="tab" data-tab="schedule" aria-selected="true">Lessons<span class="count" id="tabLessons">–</span></button>
-        <button role="tab" data-tab="members" aria-selected="false">Members<span class="count" id="tabMembers">–</span></button>
-        <button role="tab" data-tab="money" aria-selected="false">Money<span class="count" id="tabMoney">&nbsp;</span></button>
-        <button role="tab" data-tab="controls" aria-selected="false">Controls<span class="count" id="tabControls">&nbsp;</span></button>
-        <button role="tab" data-tab="hours" aria-selected="false">Hours<span class="count" id="tabHours">&nbsp;</span></button>
-      </div>
-
-      <!-- ============ LESSONS ============ -->
-      <section id="tab-schedule">
+    <div class="panels">
+      <!-- ---------------- LESSONS ---------------- -->
+      <section id="panel-lessons">
         <div class="stats">
-          <div class="stat"><b id="weekCount">–</b><span>This week</span></div>
-          <div class="stat"><b id="upcomingCount">–</b><span>Upcoming</span></div>
+          <div class="stat"><b id="statToday">–</b><span>Today</span></div>
+          <div class="stat"><b id="statWeek">–</b><span>This week</span></div>
+          <div class="stat"><b id="statUpcoming">–</b><span>Upcoming</span></div>
+          <div class="stat"><b id="statOwed">–</b><span>Still owed</span></div>
         </div>
-        <div class="status" id="status"></div>
-        <p class="muted" style="margin:0 0 0.55rem;font-weight:700">Your calendars</p>
-        <a class="subscribe" id="subscribeApple" href="#">
-          <span class="ico">🍎</span>
-          <span><b>Add to Apple Calendar</b><small>Opens on iPhone / Mac — keep using this</small></span>
-        </a>
-        <button type="button" class="subscribe" id="subscribeGoogle">
-          <span class="ico">📆</span>
-          <span><b>Add to Google Calendar</b><small>Copies the link &amp; opens Google — paste it there</small></span>
-        </button>
-        <button type="button" class="subscribe" id="copyCalFeed">
-          <span class="ico">🔗</span>
-          <span><b>Copy calendar link</b><small>Paste into Google → Settings → Add calendar → From URL</small></span>
-        </button>
-        <p class="cal-hint" id="calHint">Set each up once. New bookings show up automatically (Google can take a few minutes).</p>
-        <div id="schedule"></div>
+        <div class="dots" id="dots"></div>
+
+        <button type="button" class="btn" id="openAddBooking" style="margin-top:0">+ Add a lesson</button>
+
+        <div id="scheduleList"></div>
+
+        <div class="card" style="margin-top:1.2rem">
+          <span class="card__title">Your calendars</span>
+          <p class="muted" style="margin:0.35rem 0 0.8rem">Set each one up once. New bookings appear on their own.</p>
+          <a class="linkrow" id="calApple" href="#">
+            <span class="ico" aria-hidden="true">🍎</span>
+            <span><b>Add to Apple Calendar</b><small>Opens on iPhone and Mac</small></span>
+          </a>
+          <button type="button" class="linkrow" id="calGoogle">
+            <span class="ico" aria-hidden="true">📆</span>
+            <span><b>Add to Google Calendar</b><small>Copies the link and opens Google — paste it there</small></span>
+          </button>
+          <button type="button" class="linkrow" id="calCopy">
+            <span class="ico" aria-hidden="true">🔗</span>
+            <span><b>Copy calendar link</b><small>Google → Settings → Add calendar → From URL</small></span>
+          </button>
+          <p class="calhint" id="calHint"></p>
+        </div>
       </section>
 
-      <!-- ============ MEMBERS ============ -->
-      <section id="tab-members" hidden>
-        <p class="muted" style="margin-bottom:0.9rem">Everyone on an active membership, how many lessons they have left, and when those expire.</p>
-        <p class="muted" id="membershipCapacity" style="margin-bottom:0.9rem">Loading membership capacity…</p>
-        <div class="actions" style="margin-bottom:0.9rem">
-          <button type="button" class="btn" id="freezeAllBtn" style="width:auto;padding:0.65rem 1rem;font-size:0.9rem">Freeze ALL members</button>
+      <!-- ---------------- MEMBERS ---------------- -->
+      <section id="panel-members" hidden>
+        <div class="card">
+          <span class="card__title">Memberships</span>
+          <p class="muted" id="memCapacity" style="margin-top:0.35rem">Loading…</p>
+          <button type="button" class="btn btn--ghost" id="freezeAllBtn">Freeze all members</button>
+          <p class="faint" style="margin-top:0.5rem">Freezing pauses booking and stops the expiry clock. Unfreezing adds the paused days back onto everyone's expiry date.</p>
+          <p class="muted" id="freezeAllMsg"></p>
         </div>
-        <div id="coachMembersExtra"></div>
         <div id="membersList"><p class="empty">Loading…</p></div>
       </section>
 
-      <!-- ============ MONEY ============ -->
-      <section id="tab-money" hidden>
+      <!-- ---------------- MONEY ---------------- -->
+      <section id="panel-money" hidden>
         <div class="stats">
           <div class="stat"><b id="finWeek">–</b><span>This week</span></div>
           <div class="stat"><b id="finMonth">–</b><span>This month</span></div>
         </div>
-        <p class="muted" id="finSplit" style="margin-bottom:0.9rem"></p>
-        <div class="card">
-          <span class="card-title">Still owed</span>
-          <div id="dueList"><p class="muted">Loading…</p></div>
-        </div>
-        <div class="card">
-          <span class="card-title">Log cash / other</span>
-          <input id="finAmount" type="number" step="0.01" placeholder="Amount $" style="margin-top:0.6rem" />
-          <select id="finMethod"><option value="cash">Cash</option><option value="card">Card</option></select>
-          <input id="finNote" placeholder="Who / what" />
-          <button class="btn" id="finAdd">Add to ledger</button>
-          <p class="muted" id="finMsg"></p>
-        </div>
-        <div class="card">
-          <span class="card-title">Recent</span>
-          <div id="finRecent"></div>
-        </div>
-      </section>
-
-      <!-- ============ CONTROLS ============ -->
-      <section id="tab-controls" hidden>
-        <div class="card">
-          <span class="card-title">Facility pauses</span>
-          <p class="muted" style="margin:0.4rem 0 0.8rem">Flip these without a redeploy. Changes apply immediately on the site.</p>
-          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0"><input type="checkbox" id="ctlBlockNew" style="width:auto;margin:0" /> Block new memberships</label>
-          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0"><input type="checkbox" id="ctlFrozen" style="width:auto;margin:0" /> Pause membership clocks (global)</label>
-          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0 0.9rem"><input type="checkbox" id="ctlFielding" style="width:auto;margin:0" /> Fielding only (no hitting)</label>
-          <button class="btn" id="ctlSave">Save pauses</button>
-          <p class="muted" id="ctlMsg"></p>
-        </div>
-        <div class="card">
-          <span class="card-title">Prices &amp; cash options</span>
-          <label class="muted">Private ($)</label>
-          <input id="setSingle" type="number" step="1" />
-          <label class="muted">30-min ($)</label>
-          <input id="setThirty" type="number" step="1" />
-          <label class="muted">Membership ($)</label>
-          <input id="setMem" type="number" step="1" />
-          <label class="muted">Membership card deposit ($)</label>
-          <input id="setDeposit" type="number" step="1" />
-          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0"><input type="checkbox" id="setCash" style="width:auto;margin:0" /> Allow cash on booking page</label>
-          <label style="display:flex;gap:0.6rem;align-items:center;margin:0.5rem 0 0.9rem"><input type="checkbox" id="setDepositOn" style="width:auto;margin:0" /> Allow membership deposit option</label>
-          <button class="btn" id="setSave">Save prices</button>
-          <p class="muted" id="setMsg"></p>
-        </div>
-        <div class="card">
-          <span class="card-title">Add a cash / walk-in lesson</span>
-          <select id="bkType">
-            <option value="single">Private</option>
-            <option value="thirty">30-min</option>
-            <option value="membership">Membership first lesson</option>
-          </select>
-          <select id="bkPay">
-            <option value="cash">Cash (collect later)</option>
-            <option value="cash_paid">Cash (already paid)</option>
-            <option value="card">Card (already paid)</option>
-            <option value="comp">Comp / free</option>
-          </select>
-          <input id="bkDate" type="date" />
-          <input id="bkTime" placeholder="Time e.g. 6:00 PM" />
-          <input id="bkPlayer" placeholder="Player name *" />
-          <input id="bkEmail" type="email" placeholder="Email" />
-          <input id="bkPhone" placeholder="Phone" />
-          <button class="btn" id="bkSave">Save booking</button>
-          <p class="muted" id="bkMsg"></p>
-        </div>
-      </section>
-
-      <!-- ============ HOURS ============ -->
-      <section id="tab-hours" hidden>
-        <div class="card">
-          <div class="topbar" style="margin-bottom:0.3rem">
-            <span class="card-title">Weekly hours</span>
-            <span class="muted" id="availHint"></span>
+        <p class="muted" id="finSplit" style="margin-bottom:0.8rem"></p>
+        <div class="grid2">
+          <div class="card">
+            <span class="card__title">Still owed</span>
+            <div id="dueList" class="stack row-gap"><p class="muted">Loading…</p></div>
           </div>
-          <p class="muted" style="margin:0 0 1rem">Turn a day off to close it completely.</p>
-          <div id="availDays"></div>
+          <div class="card">
+            <span class="card__title">Log cash or card</span>
+            <label class="field"><span>Amount ($)</span><input id="finAmount" type="number" step="0.01" inputmode="decimal" placeholder="80" /></label>
+            <label class="field"><span>Method</span>
+              <select id="finMethod"><option value="cash">Cash</option><option value="card">Card</option></select>
+            </label>
+            <label class="field"><span>Who / what</span><input id="finNote" type="text" placeholder="Dylan — regular lesson" /></label>
+            <button class="btn" id="finAdd">Add to ledger</button>
+            <p class="muted" id="finMsg"></p>
+          </div>
         </div>
-
         <div class="card">
-          <span class="card-title">Days off</span>
-          <p class="muted" style="margin:0.3rem 0 0.9rem">Tap a date to block it — holidays, travel, games. Tap again to clear.</p>
+          <span class="card__title">Recent</span>
+          <div id="finRecent" class="row-gap"></div>
+        </div>
+      </section>
+
+      <!-- ---------------- HOURS ---------------- -->
+      <section id="panel-hours" hidden>
+        <div class="card">
+          <span class="card__title">Weekly hours</span>
+          <p class="muted" style="margin:0.35rem 0 0.9rem">Turn a day off to close it completely.</p>
+          <div id="hourDays"></div>
+        </div>
+        <div class="card">
+          <span class="card__title">Days off</span>
+          <p class="muted" style="margin:0.35rem 0 0.9rem">Tap a date to block it — holidays, travel, games. Tap again to clear. Blocked days show greyed out on the booking page.</p>
           <div class="cal">
             <div class="cal__head">
-              <button type="button" id="calPrev" class="cal__nav" aria-label="Previous month">‹</button>
-              <span id="calLabel" class="cal__label"></span>
-              <button type="button" id="calNext" class="cal__nav" aria-label="Next month">›</button>
+              <button type="button" id="offPrev" class="cal__nav" aria-label="Previous month">‹</button>
+              <span id="offLabel" class="cal__label"></span>
+              <button type="button" id="offNext" class="cal__nav" aria-label="Next month">›</button>
             </div>
             <div class="cal__grid cal__dow">
               <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
             </div>
-            <div class="cal__grid" id="calDays"></div>
+            <div class="cal__grid" id="offDays"></div>
           </div>
           <p class="muted" id="offSummary" style="margin-top:0.8rem"></p>
         </div>
+        <button class="btn" id="hoursSave">Save hours &amp; days off</button>
+        <p class="muted" id="hoursMsg" style="text-align:center"></p>
+      </section>
 
-        <button class="btn" id="saveAvail">Save changes</button>
-        <p class="error" id="availMsg"></p>
+      <!-- ---------------- SETUP ---------------- -->
+      <section id="panel-settings" hidden>
+        <div class="grid2">
+          <div class="card">
+            <span class="card__title">Prices</span>
+            <p class="muted" style="margin:0.35rem 0 0.2rem">Regular and 30-minute lessons charge per athlete. A private hour is one price and blocks the whole hour.</p>
+            <label class="field"><span>Regular lesson, per athlete ($)</span><input id="priceSingle" type="number" step="1" inputmode="numeric" /></label>
+            <label class="field"><span>Private 1-on-1 ($)</span><input id="pricePrivate" type="number" step="1" inputmode="numeric" /></label>
+            <label class="field"><span>30-minute, per athlete ($)</span><input id="priceThirty" type="number" step="1" inputmode="numeric" /></label>
+            <label class="field"><span>Membership, one month ($)</span><input id="priceMembership" type="number" step="1" inputmode="numeric" /></label>
+            <label class="field"><span>Membership card deposit ($)</span><input id="priceDeposit" type="number" step="1" inputmode="numeric" /></label>
+            <p class="faint" id="depositPreview" style="margin-top:0.4rem"></p>
+            <div class="toggle">
+              <span>Allow cash on the booking page<small>Parents can reserve and pay at the field</small></span>
+              <label class="switch"><input type="checkbox" id="allowCash" /><span class="track"></span></label>
+            </div>
+            <div class="toggle">
+              <span>Allow membership deposit<small>Card deposit now, the rest in cash at the first lesson</small></span>
+              <label class="switch"><input type="checkbox" id="allowDeposit" /><span class="track"></span></label>
+            </div>
+            <button class="btn" id="priceSave">Save prices</button>
+            <p class="muted" id="priceMsg"></p>
+          </div>
+
+          <div class="card">
+            <span class="card__title">Facility pauses</span>
+            <p class="muted" style="margin:0.35rem 0 0.2rem">These apply to the live site immediately — no redeploy.</p>
+            <div class="toggle">
+              <span>Block new memberships<small>The booking page stops selling months</small></span>
+              <label class="switch"><input type="checkbox" id="ctlBlockNew" /><span class="track"></span></label>
+            </div>
+            <div class="toggle">
+              <span>Pause every membership clock<small>Expiry dates stop moving while this is on</small></span>
+              <label class="switch"><input type="checkbox" id="ctlFrozen" /><span class="track"></span></label>
+            </div>
+            <div class="toggle">
+              <span>Fielding only<small>Hitting comes off the focus picker everywhere</small></span>
+              <label class="switch"><input type="checkbox" id="ctlFielding" /><span class="track"></span></label>
+            </div>
+            <button class="btn" id="ctlSave">Save pauses</button>
+            <p class="muted" id="ctlMsg"></p>
+          </div>
+        </div>
       </section>
     </div>
   </div>
 
-  <script>
-    const login = document.getElementById("login");
-    const app = document.getElementById("app");
-    const loginError = document.getElementById("loginError");
+  <!-- ================= SHEET ================= -->
+  <div class="sheet" id="sheet" hidden>
+    <div class="sheet__card" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet__head">
+        <span class="sheet__title" id="sheetTitle">Move lesson</span>
+        <button type="button" class="icon-btn" id="sheetClose" aria-label="Close">✕</button>
+      </div>
+      <p class="muted" id="sheetLead"></p>
+      <div id="sheetBody"></div>
+      <p class="error" id="sheetMsg" style="margin-top:0.6rem"></p>
+    </div>
+  </div>
 
+  <script>
+    /* ===================== helpers ===================== */
+    const $ = (id) => document.getElementById(id);
     const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const TYPE_LABEL = { single: "1 hour", thirty: "30-min", membership: "Membership" };
+    const TYPE_LABEL = {
+      single: "Regular · 1 hr",
+      thirty: "30 min",
+      private: "Private 1-on-1",
+      membership: "Membership",
+    };
     const PLACE_LABEL = { mustang: "Mustang HS", delcity: "Del City", mojo: "Mojo Yard" };
+    const DURATIONS = { single: 60, thirty: 30, private: 60, membership: 60 };
 
     const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g,
       (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     const tel = (p) => String(p || "").replace(/[^\d+]/g, "");
+    const money = (cents) => "$" + ((Number(cents) || 0) / 100).toFixed(2);
+    const wholeMoney = (cents) => "$" + Math.round((Number(cents) || 0) / 100);
 
-    function toMinutes(t) {
-      const m = /(\d{1,2}):(\d{2}) (AM|PM)/.exec(t);
-      if (!m) return 0;
-      let h = parseInt(m[1], 10) % 12;
-      if (m[3] === "PM") h += 12;
-      return h * 60 + parseInt(m[2], 10);
-    }
-    function todayISO() {
-      const d = new Date();
+    function isoOf(d) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
-    function weekRange() {
-      const d = new Date();
-      const day = (d.getDay() + 6) % 7; // 0 = Monday
-      const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
-      const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
-      const iso = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-      return [iso(mon), iso(sun)];
+    function todayISO() { return isoOf(new Date()); }
+    function toMinutes(label) {
+      const m = /(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(String(label));
+      if (!m) return 0;
+      let h = parseInt(m[1], 10) % 12;
+      if (/PM/i.test(m[3])) h += 12;
+      return h * 60 + parseInt(m[2], 10);
+    }
+    function hhmmToLabel(hhmm) {
+      const [h, m] = String(hhmm).split(":").map(Number);
+      const ap = h >= 12 ? "PM" : "AM";
+      const hr = h % 12 === 0 ? 12 : h % 12;
+      return `${hr}:${String(m).padStart(2, "0")} ${ap}`;
     }
     function prettyDay(iso) {
       const d = new Date(iso + "T12:00:00");
       if (isNaN(d)) return iso;
       return `${DAYS_SHORT[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
     }
+    function weekRange() {
+      const d = new Date();
+      const day = (d.getDay() + 6) % 7; // 0 = Monday
+      const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+      const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+      return [isoOf(mon), isoOf(sun)];
+    }
 
-    /* ---------- tabs ---------- */
-    document.querySelectorAll(".tabs button").forEach((b) => {
+    /* ===================== state ===================== */
+    const PASS_KEY = "coachPass";
+    let desk = null;      // last /api/coach payload
+    let hours = null;     // editable copy of availability
+    let offMonth = null;  // month shown on the days-off calendar
+
+    const pass = () => localStorage.getItem(PASS_KEY) || "";
+
+    async function deskGet() {
+      const res = await fetch(`/api/coach?key=${encodeURIComponent(pass())}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || "Couldn't load Coach Desk."), { status: res.status });
+      return data;
+    }
+
+    async function deskPost(body) {
+      const res = await fetch(`/api/coach?key=${encodeURIComponent(pass())}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(data.error || "That didn't save."), { status: res.status, code: data.code });
+      return data;
+    }
+
+    // Anything that changes the schedule comes back with a fresh dashboard, so
+    // one call both saves and refreshes the screen.
+    async function act(body) {
+      const data = await deskPost(body);
+      desk = data;
+      renderAll();
+      return data;
+    }
+
+    /* ===================== login ===================== */
+    async function signIn(value) {
+      $("gateError").textContent = "";
+      localStorage.setItem(PASS_KEY, value);
+      try {
+        desk = await deskGet();
+      } catch (err) {
+        localStorage.removeItem(PASS_KEY);
+        $("gateError").textContent = err.status === 401 ? "Wrong passcode." : err.message;
+        return;
+      }
+      hours = null;
+      enterDesk();
+    }
+
+    // Show the desk, then fill in the parts that need a second request.
+    async function enterDesk() {
+      $("gate").hidden = true;
+      $("app").hidden = false;
+      renderAll();
+      const cap = await loadMemberLinks();
+      renderMembers();
+      $("memCapacity").textContent = cap
+        ? `${memberLinks.length} of ${cap.limit} memberships active · ${cap.spotsAvailable} spot${cap.spotsAvailable === 1 ? "" : "s"} open`
+        : "Membership credits are unavailable right now — everything else still works.";
+    }
+
+    $("passBtn").addEventListener("click", () => {
+      const v = $("passInput").value.trim();
+      if (v) signIn(v);
+    });
+    $("passInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") $("passBtn").click();
+    });
+    $("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem(PASS_KEY);
+      desk = null;
+      $("app").hidden = true;
+      $("gate").hidden = false;
+      $("passInput").value = "";
+    });
+    $("refreshBtn").addEventListener("click", async () => {
+      try {
+        desk = await deskGet();
+        hours = null;
+        renderAll();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    /* ===================== tabs ===================== */
+    const TABS = ["lessons", "members", "money", "hours", "settings"];
+    document.querySelectorAll(".tabbar button").forEach((b) => {
       b.addEventListener("click", () => {
-        document.querySelectorAll(".tabs button").forEach((x) =>
+        document.querySelectorAll(".tabbar button").forEach((x) =>
           x.setAttribute("aria-selected", String(x === b)));
-        ["schedule", "members", "money", "controls", "hours"].forEach((name) => {
-          document.getElementById("tab-" + name).hidden = name !== b.dataset.tab;
-        });
+        TABS.forEach((name) => { $("panel-" + name).hidden = name !== b.dataset.tab; });
         window.scrollTo({ top: 0 });
-        if (b.dataset.tab === "members") { loadMembers(); loadCoachDesk(); }
-        if (b.dataset.tab === "money" || b.dataset.tab === "controls") loadCoachDesk();
       });
     });
 
-    /* ---------- schedule ---------- */
-    async function load(pass) {
-      loginError.textContent = "";
-      const res = await fetch(`/api/schedule?key=${encodeURIComponent(pass)}`);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        localStorage.removeItem("coachPass");
-        login.hidden = false;
-        app.hidden = true;
-        loginError.textContent = data.error || "Couldn't load the schedule.";
-        return;
-      }
-      localStorage.setItem("coachPass", pass);
-      const feedHttps = `https://${window.location.host}/api/calendar?key=${encodeURIComponent(pass)}`;
-      const feedWebcal = `webcal://${window.location.host}/api/calendar?key=${encodeURIComponent(pass)}`;
-      document.getElementById("subscribeApple").href = feedWebcal;
-      window.__calFeedHttps = feedHttps;
-      login.hidden = true;
-      app.hidden = false;
-      renderStatus(data.status || {});
-      render(data.sessions || []);
-      loadAvail();
-      // Fetched up front so the tab shows a real count, not a dash.
-      loadMembers();
-      loadCoachDesk();
+    /* ===================== render ===================== */
+    function renderAll() {
+      if (!desk) return;
+      renderCalendarLinks();
+      renderLessons();
+      renderMembers();
+      renderMoney();
+      renderSettings();
+      if (!hours) hours = JSON.parse(JSON.stringify(desk.availability || { days: {}, blocked: [], slotMinutes: 60 }));
+      renderHours();
+      $("stamp").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     }
 
-    function renderStatus(s) {
-      const dot = (on, label) =>
-        `<span><b class="${on ? "ok" : "off"}">${on ? "●" : "○"}</b> ${label} ${on ? "on" : "off"}</span>`;
-      document.getElementById("status").innerHTML =
-        dot(s.payments, "Payments") + dot(s.email, "Emails");
+    function renderCalendarLinks() {
+      const host = window.location.host;
+      const q = encodeURIComponent(pass());
+      $("calApple").href = `webcal://${host}/api/calendar?key=${q}`;
+      window.__feed = `https://${host}/api/calendar?key=${q}`;
     }
 
-    function render(sessions) {
+    function badge(el, n) {
+      const node = $(el);
+      node.hidden = !n;
+      node.textContent = n > 99 ? "99+" : String(n);
+    }
+
+    function upcomingSessions() {
       const today = todayISO();
-      const upcoming = sessions
+      return (desk.sessions || [])
         .filter((s) => s.date >= today)
         .sort((a, b) => (a.date === b.date ? toMinutes(a.time) - toMinutes(b.time) : a.date < b.date ? -1 : 1));
+    }
 
+    function renderLessons() {
+      const today = todayISO();
+      const all = desk.sessions || [];
+      const upcoming = upcomingSessions();
       const [mon, sun] = weekRange();
-      document.getElementById("weekCount").textContent =
-        sessions.filter((s) => s.date >= mon && s.date <= sun).length;
-      document.getElementById("upcomingCount").textContent = upcoming.length;
-      document.getElementById("tabLessons").textContent = upcoming.length;
-      document.getElementById("updated").textContent =
-        "Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const owed = (desk.finance?.outstanding || []).reduce((n, o) => n + (Number(o.amountDueCents) || 0), 0);
 
-      const wrap = document.getElementById("schedule");
+      $("statToday").textContent = all.filter((s) => s.date === today).length;
+      $("statWeek").textContent = all.filter((s) => s.date >= mon && s.date <= sun).length;
+      $("statUpcoming").textContent = upcoming.length;
+      $("statOwed").textContent = owed ? wholeMoney(owed) : "$0";
+      badge("badgeLessons", upcoming.length);
+      badge("badgeMoney", (desk.finance?.outstanding || []).length);
+
+      const st = desk.siteStatus || {};
+      const dot = (on, label) => `<span><b class="${on ? "on" : "off"}">${on ? "●" : "○"}</b> ${label}</span>`;
+      $("dots").innerHTML =
+        dot(true, "Desk live") +
+        (st.fieldingOnly ? dot(false, "Fielding only") : "") +
+        (st.membershipFrozen ? dot(false, "Membership clocks paused") : "") +
+        (st.blockNewMemberships ? dot(false, "New memberships blocked") : "") +
+        (desk.freezeAll ? dot(false, "All members frozen") : "");
+
+      const wrap = $("scheduleList");
       wrap.innerHTML = "";
       if (!upcoming.length) {
-        wrap.innerHTML = '<p class="empty">No upcoming lessons yet. They show up here the moment a parent pays.</p>';
+        wrap.innerHTML = '<p class="empty" style="margin-top:1rem">Nothing booked yet. Lessons land here the moment someone pays — or add one yourself above.</p>';
         return;
       }
 
-      let currentDay = "";
+      let day = "";
       upcoming.forEach((s) => {
-        if (s.date !== currentDay) {
-          currentDay = s.date;
+        if (s.date !== day) {
+          day = s.date;
           const d = new Date(s.date + "T12:00:00");
           const h = document.createElement("h2");
-          h.className = "day-head" + (s.date === today ? " today" : "");
+          h.className = "dayhead" + (s.date === today ? " is-today" : "");
           h.textContent = (s.date === today ? "Today · " : "") + `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
           wrap.appendChild(h);
         }
-        const place = PLACE_LABEL[s.loc] || "";
-        const row = document.createElement("div");
-        row.className = "lesson";
-        row.innerHTML = `
-          <div class="lesson__top">
-            <span class="lesson__time">${esc(s.time)}</span>
-            <span class="tag ${esc(s.type)}">${esc(TYPE_LABEL[s.type] || s.type || "")}</span>
-          </div>
-          <div class="lesson__who">${esc(s.player || "—")}</div>
-          ${s.parent ? `<div class="lesson__sub">Parent: ${esc(s.parent)}</div>` : ""}
-          <div class="chips">
-            ${s.focus ? `<span class="tag">${esc(s.focus)}</span>` : ""}
-            ${place ? `<span class="tag place">${esc(place)}</span>` : ""}
-          </div>
-          <div class="actions">
-            ${s.phone ? `<a href="tel:${esc(tel(s.phone))}">📞 Call</a>` : ""}
-            ${s.phone ? `<a href="sms:${esc(tel(s.phone))}">💬 Text</a>` : ""}
-            ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ Email</a>` : ""}
-          </div>`;
-        wrap.appendChild(row);
+        wrap.appendChild(lessonCard(s));
       });
     }
 
-    /* ---------- members ---------- */
-    let membersLoaded = false;
-    async function loadMembers(force) {
-      if (membersLoaded && !force) return;
-      const pass = localStorage.getItem("coachPass");
-      const box = document.getElementById("membersList");
-      if (!pass) return;
-      box.innerHTML = '<p class="empty">Loading…</p>';
-      let members = [];
-      let limit = 15;
-      let spotsAvailable = 0;
+    function lessonCard(s) {
+      const place = PLACE_LABEL[s.loc] || "";
+      const two = Number(s.athletes) > 1 || Boolean(s.player2);
+      const who = two && s.player2 ? `${s.player} & ${s.player2}` : s.player || "—";
+      const owed = Number(s.amountDueCents) || 0;
+      const el = document.createElement("div");
+      el.className = "lesson";
+      el.innerHTML = `
+        <div class="lesson__top">
+          <span class="lesson__time">${esc(s.time)}</span>
+          <span class="tag ${s.type === "membership" ? "tag--key" : ""}">${esc(TYPE_LABEL[s.type] || s.type || "")}</span>
+        </div>
+        <div class="lesson__who">${esc(who)}</div>
+        ${s.phone || s.email ? `<div class="lesson__sub">${esc(s.phone || "")}${s.phone && s.email ? " · " : ""}${esc(s.email || "")}</div>` : ""}
+        <div class="tags">
+          ${s.focus ? `<span class="tag">${esc(s.focus)}</span>` : ""}
+          ${s.type === "private" ? '<span class="tag tag--full">Whole hour</span>' : ""}
+          ${two ? '<span class="tag tag--full">2 athletes · hour full</span>' : ""}
+          ${place ? `<span class="tag">${esc(place)}</span>` : ""}
+          ${owed ? `<span class="tag tag--owed">Owes ${esc(money(owed))}</span>` : ""}
+          ${s.source === "manual" ? '<span class="tag">Cash / desk</span>' : ""}
+        </div>
+        <div class="acts">
+          <button type="button" data-move="${esc(s.id)}">↻ Move</button>
+          ${s.phone ? `<a href="sms:${esc(tel(s.phone))}">💬 Text</a>` : ""}
+          ${s.phone ? `<a href="tel:${esc(tel(s.phone))}">📞 Call</a>` : ""}
+          ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ Email</a>` : ""}
+          <button type="button" class="danger" data-cancel="${esc(s.id)}">Cancel</button>
+        </div>`;
+      el.querySelector("[data-move]").addEventListener("click", () => openMoveSheet(s));
+      el.querySelector("[data-cancel]").addEventListener("click", () => cancelLesson(s));
+      return el;
+    }
+
+    async function cancelLesson(s) {
+      const who = s.player || s.email || "this lesson";
+      if (!window.confirm(`Cancel ${who} on ${prettyDay(s.date)} at ${s.time}?\n\nThe time opens back up right away.`)) return;
       try {
-        const r = await fetch(`/api/member-links?key=${encodeURIComponent(pass)}&format=json`);
+        await act({ action: "cancel_booking", id: s.id });
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    /* ---------- open times for a date, from the saved hours ---------- */
+    function timesForDate(iso, mins) {
+      const av = desk?.availability || {};
+      if ((av.blocked || []).includes(iso)) return [];
+      const d = new Date(iso + "T12:00:00");
+      if (isNaN(d)) return [];
+      const cfg = (av.days || {})[d.getDay()];
+      if (!cfg || !cfg.open) return [];
+      const toMin = (t) => { const [h, m] = String(t).split(":").map(Number); return h * 60 + m; };
+      const step = av.slotMinutes || 60;
+      const dur = mins || 60;
+      const out = [];
+      for (let t = toMin(cfg.start); t + dur <= toMin(cfg.end); t += step) {
+        out.push(hhmmToLabel(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`));
+      }
+      return out;
+    }
+
+    /* ===================== sheet ===================== */
+    function openSheet(title, lead, bodyHtml) {
+      $("sheetTitle").textContent = title;
+      $("sheetLead").textContent = lead || "";
+      $("sheetBody").innerHTML = bodyHtml;
+      $("sheetMsg").textContent = "";
+      $("sheet").hidden = false;
+      document.body.style.overflow = "hidden";
+    }
+    function closeSheet() {
+      $("sheet").hidden = true;
+      document.body.style.overflow = "";
+    }
+    $("sheetClose").addEventListener("click", closeSheet);
+    $("sheet").addEventListener("click", (e) => { if (e.target === $("sheet")) closeSheet(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
+
+    // The day/time pair used by both the move sheet and the add-a-lesson sheet.
+    // The time list rebuilds from the saved hours whenever the day changes, and
+    // there's always a free-text fallback for a one-off make-up time.
+    function slotPicker(label, date, time) {
+      return `
+        <label class="field"><span>${label} day</span><input type="date" id="slotDate" value="${esc(date || "")}" min="${todayISO()}" /></label>
+        <label class="field"><span>${label} time</span><select id="slotTime"></select></label>
+        <label class="field" id="slotOtherField" hidden><span>Time (e.g. 6:00 PM)</span><input type="text" id="slotOther" placeholder="6:00 PM" value="${esc(time || "")}" /></label>`;
+    }
+
+    function wireSlotPicker(mins, selected) {
+      const dateEl = $("slotDate");
+      const timeEl = $("slotTime");
+      const otherField = $("slotOtherField");
+      let duration = mins;
+      const fill = () => {
+        const list = dateEl.value ? timesForDate(dateEl.value, duration) : [];
+        timeEl.innerHTML =
+          list.map((t) => `<option value="${t}"${t === selected ? " selected" : ""}>${t}</option>`).join("") +
+          '<option value="__other">Another time (outside hours)…</option>';
+        if (!list.length) timeEl.value = "__other";
+        otherField.hidden = timeEl.value !== "__other";
+      };
+      dateEl.addEventListener("change", fill);
+      timeEl.addEventListener("change", () => { otherField.hidden = timeEl.value !== "__other"; });
+      fill();
+      return {
+        read: () => (timeEl.value === "__other" ? $("slotOther").value.trim() : timeEl.value),
+        setDuration: (m) => { duration = m; fill(); },
+      };
+    }
+
+    function openMoveSheet(s) {
+      const mins = DURATIONS[s.type] || 60;
+      openSheet(
+        "Move lesson",
+        `${s.player || s.email || "Lesson"} — currently ${prettyDay(s.date)} at ${s.time}.`,
+        slotPicker("New", s.date, s.time) +
+          `<label class="field"><span>Note for the parent (optional)</span><input type="text" id="moveNote" placeholder="Rain moved us back an hour" /></label>
+           <div class="toggle"><span>Email them the new time<small>Includes a calendar invite</small></span>
+             <label class="switch"><input type="checkbox" id="moveNotify" checked /><span class="track"></span></label></div>
+           <button class="btn" id="moveGo">Move this lesson</button>
+           <button class="btn btn--ghost" id="moveCancel" style="margin-top:0.5rem">Keep it where it is</button>`
+      );
+      const slot = wireSlotPicker(mins, s.time);
+      $("moveCancel").addEventListener("click", closeSheet);
+      $("moveGo").addEventListener("click", async () => {
+        const btn = $("moveGo");
+        const date = $("slotDate").value;
+        const time = slot.read();
+        if (!date || !time) {
+          $("sheetMsg").textContent = "Pick a day and a time.";
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Moving…";
+        const body = {
+          action: "move_booking",
+          id: s.id,
+          date,
+          time,
+          notify: $("moveNotify").checked,
+          message: $("moveNote").value.trim(),
+        };
+        try {
+          const data = await sendWithForce(body);
+          closeSheet();
+          alert(data.notified ? "Moved — they've been emailed the new time." : "Moved.");
+        } catch (err) {
+          $("sheetMsg").textContent = err.message;
+          btn.disabled = false;
+          btn.textContent = "Move this lesson";
+        }
+      });
+    }
+
+    // A time outside posted hours is allowed on purpose (make-ups), so ask once
+    // and retry with force. Double-booking is still refused by the server.
+    async function sendWithForce(body) {
+      try {
+        return await act(body);
+      } catch (err) {
+        if (err.code !== "outside_hours") throw err;
+        if (!window.confirm(err.message)) throw new Error("Cancelled.");
+        return await act({ ...body, force: true });
+      }
+    }
+
+    $("openAddBooking").addEventListener("click", () => {
+      const prices = desk?.settings?.prices || {};
+      openSheet(
+        "Add a lesson",
+        "For cash, walk-ins, and anything you booked by text.",
+        `<label class="field"><span>Lesson</span>
+           <select id="addType">
+             <option value="single">Regular lesson — ${wholeMoney(prices.single || 8000)} each</option>
+             <option value="private">Private 1-on-1 — ${wholeMoney(prices.private || 10000)}</option>
+             <option value="thirty">30-minute — ${wholeMoney(prices.thirty || 6000)} each</option>
+             <option value="membership">Membership first lesson — ${wholeMoney(prices.membership || 28000)}</option>
+           </select></label>
+         <label class="field"><span>Focus</span>
+           <select id="addFocus"><option value="Fielding">Fielding</option><option value="Hitting">Hitting</option><option value="Both">Hitting &amp; Fielding</option></select></label>
+         ${slotPicker("Lesson", todayISO(), "")}
+         <label class="field"><span>Athlete *</span><input type="text" id="addPlayer" placeholder="Athlete's name" /></label>
+         <label class="field" id="addPlayer2Field"><span>Second athlete (fills the hour)</span><input type="text" id="addPlayer2" placeholder="Leave blank for one athlete" /></label>
+         <div class="two">
+           <label class="field"><span>Email</span><input type="email" id="addEmail" placeholder="parent@email.com" /></label>
+           <label class="field"><span>Phone</span><input type="tel" id="addPhone" placeholder="(405) 555-0123" /></label>
+         </div>
+         <label class="field"><span>Payment</span>
+           <select id="addPay">
+             <option value="cash">Cash — collect later</option>
+             <option value="cash_paid">Cash — already paid</option>
+             <option value="card">Card — already paid</option>
+             <option value="comp">Comp / free</option>
+           </select></label>
+         <button class="btn" id="addGo">Save lesson</button>`
+      );
+      const slot = wireSlotPicker(60, "");
+      const typeEl = $("addType");
+      typeEl.addEventListener("change", () => {
+        const shared = typeEl.value === "single" || typeEl.value === "thirty";
+        $("addPlayer2Field").hidden = !shared;
+        if (!shared) $("addPlayer2").value = "";
+        slot.setDuration(DURATIONS[typeEl.value] || 60);
+      });
+      $("addGo").addEventListener("click", async () => {
+        const btn = $("addGo");
+        const pay = $("addPay").value;
+        const time = slot.read();
+        if (!$("addPlayer").value.trim() || !$("slotDate").value || !time) {
+          $("sheetMsg").textContent = "Need an athlete, a day, and a time.";
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+        try {
+          await sendWithForce({
+            action: "create_booking",
+            type: typeEl.value,
+            focus: $("addFocus").value,
+            date: $("slotDate").value,
+            time,
+            player: $("addPlayer").value.trim(),
+            player2: $("addPlayer2").value.trim(),
+            email: $("addEmail").value.trim(),
+            phone: $("addPhone").value.trim(),
+            paymentMethod: pay === "card" ? "card" : pay === "comp" ? "comp" : "cash",
+            markPaid: pay === "cash_paid" || pay === "card",
+          });
+          closeSheet();
+        } catch (err) {
+          $("sheetMsg").textContent = err.message;
+          btn.disabled = false;
+          btn.textContent = "Save lesson";
+        }
+      });
+    });
+
+    /* ===================== members ===================== */
+    let memberLinks = [];
+
+    async function loadMemberLinks() {
+      try {
+        const r = await fetch(`/api/member-links?key=${encodeURIComponent(pass())}&format=json`, { cache: "no-store" });
         if (!r.ok) throw new Error();
-        const data = await r.json();
-        members = data.members || [];
-        limit = Number(data.limit) || 15;
-        spotsAvailable = Math.max(0, Number(data.spotsAvailable) || 0);
+        const d = await r.json();
+        memberLinks = d.members || [];
+        return { limit: Number(d.limit) || 15, spotsAvailable: Math.max(0, Number(d.spotsAvailable) || 0) };
       } catch {
-        box.innerHTML = '<p class="empty">Couldn\'t load memberships. Pull to refresh or tap Refresh above.</p>';
+        memberLinks = [];
+        return null;
+      }
+    }
+
+    function renderMembers() {
+      const rows = desk.members || [];
+      badge("badgeMembers", rows.length);
+      $("freezeAllBtn").textContent = desk.freezeAll ? "Unfreeze all members" : "Freeze all members";
+      $("freezeAllMsg").textContent = desk.freezeAll
+        ? `All members are frozen${desk.freezeAllReason ? ` — "${desk.freezeAllReason}"` : ""}.`
+        : "";
+
+      const box = $("membersList");
+      if (!rows.length) {
+        box.innerHTML = '<p class="empty">No members on file yet.</p>';
         return;
       }
-      membersLoaded = true;
-      document.getElementById("tabMembers").textContent = members.length;
-      document.getElementById("membershipCapacity").textContent =
-        `${members.length} of ${limit} memberships active · ${spotsAvailable} spot${spotsAvailable === 1 ? "" : "s"} available`;
-      if (!members.length) {
-        box.innerHTML = '<p class="empty">No active memberships right now.</p>';
-        return;
-      }
-      box.innerHTML = members.map((m) => {
-        const left = m.remaining || 0;
-        const lessons = (m.lessons || []).length
-          ? m.lessons.map((l) => `<li>${esc(prettyDay(l.date))} · ${esc(l.time)}</li>`).join("")
+      box.innerHTML = rows.map((m) => {
+        const link = memberLinks.find((x) => String(x.email || "").toLowerCase() === m.email) || null;
+        const left = link ? link.remaining || 0 : null;
+        const lessons = link && (link.lessons || []).length
+          ? link.lessons.map((l) => `<li>${esc(prettyDay(l.date))} · ${esc(l.time)}</li>`).join("")
           : '<li class="none">Nothing booked yet</li>';
-        const note = `Hey${m.parent ? " " + m.parent : ""}! Here's your AP Academy membership link — it shows your lessons left and lets you book: ${m.link}`;
+        const note = link
+          ? `Hey${m.parent ? " " + m.parent : ""}! Here's your AP Academy membership link — it shows your lessons left and lets you book: ${link.link}`
+          : "";
         return `<div class="card">
-          <div class="member__name">${esc(m.player || "(no name)")}</div>
-          <div class="lesson__sub">${esc(m.parent || "")}${m.parent && m.phone ? " · " : ""}${esc(m.phone || "")}</div>
-          <div class="lesson__sub">${esc(m.email || "")}</div>
-          <p style="margin-top:0.7rem">
-            <span class="pill ${left ? "" : "done"}">${left} of ${m.credits || 4} lessons left</span>
-          </p>
-          <div class="lesson__sub" style="margin-top:0.45rem">
-            ${left ? `Use by ${esc(m.lastDayPretty || "")}` : "Membership used up"}
-            ${typeof m.daysLeft === "number" && left ? ` · ${m.daysLeft} day${m.daysLeft === 1 ? "" : "s"} left` : ""}
+          <div class="member__name">${esc(m.player || link?.player || "(no name)")}</div>
+          <div class="lesson__sub">${esc(m.email)}${m.phone ? " · " + esc(m.phone) : ""}</div>
+          <div class="tags">
+            ${left !== null ? `<span class="pill ${left ? "" : "spent"}">${left} of ${link.credits || 4} left</span>` : ""}
+            ${m.frozen ? '<span class="pill frozen">Frozen</span>' : ""}
+            ${m.cashMembership ? '<span class="tag">Cash membership</span>' : ""}
+            ${m.amountDueCents ? `<span class="tag tag--owed">Owes ${esc(money(m.amountDueCents))}</span>` : ""}
           </div>
+          ${link && left ? `<div class="lesson__sub row-gap">Use by ${esc(link.lastDayPretty || "")}${typeof link.daysLeft === "number" ? ` · ${link.daysLeft} day${link.daysLeft === 1 ? "" : "s"} left` : ""}</div>` : ""}
           <ul class="member__list">${lessons}</ul>
-          <div class="actions" style="margin-top:0.75rem">
-            <button type="button" class="btn-inline" data-record="${esc(m.player || "")}">✓ Used fielding today</button>
-          </div>
-          <div class="actions">
-            ${m.phone ? `<a href="sms:${esc(tel(m.phone))}?&body=${encodeURIComponent(note)}">💬 Text link</a>` : ""}
-            ${m.email ? `<a href="mailto:${esc(m.email)}?subject=${encodeURIComponent("Your AP Academy membership link")}&body=${encodeURIComponent(note)}">✉️ Email link</a>` : ""}
-            ${m.phone ? `<a href="tel:${esc(tel(m.phone))}">📞 Call</a>` : ""}
+          <div class="acts">
+            <button type="button" data-freeze="${esc(m.email)}" data-on="${m.frozen ? "0" : "1"}">${m.frozen ? "Unfreeze" : "Freeze"}</button>
+            ${m.amountDueCents ? `<button type="button" data-collect="${esc(m.email)}" data-amt="${m.amountDueCents}">Collect ${esc(wholeMoney(m.amountDueCents))}</button>` : ""}
+            ${link && m.phone ? `<a href="sms:${esc(tel(m.phone))}?&body=${encodeURIComponent(note)}">💬 Send link</a>` : ""}
+            ${link ? `<a href="mailto:${esc(m.email)}?subject=${encodeURIComponent("Your AP Academy membership link")}&body=${encodeURIComponent(note)}">✉️ Email link</a>` : ""}
           </div>
         </div>`;
       }).join("");
-      box.querySelectorAll("[data-record]").forEach((btn) => {
-        btn.addEventListener("click", () => recordFieldingToday(pass, btn));
+
+      box.querySelectorAll("[data-freeze]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const frozen = btn.dataset.on === "1";
+          const asked = frozen ? window.prompt("Reason shown to them", "Paused by coach") : "";
+          if (asked === null) return;
+          const reason = asked || "Paused by coach";
+          try {
+            await act({ action: "freeze_one", email: btn.dataset.freeze, frozen, reason });
+          } catch (err) { alert(err.message); }
+        });
+      });
+      box.querySelectorAll("[data-collect]").forEach((btn) => {
+        btn.addEventListener("click", () => collect("mem_" + btn.dataset.collect, btn.dataset.amt));
       });
     }
 
-    async function recordFieldingToday(pass, btn) {
-      const player = btn.dataset.record || "";
-      if (!player) return;
-      btn.disabled = true;
-      btn.textContent = "Saving…";
+    $("freezeAllBtn").addEventListener("click", async () => {
+      const frozen = !desk?.freezeAll;
+      const asked = frozen ? window.prompt("Reason shown to every member", "Paused by coach") : "";
+      if (asked === null) return;
+      const reason = asked || "Paused by coach";
       try {
-        const r = await fetch(`/api/record-lesson?key=${encodeURIComponent(pass)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ players: [player], focus: "Fielding" }),
-        });
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(data.error || "Couldn't save.");
-        const row = (data.results || [])[0];
-        const summary = (data.summaries || [])[0];
-        if (row?.skipped) {
-          btn.textContent = "Already logged today";
-        } else {
-          btn.textContent = summary ? `Saved · ${summary.remaining} left` : "Saved";
-        }
-        membersLoaded = false;
-        loadMembers(true);
-      } catch (err) {
-        btn.disabled = false;
-        btn.textContent = "✓ Used fielding today";
-        alert(err.message || "Couldn't save that lesson.");
-      }
+        await act({ action: "freeze_all", frozen, reason });
+      } catch (err) { alert(err.message); }
+    });
+
+    /* ===================== money ===================== */
+    async function collect(id, amountCents) {
+      const suggested = ((Number(amountCents) || 0) / 100).toFixed(2);
+      const entered = window.prompt("Amount collected ($)", suggested);
+      if (entered == null) return;
+      const cents = Math.round(parseFloat(entered) * 100);
+      if (!cents || Number.isNaN(cents)) return;
+      try {
+        await act({ action: "collect_payment", id, amountCents: cents, method: "cash" });
+      } catch (err) { alert(err.message); }
     }
 
-    document.getElementById("passBtn").addEventListener("click", () => {
-      const v = document.getElementById("passInput").value.trim();
-      if (v) load(v);
-    });
-    document.getElementById("passInput").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") document.getElementById("passBtn").click();
-    });
-    document.getElementById("refresh").addEventListener("click", () => {
-      const p = localStorage.getItem("coachPass");
-      if (p) { load(p); loadMembers(true); }
-    });
-    document.getElementById("logout").addEventListener("click", () => {
-      localStorage.removeItem("coachPass");
-      app.hidden = true;
-      login.hidden = false;
+    function renderMoney() {
+      const fin = desk.finance || {};
+      $("finWeek").textContent = wholeMoney(fin.weekCents);
+      $("finMonth").textContent = wholeMoney(fin.monthCents);
+      const wb = fin.weekByMethod || {};
+      const mb = fin.monthByMethod || {};
+      $("finSplit").textContent =
+        `This week ${money(wb.card)} card · ${money(wb.cash)} cash — this month ${money(mb.card)} card · ${money(mb.cash)} cash`;
+
+      const list = fin.outstanding || [];
+      const due = $("dueList");
+      due.innerHTML = list.length
+        ? list.map((o) => `<div class="lesson" style="margin:0">
+            <b>${esc(o.player || o.email || "(no name)")}</b>
+            <div class="lesson__sub">${esc([prettyDayOr(o.date), o.time, TYPE_LABEL[o.type] || o.type].filter(Boolean).join(" · "))}</div>
+            <div class="acts"><button type="button" data-due="${esc(o.id)}" data-amt="${o.amountDueCents}">Collect ${esc(money(o.amountDueCents))}</button></div>
+          </div>`).join("")
+        : '<p class="muted">Nothing outstanding — everybody\'s square.</p>';
+      due.querySelectorAll("[data-due]").forEach((btn) => {
+        btn.addEventListener("click", () => collect(btn.dataset.due, btn.dataset.amt));
+      });
+
+      $("finRecent").innerHTML = (fin.recent || []).slice(0, 25).map((e) =>
+        `<div class="lesson__sub" style="padding:0.4rem 0;border-bottom:1px solid var(--line-soft)">
+          <b style="color:var(--text)">${esc(money(e.amountCents))}</b> ${esc(e.method || "")} · ${esc(e.date || "")} · ${esc(e.player || e.note || e.type || "")}
+        </div>`
+      ).join("") || '<p class="muted">No ledger entries yet.</p>';
+    }
+
+    function prettyDayOr(iso) {
+      return /^\d{4}-\d{2}-\d{2}$/.test(String(iso || "")) ? prettyDay(iso) : "";
+    }
+
+    $("finAdd").addEventListener("click", async () => {
+      const msg = $("finMsg");
+      const cents = Math.round(parseFloat($("finAmount").value) * 100);
+      if (!cents || Number.isNaN(cents)) {
+        msg.className = "error";
+        msg.textContent = "Enter an amount.";
+        return;
+      }
+      try {
+        await act({
+          action: "add_finance",
+          amountCents: cents,
+          method: $("finMethod").value,
+          note: $("finNote").value.trim(),
+        });
+        msg.className = "ok-msg";
+        msg.textContent = "Logged ✓";
+        $("finAmount").value = "";
+        $("finNote").value = "";
+      } catch (err) {
+        msg.className = "error";
+        msg.textContent = err.message;
+      }
     });
 
-    /* ---------- availability ---------- */
-    let availState = null;
-    let availEditable = false;
+    /* ===================== settings ===================== */
+    function renderSettings() {
+      const s = desk.settings || {};
+      const p = s.prices || {};
+      $("priceSingle").value = Math.round((p.single || 8000) / 100);
+      $("pricePrivate").value = Math.round((p.private || 10000) / 100);
+      $("priceThirty").value = Math.round((p.thirty || 6000) / 100);
+      $("priceMembership").value = Math.round((p.membership || 28000) / 100);
+      $("priceDeposit").value = Math.round((s.membershipDeposit || 8000) / 100);
+      $("allowCash").checked = s.allowCash !== false;
+      $("allowDeposit").checked = s.allowDeposit !== false;
+      updateDepositPreview();
 
+      const st = desk.siteStatus || {};
+      $("ctlBlockNew").checked = Boolean(st.blockNewMemberships);
+      $("ctlFrozen").checked = Boolean(st.membershipFrozen);
+      $("ctlFielding").checked = Boolean(st.fieldingOnly);
+    }
+
+    function updateDepositPreview() {
+      const total = Math.round(parseFloat($("priceMembership").value) || 0);
+      const dep = Math.round(parseFloat($("priceDeposit").value) || 0);
+      const rest = Math.max(0, total - dep);
+      $("depositPreview").textContent = `Deposit checkout charges $${dep} by card and tells them $${rest} in cash is due at the first lesson.`;
+    }
+    ["priceMembership", "priceDeposit"].forEach((id) => $(id).addEventListener("input", updateDepositPreview));
+
+    $("priceSave").addEventListener("click", async () => {
+      const msg = $("priceMsg");
+      const dollars = (id) => Math.round(parseFloat($(id).value) * 100);
+      try {
+        await act({
+          action: "save_settings",
+          settings: {
+            prices: {
+              single: dollars("priceSingle"),
+              private: dollars("pricePrivate"),
+              thirty: dollars("priceThirty"),
+              membership: dollars("priceMembership"),
+            },
+            membershipDeposit: dollars("priceDeposit"),
+            allowCash: $("allowCash").checked,
+            allowDeposit: $("allowDeposit").checked,
+          },
+        });
+        msg.className = "ok-msg";
+        msg.textContent = "Saved ✓ — the booking page shows the new prices.";
+      } catch (err) {
+        msg.className = "error";
+        msg.textContent = err.message;
+      }
+    });
+
+    $("ctlSave").addEventListener("click", async () => {
+      const msg = $("ctlMsg");
+      try {
+        await act({
+          action: "save_site_status",
+          blockNewMemberships: $("ctlBlockNew").checked,
+          membershipFrozen: $("ctlFrozen").checked,
+          fieldingOnly: $("ctlFielding").checked,
+        });
+        msg.className = "ok-msg";
+        msg.textContent = "Saved ✓ — the site is updated.";
+      } catch (err) {
+        msg.className = "error";
+        msg.textContent = err.message;
+      }
+    });
+
+    /* ===================== hours ===================== */
     const TIME_OPTS = (() => {
       const out = [];
       for (let m = 6 * 60; m <= 22 * 60; m += 30) {
         const h = Math.floor(m / 60), mm = m % 60;
-        const v = `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-        const ap = h >= 12 ? "PM" : "AM", hr = h % 12 === 0 ? 12 : h % 12;
-        out.push({ v, label: `${hr}:${String(mm).padStart(2, "0")} ${ap}` });
+        out.push({ v: `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`, label: hhmmToLabel(`${h}:${String(mm).padStart(2, "0")}`) });
       }
       return out;
     })();
     const timeOptionsHtml = (sel) =>
       TIME_OPTS.map((o) => `<option value="${o.v}"${o.v === sel ? " selected" : ""}>${o.label}</option>`).join("");
 
-    async function loadAvail() {
-      try {
-        const r = await fetch("/api/availability");
-        const d = await r.json();
-        availState = d.availability;
-        availEditable = Boolean(d.editable);
-      } catch {
-        availState = null;
-      }
-      renderAvail();
-    }
-
-    function renderAvail() {
-      if (!availState) return;
-      const wrap = document.getElementById("availDays");
+    function renderHours() {
+      const wrap = $("hourDays");
       wrap.innerHTML = "";
       for (let i = 0; i < 7; i++) {
-        const c = (availState.days && availState.days[i]) || { open: false, start: "17:00", end: "21:00" };
+        const c = (hours.days && hours.days[i]) || { open: false, start: "17:00", end: "21:00" };
         const row = document.createElement("div");
         row.className = "day-row" + (c.open ? "" : " closed");
         row.innerHTML = `
@@ -692,73 +1467,62 @@
         wrap.appendChild(row);
       }
       wrap.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-        cb.addEventListener("change", () =>
-          cb.closest(".day-row").classList.toggle("closed", !cb.checked));
+        cb.addEventListener("change", () => cb.closest(".day-row").classList.toggle("closed", !cb.checked));
       });
-      ensureCalMonth();
-      renderCal();
-      renderOffSummary();
-      document.getElementById("availHint").textContent = availEditable ? "" : "not set up yet";
+      if (!offMonth) { const n = new Date(); offMonth = new Date(n.getFullYear(), n.getMonth(), 1); }
+      renderOffCal();
     }
 
-    let calMonth = null;
-    const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    function ensureCalMonth() {
-      if (!calMonth) { const n = new Date(); calMonth = new Date(n.getFullYear(), n.getMonth(), 1); }
-    }
-    function renderCal() {
-      ensureCalMonth();
-      document.getElementById("calLabel").textContent =
-        calMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-      const grid = document.getElementById("calDays");
+    function renderOffCal() {
+      $("offLabel").textContent = offMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      const grid = $("offDays");
       grid.innerHTML = "";
-      const y = calMonth.getFullYear(), m = calMonth.getMonth();
+      const y = offMonth.getFullYear(), m = offMonth.getMonth();
       const firstDow = new Date(y, m, 1).getDay();
       const daysInMonth = new Date(y, m + 1, 0).getDate();
-      const todayIso = isoOf(new Date());
+      const today = todayISO();
       for (let i = 0; i < firstDow; i++) {
-        const e = document.createElement("div");
-        e.className = "cal__day empty";
-        grid.appendChild(e);
+        const pad = document.createElement("div");
+        pad.className = "cal__day pad";
+        grid.appendChild(pad);
       }
       for (let d = 1; d <= daysInMonth; d++) {
         const iso = isoOf(new Date(y, m, d));
         const cell = document.createElement("div");
         cell.className = "cal__day";
         cell.textContent = d;
-        if (iso === todayIso) cell.classList.add("today");
-        if (iso < todayIso) {
+        if (iso === today) cell.classList.add("is-today");
+        if (iso < today) {
           cell.classList.add("past");
         } else {
-          if ((availState.blocked || []).includes(iso)) cell.classList.add("off");
+          if ((hours.blocked || []).includes(iso)) cell.classList.add("off");
           cell.addEventListener("click", () => {
-            availState.blocked = availState.blocked || [];
-            availState.blocked = availState.blocked.includes(iso)
-              ? availState.blocked.filter((x) => x !== iso)
-              : [...availState.blocked, iso].sort();
-            renderCal();
-            renderOffSummary();
+            hours.blocked = hours.blocked || [];
+            hours.blocked = hours.blocked.includes(iso)
+              ? hours.blocked.filter((x) => x !== iso)
+              : [...hours.blocked, iso].sort();
+            renderOffCal();
           });
         }
         grid.appendChild(cell);
       }
-    }
-    function renderOffSummary() {
-      const upcoming = (availState.blocked || []).filter((d) => d >= isoOf(new Date()));
-      document.getElementById("offSummary").textContent = upcoming.length
-        ? `${upcoming.length} upcoming day${upcoming.length === 1 ? "" : "s"} off: ${upcoming.slice(0, 4).map(prettyDay).join(", ")}${upcoming.length > 4 ? "…" : ""}`
+      const upcoming = (hours.blocked || []).filter((d) => d >= today);
+      $("offSummary").textContent = upcoming.length
+        ? `${upcoming.length} upcoming day${upcoming.length === 1 ? "" : "s"} off: ${upcoming.slice(0, 5).map(prettyDay).join(", ")}${upcoming.length > 5 ? "…" : ""}`
         : "No days off marked.";
     }
-    document.getElementById("calPrev").addEventListener("click", () => {
-      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
-      renderCal();
+
+    $("offPrev").addEventListener("click", () => {
+      offMonth = new Date(offMonth.getFullYear(), offMonth.getMonth() - 1, 1);
+      renderOffCal();
     });
-    document.getElementById("calNext").addEventListener("click", () => {
-      calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
-      renderCal();
+    $("offNext").addEventListener("click", () => {
+      offMonth = new Date(offMonth.getFullYear(), offMonth.getMonth() + 1, 1);
+      renderOffCal();
     });
 
-    function collectAvail() {
+    $("hoursSave").addEventListener("click", async () => {
+      const msg = $("hoursMsg");
       const days = {};
       for (let i = 0; i < 7; i++) {
         days[i] = {
@@ -767,245 +1531,65 @@
           end: document.querySelector(`select[data-end="${i}"]`).value,
         };
       }
-      return {
-        slotMinutes: (availState && availState.slotMinutes) || 60,
-        days,
-        blocked: (availState && availState.blocked) || [],
-      };
-    }
-
-    document.getElementById("saveAvail").addEventListener("click", async () => {
-      const msg = document.getElementById("availMsg");
-      const pass = localStorage.getItem("coachPass");
-      if (!pass) return;
+      const availability = { slotMinutes: hours.slotMinutes || 60, days, blocked: hours.blocked || [] };
       msg.className = "muted";
       msg.textContent = "Saving…";
       try {
-        const r = await fetch(`/api/availability?key=${encodeURIComponent(pass)}`, {
+        const r = await fetch(`/api/availability?key=${encodeURIComponent(pass())}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ availability: collectAvail() }),
+          body: JSON.stringify({ availability }),
         });
         const d = await r.json().catch(() => ({}));
-        if (!r.ok) {
-          msg.className = "error";
-          msg.textContent = d.error || "Could not save.";
-          return;
-        }
-        availState = d.availability;
-        availEditable = true;
-        renderAvail();
+        if (!r.ok) throw new Error(d.error || "Could not save.");
+        hours = JSON.parse(JSON.stringify(d.availability));
+        if (desk) desk.availability = d.availability;
+        renderHours();
         msg.className = "ok-msg";
-        msg.textContent = "Saved ✓ — your booking page is updated.";
-      } catch {
+        msg.textContent = "Saved ✓ — the booking page is updated.";
+      } catch (err) {
         msg.className = "error";
-        msg.textContent = "Network error — please try again.";
+        msg.textContent = err.message;
       }
     });
 
-    /* ---------- money / freeze / controls ---------- */
-    let coachDesk = null;
-    function money2(c) { return "$" + ((Number(c) || 0) / 100).toFixed(2); }
-    function coachKey() { return localStorage.getItem("coachPass") || ""; }
-    async function coachPost(body) {
-      const res = await fetch(`/api/coach?key=${encodeURIComponent(coachKey())}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed");
-      return data;
-    }
-    async function loadCoachDesk() {
-      try {
-        const res = await fetch(`/api/coach?key=${encodeURIComponent(coachKey())}`);
-        coachDesk = await res.json();
-        if (!res.ok) return;
-        renderCoachDesk();
-      } catch { /* optional until Blob/API live */ }
-    }
-    function renderCoachDesk() {
-      const d = coachDesk || {};
-      const fin = d.finance || {};
-      document.getElementById("finWeek").textContent = money2(fin.weekCents);
-      document.getElementById("finMonth").textContent = money2(fin.monthCents);
-      const wb = fin.weekByMethod || {}, mb = fin.monthByMethod || {};
-      document.getElementById("finSplit").textContent =
-        `Week ${money2(wb.card)} card · ${money2(wb.cash)} cash   ·   Month ${money2(mb.card)} card · ${money2(mb.cash)} cash`;
-      const due = document.getElementById("dueList");
-      const list = fin.outstanding || [];
-      due.innerHTML = list.length
-        ? list.map((o) => `<div class="lesson" style="margin-top:0.5rem"><b>${o.player || o.email}</b><div class="muted">${o.date || ""} ${o.time || ""} · ${o.type || ""}</div>
-            <div class="actions"><button type="button" data-due="${o.id}" data-amt="${o.amountDueCents}">Collect ${money2(o.amountDueCents)}</button></div></div>`).join("")
-        : '<p class="muted">Nothing outstanding.</p>';
-      due.querySelectorAll("[data-due]").forEach((btn) => {
-        btn.onclick = async () => {
-          const dollars = prompt("Amount collected ($)", ((Number(btn.dataset.amt)||0)/100).toFixed(2));
-          if (dollars == null) return;
-          try {
-            coachDesk = await coachPost({ action: "collect_payment", id: btn.dataset.due, amountCents: Math.round(parseFloat(dollars)*100), method: "cash" });
-            renderCoachDesk();
-          } catch (e) { alert(e.message); }
-        };
-      });
-      document.getElementById("finRecent").innerHTML = (fin.recent || []).slice(0, 20).map((e) =>
-        `<div class="muted" style="padding:0.35rem 0;border-bottom:1px solid var(--line)"><b>${money2(e.amountCents)}</b> ${e.method} · ${e.date} · ${e.player || e.note || e.type || ""}</div>`
-      ).join("") || '<p class="muted">No ledger entries yet.</p>';
-
-      const freezeAllBtn = document.getElementById("freezeAllBtn");
-      freezeAllBtn.textContent = d.freezeAll ? "Unfreeze ALL members" : "Freeze ALL members";
-      const extra = document.getElementById("coachMembersExtra");
-      extra.innerHTML = (d.members || []).map((m) =>
-        `<div class="lesson" style="margin-bottom:0.5rem"><div class="member__name">${m.player || m.email}</div>
-          <div class="muted">${m.email}${(m.amountDueCents||0) ? " · owed "+money2(m.amountDueCents) : ""}${m.frozen ? " · FROZEN" : ""}</div>
-          <div class="actions">
-            <button type="button" data-freeze="${m.email}" data-on="${m.frozen ? "0" : "1"}">${m.frozen ? "Unfreeze" : "Freeze"}</button>
-            ${(m.amountDueCents||0) ? `<button type="button" data-collect-mem="${m.email}" data-amt="${m.amountDueCents}">Collect</button>` : ""}
-          </div></div>`
-      ).join("") || "";
-      extra.querySelectorAll("[data-freeze]").forEach((btn) => {
-        btn.onclick = async () => {
-          const frozen = btn.dataset.on === "1";
-          const reason = frozen ? (prompt("Reason", "Paused by coach") || "") : "";
-          try {
-            coachDesk = await coachPost({ action: "freeze_one", email: btn.dataset.freeze, frozen, reason });
-            renderCoachDesk();
-          } catch (e) { alert(e.message); }
-        };
-      });
-      extra.querySelectorAll("[data-collect-mem]").forEach((btn) => {
-        btn.onclick = async () => {
-          const dollars = prompt("Amount ($)", ((Number(btn.dataset.amt)||0)/100).toFixed(2));
-          if (dollars == null) return;
-          try {
-            coachDesk = await coachPost({ action: "collect_payment", id: "mem_" + btn.dataset.collectMem, amountCents: Math.round(parseFloat(dollars)*100), method: "cash" });
-            renderCoachDesk();
-          } catch (e) { alert(e.message); }
-        };
-      });
-
-      const ss = d.siteStatus || {};
-      document.getElementById("ctlBlockNew").checked = Boolean(ss.blockNewMemberships);
-      document.getElementById("ctlFrozen").checked = Boolean(ss.membershipFrozen);
-      document.getElementById("ctlFielding").checked = Boolean(ss.fieldingOnly);
-      const set = d.settings || {};
-      document.getElementById("setSingle").value = ((set.prices?.single || 8000) / 100);
-      document.getElementById("setThirty").value = ((set.prices?.thirty || 6000) / 100);
-      document.getElementById("setMem").value = ((set.prices?.membership || 28000) / 100);
-      document.getElementById("setDeposit").value = ((set.membershipDeposit || 10000) / 100);
-      document.getElementById("setCash").checked = set.allowCash !== false;
-      document.getElementById("setDepositOn").checked = set.allowDeposit !== false;
-    }
-
-    document.getElementById("freezeAllBtn").addEventListener("click", async () => {
-      const frozen = !coachDesk?.freezeAll;
-      const reason = frozen ? (prompt("Reason", "Paused by coach") || "Paused") : "";
-      try {
-        coachDesk = await coachPost({ action: "freeze_all", frozen, reason });
-        renderCoachDesk();
-      } catch (e) { alert(e.message); }
-    });
-    document.getElementById("finAdd").addEventListener("click", async () => {
-      const msg = document.getElementById("finMsg");
-      try {
-        coachDesk = await coachPost({
-          action: "add_finance",
-          amountCents: Math.round(parseFloat(document.getElementById("finAmount").value) * 100),
-          method: document.getElementById("finMethod").value,
-          note: document.getElementById("finNote").value.trim(),
-        });
-        msg.textContent = "Logged ✓";
-        document.getElementById("finAmount").value = "";
-        document.getElementById("finNote").value = "";
-        renderCoachDesk();
-      } catch (e) { msg.textContent = e.message; }
-    });
-    document.getElementById("ctlSave").addEventListener("click", async () => {
-      const msg = document.getElementById("ctlMsg");
-      try {
-        coachDesk = await coachPost({
-          action: "save_site_status",
-          blockNewMemberships: document.getElementById("ctlBlockNew").checked,
-          membershipFrozen: document.getElementById("ctlFrozen").checked,
-          fieldingOnly: document.getElementById("ctlFielding").checked,
-        });
-        msg.textContent = "Saved ✓ — site rules updated.";
-        renderCoachDesk();
-      } catch (e) { msg.textContent = e.message; }
-    });
-    document.getElementById("setSave").addEventListener("click", async () => {
-      const msg = document.getElementById("setMsg");
-      try {
-        coachDesk = await coachPost({
-          action: "save_settings",
-          settings: {
-            prices: {
-              single: Math.round(parseFloat(document.getElementById("setSingle").value) * 100),
-              thirty: Math.round(parseFloat(document.getElementById("setThirty").value) * 100),
-              membership: Math.round(parseFloat(document.getElementById("setMem").value) * 100),
-            },
-            membershipDeposit: Math.round(parseFloat(document.getElementById("setDeposit").value) * 100),
-            allowCash: document.getElementById("setCash").checked,
-            allowDeposit: document.getElementById("setDepositOn").checked,
-          },
-        });
-        msg.textContent = "Saved ✓";
-        renderCoachDesk();
-      } catch (e) { msg.textContent = e.message; }
-    });
-    document.getElementById("bkSave").addEventListener("click", async () => {
-      const msg = document.getElementById("bkMsg");
-      const pay = document.getElementById("bkPay").value;
-      try {
-        coachDesk = await coachPost({
-          action: "create_booking",
-          type: document.getElementById("bkType").value,
-          date: document.getElementById("bkDate").value,
-          time: document.getElementById("bkTime").value.trim(),
-          player: document.getElementById("bkPlayer").value.trim(),
-          email: document.getElementById("bkEmail").value.trim(),
-          phone: document.getElementById("bkPhone").value.trim(),
-          paymentMethod: pay === "card" ? "card" : pay === "comp" ? "comp" : "cash",
-          markPaid: pay === "cash_paid" || pay === "card",
-        });
-        msg.textContent = "Saved ✓";
-        renderCoachDesk();
-        load(coachKey());
-      } catch (e) { msg.textContent = e.message; }
-    });
-
-    document.getElementById("subscribeGoogle").addEventListener("click", async () => {
-      const url = window.__calFeedHttps;
-      const hint = document.getElementById("calHint");
-      if (!url) {
-        hint.textContent = "Sign in first, then tap Add to Google Calendar.";
-        return;
-      }
+    /* ===================== calendar feed buttons ===================== */
+    $("calGoogle").addEventListener("click", async () => {
+      const url = window.__feed;
+      const hint = $("calHint");
+      if (!url) return;
       try {
         await navigator.clipboard.writeText(url);
-        hint.innerHTML = `✓ Link copied. Google’s “Add by URL” page is opening — <strong>paste</strong> and click Add calendar.<br /><code>${url}</code>`;
+        hint.innerHTML = `✓ Link copied. Google's “Add by URL” page is opening — <strong>paste</strong> it and click Add calendar.<br /><code>${esc(url)}</code>`;
       } catch {
-        hint.innerHTML = `Copy this link, then paste it in Google Calendar → Settings → Add calendar → From URL:<br /><code>${url}</code>`;
+        hint.innerHTML = `Copy this, then paste it in Google Calendar → Settings → Add calendar → From URL:<br /><code>${esc(url)}</code>`;
       }
       window.open("https://calendar.google.com/calendar/u/0/r/settings/addbyurl", "_blank", "noopener");
     });
 
-    document.getElementById("copyCalFeed").addEventListener("click", async () => {
-      const url = window.__calFeedHttps;
-      const hint = document.getElementById("calHint");
+    $("calCopy").addEventListener("click", async () => {
+      const url = window.__feed;
+      const hint = $("calHint");
       if (!url) return;
       try {
         await navigator.clipboard.writeText(url);
-        hint.innerHTML = `✓ Copied:<br /><code>${url}</code>`;
+        hint.innerHTML = `✓ Copied:<br /><code>${esc(url)}</code>`;
       } catch {
-        hint.innerHTML = `Select and copy:<br /><code>${url}</code>`;
+        hint.innerHTML = `Select and copy:<br /><code>${esc(url)}</code>`;
       }
     });
 
-    const saved = localStorage.getItem("coachPass");
-    if (saved) load(saved);
-    else login.hidden = false;
+    /* ===================== boot ===================== */
+    (async function boot() {
+      if (!pass()) return;
+      try {
+        desk = await deskGet();
+      } catch {
+        localStorage.removeItem(PASS_KEY);
+        return;
+      }
+      await enterDesk();
+    })();
   </script>
 </body>
 </html>

@@ -433,6 +433,8 @@ h3 { font-size: 1.6rem; }
 .grid { display: grid; gap: 1.4rem; margin-top: 2.8rem; }
 .grid--4 { grid-template-columns: repeat(4, 1fr); }
 .grid--3 { grid-template-columns: repeat(3, 1fr); }
+/* The pricing row holds four cards now, so let them wrap instead of squeezing. */
+.pricing { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
 
 .card {
   background: var(--surface);
@@ -1395,7 +1397,7 @@ html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   .grid--4 { grid-template-columns: repeat(2, 1fr); }
-  .grid--3 { grid-template-columns: 1fr; max-width: 460px; margin-inline: auto; }
+  .grid--3, .pricing { grid-template-columns: 1fr; max-width: 460px; margin-inline: auto; }
   .pricing .price-card--featured { order: -1; }
   .coach { grid-template-columns: 1fr; gap: 3rem; }
   .coach__photo { max-width: 380px; margin-inline: auto; width: 100%; }
