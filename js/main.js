@@ -143,7 +143,10 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     });
   });
 
-  if (form || document.querySelector("[data-membership-availability]")) loadMembershipCapacity();
+  // Pricing pages can fill their capacity line right away. book.html waits for
+  // the boot sequence below, because rendering capacity also refreshes the
+  // submit button, which needs the booking state further down this file.
+  if (!form && document.querySelector("[data-membership-availability]")) loadMembershipCapacity();
 
   if (!form || !AP) return;
 
@@ -702,6 +705,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   renderPrices();
   refreshSubmit();
   loadPricing();
+  loadMembershipCapacity();
   loadAvailability().then(() => {
     const typeFromUrl = params.get("type");
     if (SESSIONS[typeFromUrl] && !(typeFromUrl === "membership" && membershipsPaused())) {
