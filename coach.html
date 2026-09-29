@@ -84,11 +84,16 @@
     .status .ok { color: var(--ok); } .status .off { color: var(--bad); }
     .subscribe {
       display: flex; align-items: center; gap: 0.9rem; background: var(--surface); border: 1px solid var(--line);
-      border-radius: 14px; padding: 0.95rem 1.1rem; margin-bottom: 1rem; text-decoration: none; color: var(--text);
+      border-radius: 14px; padding: 0.95rem 1.1rem; margin-bottom: 0.55rem; text-decoration: none; color: var(--text);
+      width: 100%; text-align: left; cursor: pointer; font-family: inherit;
     }
     .subscribe:hover { border-color: var(--btn); }
     .subscribe b { display: block; font-size: 0.92rem; }
     .subscribe small { color: var(--dim); font-size: 0.8rem; }
+    .cal-box { margin-bottom: 1rem; }
+    .cal-box .card-title { margin-bottom: 0.35rem; }
+    .cal-hint { color: var(--dim); font-size: 0.85rem; margin: 0.55rem 0 0; line-height: 1.45; }
+    .cal-hint code { color: var(--text); font-size: 0.78rem; word-break: break-all; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
     @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } .lesson { grid-template-columns: 1fr; } }
     .row { display: flex; justify-content: space-between; gap: 0.8rem; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid var(--line); }
@@ -144,10 +149,25 @@
       </div>
       <div class="status" id="status"></div>
       <div id="freezeBanner" class="banner" hidden></div>
-      <a class="subscribe" id="subscribe" href="#">
-        <span>📅</span>
-        <span><b>Apple Calendar (keep this)</b><small>Same iCal feed — bookings still sync to your phone</small></span>
-      </a>
+
+      <div class="card cal-box">
+        <div class="card-title">Your calendars</div>
+        <p class="muted" style="margin-bottom:0.75rem">Add lessons to Apple and Google. Same bookings show in both — set each up once.</p>
+        <a class="subscribe" id="subscribeApple" href="#">
+          <span>🍎</span>
+          <span><b>Add to Apple Calendar</b><small>Opens on iPhone / Mac — keep this one</small></span>
+        </a>
+        <button type="button" class="subscribe" id="subscribeGoogle">
+          <span>📆</span>
+          <span><b>Add to Google Calendar</b><small>Opens Google → paste the feed (we copy it for you)</small></span>
+        </button>
+        <button type="button" class="subscribe" id="copyCalFeed">
+          <span>🔗</span>
+          <span><b>Copy calendar link</b><small>If you need to paste it yourself</small></span>
+        </button>
+        <p class="cal-hint" id="calHint">After you sign in, tap a button above. New bookings show up automatically (Google may take a few minutes to refresh).</p>
+      </div>
+
       <div class="tabs" id="tabs">
         <button type="button" data-tab="schedule" class="is-on">Schedule</button>
         <button type="button" data-tab="book">Add booking</button>
@@ -266,19 +286,22 @@
         <input id="setDeposit" type="number" step="1" />
         <label style="display:flex;gap:0.5rem;align-items:center;margin:0.4rem 0"><input type="checkbox" id="setCash" style="width:auto;margin:0" /> Allow cash on booking page</label>
         <label style="display:flex;gap:0.5rem;align-items:center;margin:0.4rem 0 0.9rem"><input type="checkbox" id="setAllowDeposit" style="width:auto;margin:0" /> Allow membership deposit option</label>
-        <label class="muted">Google Calendar ID</label>
+        <label class="muted">Google Calendar ID (advanced push sync)</label>
         <input id="setGcal" placeholder="nubulah.fr4@gmail.com" />
         <p class="muted" id="gcalStatus" style="margin-bottom:0.8rem"></p>
         <button class="primary" id="setSave">Save settings</button>
         <p id="setMsg" class="muted"></p>
         <div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--line)">
-          <b>Google Calendar setup</b>
+          <b>Optional: instant Google push</b>
+          <p class="muted" style="margin:0.45rem 0 0.6rem">
+            The <strong>Add to Google Calendar</strong> button above is enough for most people (subscribe to the feed).
+            Instant push is only needed if you want events created the second someone books — that uses a Google service account:
+          </p>
           <ol class="muted" style="margin:0.5rem 0 0 1.1rem;display:grid;gap:0.35rem">
             <li>Google Cloud → enable <em>Google Calendar API</em></li>
             <li>Create a service account → download JSON key</li>
-            <li>Share <strong>nubulah.fr4@gmail.com</strong> calendar with that service account email (Make changes to events)</li>
-            <li>In Vercel env: <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> = the JSON key (one line), and optional <code>GOOGLE_CALENDAR_ID=nubulah.fr4@gmail.com</code></li>
-            <li>Keep your Apple Calendar subscribed to the iCal link above — both can run together</li>
+            <li>Share <strong>nubulah.fr4@gmail.com</strong> with that service account email (Make changes to events)</li>
+            <li>Vercel env: <code>GOOGLE_SERVICE_ACCOUNT_JSON</code> = the JSON key (one line)</li>
           </ol>
         </div>
       </div>
@@ -346,8 +369,11 @@
         return;
       }
       localStorage.setItem("coachPass", pass() || document.getElementById("passInput").value.trim());
-      document.getElementById("subscribe").href =
-        `webcal://${window.location.host}/api/calendar?key=${encodeURIComponent(pass())}`;
+      const feedHttps = `https://${window.location.host}/api/calendar?key=${encodeURIComponent(pass())}`;
+      const feedWebcal = `webcal://${window.location.host}/api/calendar?key=${encodeURIComponent(pass())}`;
+      document.getElementById("subscribeApple").href = feedWebcal;
+      window.__calFeedHttps = feedHttps;
+      window.__calFeedWebcal = feedWebcal;
       login.hidden = true; app.hidden = false;
       renderAll();
       loadAvail();
@@ -733,6 +759,35 @@
         msg.className = "ok-msg"; msg.textContent = "Saved ✓";
       } catch { msg.className = "error"; msg.textContent = "Network error"; }
     };
+
+    document.getElementById("subscribeGoogle").addEventListener("click", async () => {
+      const url = window.__calFeedHttps;
+      const hint = document.getElementById("calHint");
+      if (!url) {
+        hint.textContent = "Sign in first, then tap Add to Google Calendar.";
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        hint.innerHTML = `✓ Calendar link copied. Google’s “Add by URL” page is opening — <strong>paste</strong> the link there and click Add calendar.<br /><code>${url}</code>`;
+      } catch {
+        hint.innerHTML = `Copy this link and paste it in Google Calendar → Settings → Add calendar → From URL:<br /><code>${url}</code>`;
+      }
+      // Opens Google Calendar "add by URL" settings
+      window.open("https://calendar.google.com/calendar/u/0/r/settings/addbyurl", "_blank", "noopener");
+    });
+
+    document.getElementById("copyCalFeed").addEventListener("click", async () => {
+      const url = window.__calFeedHttps;
+      const hint = document.getElementById("calHint");
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        hint.innerHTML = `✓ Copied:<br /><code>${url}</code>`;
+      } catch {
+        hint.innerHTML = `Select and copy:<br /><code>${url}</code>`;
+      }
+    });
 
     document.getElementById("passBtn").onclick = () => {
       const v = document.getElementById("passInput").value.trim();
