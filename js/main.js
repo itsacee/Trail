@@ -87,10 +87,14 @@ const DEFAULT_AVAILABILITY = {
 };
 let AVAIL = DEFAULT_AVAILABILITY;
 let SITE_STATUS = {
-  membershipPaused: false,
-  membershipPausedReason: "",
+  blockNewMemberships: false,
+  blockNewMembershipsReason: "",
+  membershipFrozen: false,
+  membershipFrozenReason: "",
   fieldingOnly: false,
   fieldingOnlyReason: "",
+  membershipPaused: false,
+  membershipPausedReason: "",
 };
 
 const PLACE_BLURB = {
@@ -187,7 +191,10 @@ function applySiteStatus() {
   if (notice) {
     const parts = [];
     if (SITE_STATUS.fieldingOnly && SITE_STATUS.fieldingOnlyReason) parts.push(SITE_STATUS.fieldingOnlyReason);
-    if (SITE_STATUS.membershipPaused && SITE_STATUS.membershipPausedReason) parts.push(SITE_STATUS.membershipPausedReason);
+    if (SITE_STATUS.membershipFrozen && SITE_STATUS.membershipFrozenReason) parts.push(SITE_STATUS.membershipFrozenReason);
+    else if (SITE_STATUS.blockNewMemberships && SITE_STATUS.blockNewMembershipsReason) {
+      parts.push(SITE_STATUS.blockNewMembershipsReason);
+    }
     if (parts.length) {
       notice.hidden = false;
       notice.innerHTML = parts.map((p) => `<p>${p}</p>`).join("");
@@ -198,7 +205,7 @@ function applySiteStatus() {
   }
 
   document.querySelectorAll('[data-book="membership"]').forEach((el) => {
-    const paused = Boolean(SITE_STATUS.membershipPaused);
+    const paused = Boolean(SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused);
     el.disabled = paused;
     el.classList.toggle("is-disabled", paused);
     el.setAttribute("aria-disabled", paused ? "true" : "false");
@@ -206,11 +213,11 @@ function applySiteStatus() {
     if (tag) tag.hidden = !paused;
   });
 
-  if (SITE_STATUS.membershipPaused && selectedType === "membership") {
+  if ((SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) && selectedType === "membership") {
     setType("single", { syncUrl: true });
   }
 
-  if (SITE_STATUS.membershipPaused) {
+  if (SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) {
     membershipCapacity = {
       state: "ready",
       limit: membershipCapacity.limit || 15,
@@ -295,7 +302,7 @@ function updateMemberCheckout() {
 
 function setType(type, { syncUrl = true } = {}) {
   if (!SESSIONS[type]) return;
-  if (SITE_STATUS.membershipPaused && type === "membership") return;
+  if ((SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) && type === "membership") return;
   if (type !== selectedType) {
     selectedType = type;
     picked = [];
@@ -507,7 +514,7 @@ function chooseTime(time) {
 }
 
 function refreshSubmit() {
-  if (selectedType === "membership" && SITE_STATUS.membershipPaused) {
+  if (selectedType === "membership" && (SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused)) {
     submitBtn.textContent = "Memberships Paused";
     submitBtn.disabled = true;
     return;
@@ -528,7 +535,9 @@ function refreshSubmit() {
 }
 
 function membershipCapacityText(capacity) {
-  if (SITE_STATUS.membershipPaused) return SITE_STATUS.membershipPausedReason;
+  if (SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) {
+    return SITE_STATUS.blockNewMembershipsReason || SITE_STATUS.membershipPausedReason;
+  }
   if (capacity.state === "loading") return "Checking membership availability…";
   if (capacity.state !== "ready") return "Membership availability is temporarily unavailable. Please try again soon.";
   if (!capacity.available) {
@@ -542,11 +551,14 @@ function renderMembershipCapacity() {
     el.textContent = membershipCapacityText(membershipCapacity);
     el.classList.toggle(
       "is-full",
-      SITE_STATUS.membershipPaused || (membershipCapacity.state === "ready" && !membershipCapacity.available)
+      SITE_STATUS.blockNewMemberships ||
+      SITE_STATUS.membershipPaused ||
+      (membershipCapacity.state === "ready" && !membershipCapacity.available)
     );
   });
   document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
     const blocked =
+      SITE_STATUS.blockNewMemberships ||
       SITE_STATUS.membershipPaused ||
       membershipCapacity.state !== "ready" ||
       !membershipCapacity.available;
@@ -571,7 +583,7 @@ async function loadMembershipCapacity() {
 
 document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
   el.addEventListener("click", (event) => {
-    if (SITE_STATUS.membershipPaused || membershipCapacity.state !== "ready" || !membershipCapacity.available) {
+    if (SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused || membershipCapacity.state !== "ready" || !membershipCapacity.available) {
       event.preventDefault();
     }
   });
@@ -586,7 +598,7 @@ if (form) {
   syncTypeTabs();
   loadAvailability().then(() => {
     const typeFromUrl = params.get("type");
-    if (SESSIONS[typeFromUrl] && !(SITE_STATUS.membershipPaused && typeFromUrl === "membership")) {
+    if (SESSIONS[typeFromUrl] && !((SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused) && typeFromUrl === "membership")) {
       selectedType = typeFromUrl;
       syncTypeTabs();
       updateFocusField();

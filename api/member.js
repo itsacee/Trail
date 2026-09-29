@@ -18,7 +18,7 @@ import {
 import { tokenFromRequest } from "../lib/memberAuth.js";
 import { buildCalendar, stamp } from "../lib/ics.js";
 import { bookingEvent } from "./calendar.js";
-import { getSiteStatus, membershipBlockedMessage, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
+import { getSiteStatus, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -212,14 +212,6 @@ export default async function handler(req, res) {
   }
 
   const action = String(req.body?.action || "book");
-
-  if (action === "book" || action === "reschedule") {
-    const paused = membershipBlockedMessage();
-    if (paused) {
-      res.status(503).json({ error: paused, code: "membership_paused" });
-      return;
-    }
-  }
 
   if (action === "cancel") {
     const id = String(req.body?.id || "");
