@@ -173,7 +173,7 @@ left sidebar), and has five tabs:
 | Tab | What it does |
 | --- | --- |
 | Lessons | Today / this week / upcoming / still-owed counts, every lesson with its athletes and tags, and per-lesson **Move**, text, call, email, cancel |
-| Members | Credits left, expiry, cash owed, freeze one member or everyone, mark cash collected, send a sign-in link |
+| Members | Credits left, expiry, cash owed, freeze one member or everyone, mark cash collected, send a sign-in link, remove a duplicate card |
 | Money | Outstanding balances, a cash/card ledger, and week + month totals |
 | Hours | Weekly open hours per day and a days-off calendar |
 | Setup | All five prices, the membership deposit, whether cash and deposits are allowed, and the facility pauses |
@@ -189,6 +189,17 @@ calendar invite unless the coach turns that off.
 
 Parents can reschedule themselves from `account.html` up to 12 hours before
 the lesson; inside 12 hours the portal asks them to call or text.
+
+### Duplicate member cards
+
+A parent who signs up twice under two emails shows up as two cards for one
+athlete. **Remove card** takes one off the Members list. Nothing is deleted:
+the record keeps their history, note and balance, the card moves to a
+**Cards you removed** list, and **Put back** undoes it. A card with money still
+owed asks a second time first, because removing it also takes that balance off
+the Money tab. Any new activity on the email — a booking, a payment — brings the
+card back on its own, so a second email that starts paying again can't stay
+hidden (`removeMember` in `lib/membersStore.js`).
 
 ### Passcode
 

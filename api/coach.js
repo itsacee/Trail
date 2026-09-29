@@ -19,6 +19,10 @@ import {
   upsertMember,
   memberRecord,
   isMemberFrozen,
+  isMemberRemoved,
+  removeMember,
+  restoreMember,
+  removedMembers,
 } from "../lib/membersStore.js";
 import { loadFinance, saveFinance, addFinanceEntry, financeSummary } from "../lib/finance.js";
 import { loadSettings, saveSettings, unitPriceFor } from "../lib/settings.js";
@@ -61,6 +65,8 @@ async function listOutstanding() {
     }
   });
   Object.values(members.byEmail || {}).forEach((m) => {
+    // A card that's off the members list doesn't bill from the Money tab either.
+    if (m.removed) return;
     if ((m.amountDueCents || 0) > 0) {
       out.push({
         id: `mem_${m.email}`,
@@ -93,16 +99,18 @@ async function dashboard() {
   const siteStatus = getSiteStatus();
   const availability = await getAvailability();
 
-  const members = Object.values(membersState.byEmail || {}).map((m) => ({
-    email: m.email,
-    player: m.player || "",
-    parent: m.parent || "",
-    phone: m.phone || "",
-    frozen: isMemberFrozen(membersState, m.email).frozen,
-    amountDueCents: m.amountDueCents || 0,
-    cashMembership: Boolean(m.cashMembership),
-    note: m.note || "",
-  }));
+  const members = Object.values(membersState.byEmail || {})
+    .filter((m) => !m.removed)
+    .map((m) => ({
+      email: m.email,
+      player: m.player || "",
+      parent: m.parent || "",
+      phone: m.phone || "",
+      frozen: isMemberFrozen(membersState, m.email).frozen,
+      amountDueCents: m.amountDueCents || 0,
+      cashMembership: Boolean(m.cashMembership),
+      note: m.note || "",
+    }));
 
   // Also surface emails from upcoming membership lessons
   sessions
@@ -110,6 +118,9 @@ async function dashboard() {
     .forEach((s) => {
       const e = String(s.email).toLowerCase();
       if (members.some((m) => m.email === e)) return;
+      // Stripe is the source of this one, so a removed card would otherwise
+      // reappear here on the next load.
+      if (isMemberRemoved(membersState, e)) return;
       members.push({
         email: e,
         player: s.player || "",
@@ -125,6 +136,13 @@ async function dashboard() {
   return {
     sessions,
     members: members.sort((a, b) => (a.player || a.email).localeCompare(b.player || b.email)),
+    removedMembers: removedMembers(membersState).map((m) => ({
+      email: m.email,
+      player: m.player || "",
+      phone: m.phone || "",
+      amountDueCents: m.amountDueCents || 0,
+      removedAt: m.removedAt || null,
+    })),
     freezeAll: membersState.freezeAll,
     freezeAllReason: membersState.freezeAllReason || "",
     finance: financeSummary(finance.entries, outstanding),
@@ -459,6 +477,53 @@ export default async function handler(req, res) {
       }
       upsertMember(members, email, patch);
       await saveMembersState(members);
+      res.status(200).json({ ok: true, ...(await dashboard()) });
+      return;
+    }
+
+    // Take a card off the members list — the fix for one athlete signed up under
+    // two emails. The record stays on file, so this is reversible.
+    if (action === "remove_member") {
+      const email = String(req.body?.email || "").trim().toLowerCase();
+      if (!email) {
+        res.status(400).json({ error: "Email required." });
+        return;
+      }
+      const members = await loadMembersState();
+      const owed = Math.max(0, Number(memberRecord(members, email)?.amountDueCents) || 0);
+      if (owed > 0 && !req.body?.force) {
+        res.status(409).json({
+          error:
+            `This card still shows $${(owed / 100).toFixed(2)} owed, and removing it takes ` +
+            `that off your Money tab. Remove it anyway?`,
+          code: "owes_money",
+          amountDueCents: owed,
+        });
+        return;
+      }
+      removeMember(members, email);
+      const saved = await saveMembersState(members);
+      if (!saved) {
+        res.status(500).json({ error: "Could not remove that card (check Blob)." });
+        return;
+      }
+      res.status(200).json({ ok: true, ...(await dashboard()) });
+      return;
+    }
+
+    if (action === "restore_member") {
+      const email = String(req.body?.email || "").trim().toLowerCase();
+      if (!email) {
+        res.status(400).json({ error: "Email required." });
+        return;
+      }
+      const members = await loadMembersState();
+      restoreMember(members, email);
+      const saved = await saveMembersState(members);
+      if (!saved) {
+        res.status(500).json({ error: "Could not put that card back (check Blob)." });
+        return;
+      }
       res.status(200).json({ ok: true, ...(await dashboard()) });
       return;
     }
