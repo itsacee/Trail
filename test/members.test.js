@@ -252,3 +252,80 @@ test("reschedule: a fully-used membership can still move an existing lesson", ()
 test("chicagoDate renders a unix time as a Chicago calendar day", () => {
   assert.equal(chicagoDate(Math.floor(Date.parse("2026-08-27T02:00:00Z") / 1000)), "2026-08-26");
 });
+
+test("fromCashMember builds an active cash membership", async () => {
+  const { fromCashMember } = await import("../lib/members.js");
+  atTime(NOW, () => {
+    const start = Math.floor(Date.parse("2026-08-20T12:00:00Z") / 1000);
+    const row = {
+      cashMembership: true,
+      cashMembershipStart: start,
+      cashMembershipEnd: start + MEMBER_PERIOD_DAYS * 86400,
+      player: "Sam",
+      parent: "Pat",
+      phone: "405",
+      email: "sam@example.com",
+    };
+    const sub = fromCashMember(row, "sam@example.com");
+    assert.ok(sub);
+    assert.equal(sub.kind, "cash");
+    assert.equal(sub.metadata.player, "Sam");
+    assert.equal(sub.current_period_start, start);
+  });
+});
+
+test("fromCashMember returns null once the cash period has ended", async () => {
+  const { fromCashMember } = await import("../lib/members.js");
+  atTime(NOW, () => {
+    const start = Math.floor(Date.parse("2026-07-01T12:00:00Z") / 1000);
+    const row = {
+      cashMembership: true,
+      cashMembershipStart: start,
+      cashMembershipEnd: start + MEMBER_PERIOD_DAYS * 86400,
+      email: "sam@example.com",
+    };
+    assert.equal(fromCashMember(row, "sam@example.com"), null);
+  });
+});
+
+test("membershipSummary applies Stripe periodBonusDays and coach freeze blocks booking", () => {
+  atTime(NOW, () => {
+    const endingSoon = {
+      metadata: { player: "Sam", email: "sam@example.com" },
+      kind: "payment",
+      current_period_start: Math.floor(Date.parse("2026-08-01T12:00:00Z") / 1000),
+      // Raw end would make last day 08-25 — already past frozen "today" 08-26
+      current_period_end: Math.floor(Date.parse("2026-08-26T12:00:00Z") / 1000),
+    };
+    assert.equal(membershipSummary(endingSoon, []).expired, true);
+    // 5 bonus days from coach freeze → last day moves later
+    const extended = membershipSummary(endingSoon, [], { periodBonusDays: 5 });
+    assert.equal(extended.expired, false);
+    assert.ok(extended.lastDay >= "2026-08-26");
+
+    const paused = membershipSummary(SUB, [], {
+      memberFrozen: true,
+      freezeReason: "Paused for travel.",
+    });
+    assert.equal(paused.bookingPaused, true);
+    assert.match(bookingBlocked(paused, "2026-08-28", []), /Paused for travel/);
+  });
+});
+
+test("cash membership does not double-count periodBonusDays", () => {
+  atTime(NOW, () => {
+    const start = Math.floor(Date.parse("2026-08-20T12:00:00Z") / 1000);
+    const end = start + MEMBER_PERIOD_DAYS * 86400;
+    const cash = {
+      kind: "cash",
+      metadata: { player: "Sam", email: "sam@example.com" },
+      email: "sam@example.com",
+      current_period_start: start,
+      // End already includes 3 coach freeze days baked in
+      current_period_end: end + 3 * 86400,
+    };
+    const withBonus = membershipSummary(cash, [], { periodBonusDays: 3 });
+    const without = membershipSummary(cash, []);
+    assert.equal(withBonus.lastDay, without.lastDay);
+  });
+});

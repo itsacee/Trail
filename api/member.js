@@ -11,10 +11,17 @@ import {
 import {
   findMembership,
   membershipSummary,
+  membershipOptsFromState,
   bookingBlocked,
   canCancelLesson,
   prettyDate,
 } from "../lib/members.js";
+import { loadMembersState } from "../lib/membersStore.js";
+import {
+  loadManualBookings,
+  saveManualBookings,
+  findBooking,
+} from "../lib/manualBookings.js";
 import { tokenFromRequest } from "../lib/memberAuth.js";
 import { buildCalendar, stamp } from "../lib/ics.js";
 import { bookingEvent } from "./calendar.js";
@@ -37,6 +44,16 @@ function publicAccount(acct) {
       mapUrl: loc.address ? `https://maps.google.com/?q=${encodeURIComponent(loc.address)}` : "",
     },
   };
+}
+
+function summarize(acct, scheduled = acct.scheduled) {
+  return membershipSummary(acct.sub, scheduled, acct.memberOpts || {});
+}
+
+async function refreshScheduled(acct) {
+  acct.scheduled = scheduledFor(acct.sub, acct.stored, acct.manual);
+  acct.summary = summarize(acct);
+  return acct;
 }
 
 async function emailMemberBooking(to, lesson, summary) {
@@ -140,21 +157,44 @@ async function emailMemberReschedule(to, oldLesson, newLesson, summary) {
 }
 
 async function loadAccount(key, email) {
-  const sub = await findMembership(key, email);
+  const sub = await findMembership(key || "", email);
   if (!sub) return null;
-  const stored = await loadLessons();
-  const scheduled = scheduledFor(sub, stored);
-  return { sub, stored, scheduled, summary: membershipSummary(sub, scheduled) };
+  const [stored, manual, membersState] = await Promise.all([
+    loadLessons(),
+    loadManualBookings(),
+    loadMembersState(),
+  ]);
+  const memberOpts = membershipOptsFromState(membersState, email);
+  const scheduled = scheduledFor(sub, stored, manual);
+  return {
+    sub,
+    stored,
+    manual,
+    membersState,
+    memberOpts,
+    scheduled,
+    summary: membershipSummary(sub, scheduled, memberOpts),
+  };
 }
 
 // Drop a lesson the member currently holds. Portal-booked lessons live in the
 // blob; the first day they picked at checkout lives on the Stripe payment, so
 // those get voided (and we clear the Stripe metadata so the old slot opens up).
+// Cash first lessons live in manual-bookings and are cancelled there.
 async function releaseLesson(key, acct, lesson, email) {
+  if (lesson.source === "manual") {
+    const b = findBooking(acct.manual, lesson.id);
+    if (!b || String(b.email || "").toLowerCase() !== String(email || "").toLowerCase()) {
+      return false;
+    }
+    b.status = "cancelled";
+    b.cancelledAt = Date.now();
+    return true;
+  }
   if (lesson.source === "stripe") {
     voidStripeLesson(acct.stored, { ...lesson, email });
     const id = lesson.sourceId || acct.sub?.id;
-    if (id && key) {
+    if (id && key && !String(id).startsWith("cash_")) {
       const slot = String(lesson.id).match(/-([1-4])$/)?.[1] || "1";
       const path = String(id).startsWith("sub_") ? `subscriptions/${id}` : `payment_intents/${id}`;
       const body = new URLSearchParams();
@@ -184,12 +224,8 @@ async function releaseLesson(key, acct, lesson, email) {
 }
 
 export default async function handler(req, res) {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = process.env.STRIPE_SECRET_KEY || "";
   const email = tokenFromRequest(req);
-  if (!key) {
-    res.status(500).json({ error: "Online membership isn't connected yet." });
-    return;
-  }
   if (!email) {
     res.status(401).json({ error: "Please sign in with the email on your membership." });
     return;
@@ -228,13 +264,13 @@ export default async function handler(req, res) {
       res.status(404).json({ error: "Lesson not found." });
       return;
     }
-    const saved = await saveLessons(acct.stored);
-    if (!saved) {
+    const savedLessons = await saveLessons(acct.stored);
+    const savedManual = lesson.source === "manual" ? await saveManualBookings(acct.manual) : true;
+    if (!savedLessons || !savedManual) {
       res.status(500).json({ error: "Couldn't update that lesson. Call or text (405) 819-4401." });
       return;
     }
-    acct.scheduled = scheduledFor(acct.sub, acct.stored);
-    acct.summary = membershipSummary(acct.sub, acct.scheduled);
+    await refreshScheduled(acct);
     res.status(200).json({ ok: true, ...publicAccount(acct) });
     return;
   }
@@ -273,7 +309,7 @@ export default async function handler(req, res) {
     // Judge the new slot as if the lesson being moved weren't on the calendar,
     // so the one-per-day and remaining-credit rules don't count it twice.
     const others = acct.scheduled.filter((l) => l.id !== id);
-    const summaryWithout = membershipSummary(acct.sub, others);
+    const summaryWithout = summarize(acct, others);
     const blocked = bookingBlocked(summaryWithout, newDate, others);
     if (blocked) {
       res.status(400).json({ error: blocked });
@@ -307,14 +343,14 @@ export default async function handler(req, res) {
     const moved = makeMemberLesson({ sub: acct.sub, date: newDate, time: newTime, focus: newFocus, availability });
     moved.email = email;
     acct.stored.lessons.push(moved);
-    const saved = await saveLessons(acct.stored);
-    if (!saved) {
+    const savedLessons = await saveLessons(acct.stored);
+    const savedManual = lesson.source === "manual" ? await saveManualBookings(acct.manual) : true;
+    if (!savedLessons || !savedManual) {
       res.status(500).json({ error: "Couldn't move that lesson. Call or text (405) 819-4401." });
       return;
     }
 
-    acct.scheduled = scheduledFor(acct.sub, acct.stored);
-    acct.summary = membershipSummary(acct.sub, acct.scheduled);
+    await refreshScheduled(acct);
     emailMemberReschedule(email, lesson, moved, acct.summary);
     res.status(200).json({ ok: true, lesson: moved, ...publicAccount(acct) });
     return;
@@ -374,8 +410,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  acct.scheduled = scheduledFor(acct.sub, acct.stored);
-  acct.summary = membershipSummary(acct.sub, acct.scheduled);
+  await refreshScheduled(acct);
   emailMemberBooking(email, lesson, acct.summary);
   res.status(200).json({ ok: true, lesson, ...publicAccount(acct) });
 }

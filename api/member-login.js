@@ -24,12 +24,8 @@ export default async function handler(req, res) {
     return;
   }
 
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = process.env.STRIPE_SECRET_KEY || "";
   const resendKey = process.env.RESEND_API_KEY;
-  if (!key) {
-    res.status(500).json({ error: "Online membership isn't connected yet. Call or text (405) 819-4401." });
-    return;
-  }
 
   // If email isn't wired up we can't send anything — say so plainly instead of
   // telling them to watch an inbox nothing will ever arrive in. Answered before

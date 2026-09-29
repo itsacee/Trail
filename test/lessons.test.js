@@ -107,3 +107,39 @@ test("voided Stripe signup lessons drop off the member calendar", () => {
   const after = scheduledFor(sub, stored);
   assert.equal(after.length, 0);
 });
+
+test("scheduledFor includes cash/manual membership lessons", () => {
+  const sub = {
+    id: "cash_sam@example.com",
+    kind: "cash",
+    email: "sam@example.com",
+    metadata: { player: "Sam", email: "sam@example.com" },
+  };
+  const stored = { lessons: [], voids: [] };
+  const manual = {
+    bookings: [
+      {
+        id: "mb_1",
+        type: "membership",
+        email: "sam@example.com",
+        player: "Sam",
+        date: "2026-08-27",
+        time: "5:00 PM",
+        focus: "Fielding",
+        status: "scheduled",
+      },
+      {
+        id: "mb_2",
+        type: "single",
+        email: "sam@example.com",
+        date: "2026-08-28",
+        time: "5:00 PM",
+        status: "scheduled",
+      },
+    ],
+  };
+  const list = scheduledFor(sub, stored, manual);
+  assert.equal(list.length, 1);
+  assert.equal(list[0].id, "mb_1");
+  assert.equal(list[0].source, "manual");
+});

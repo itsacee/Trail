@@ -156,6 +156,7 @@ function renderDash(data) {
   const notice = document.getElementById("acctNotice");
   if (notice) {
     const parts = [];
+    if (data.bookingPaused && data.bookingPausedReason) parts.push(data.bookingPausedReason);
     if (status.fieldingOnly && status.fieldingOnlyReason) parts.push(status.fieldingOnlyReason);
     if (status.membershipFrozen && status.membershipFrozenReason) parts.push(status.membershipFrozenReason);
     else if (status.blockNewMemberships && status.blockNewMembershipsReason) parts.push(status.blockNewMembershipsReason);
@@ -175,12 +176,16 @@ function renderDash(data) {
   if (whoName) whoName.textContent = data.email || data.player || "this member";
   document.getElementById("acctCredits").textContent =
     `${left} of ${data.credits || 4} lessons left${expires ? status.membershipFrozen ? ` · paused clock · use by ${expires}` : ` · use by ${expires}` : ""}`;
-  document.getElementById("acctTitle").textContent = left && !data.expired
+  document.getElementById("acctTitle").textContent = data.bookingPaused
+    ? "Membership paused"
+    : left && !data.expired
     ? status.membershipFrozen
       ? "Book a Fielding Lesson"
       : "Book Your Next Lesson"
     : "This membership is used up";
-  document.getElementById("acctLead").textContent = left && !data.expired
+  document.getElementById("acctLead").textContent = data.bookingPaused
+    ? data.bookingPausedReason || "This membership is paused. Call or text (405) 819-4401."
+    : left && !data.expired
     ? status.membershipFrozen
       ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Book fielding only — your expiry date is paused while the facility is renovated, but each lesson you book uses one credit.`
       : `You have ${left} lesson${left === 1 ? "" : "s"} left. Pick any day that works${
@@ -237,10 +242,13 @@ function renderDash(data) {
   }
 
   exitReschedule();
-  const canBook = left > 0 && !data.expired;
+  const canBook = left > 0 && !data.expired && !data.bookingPaused;
   weekForm.hidden = !canBook;
   const msg = document.getElementById("acctMsg");
-  if (data.expired) {
+  if (data.bookingPaused) {
+    msg.hidden = false;
+    msg.textContent = data.bookingPausedReason || "This membership is paused. Call or text (405) 819-4401.";
+  } else if (data.expired) {
     msg.hidden = false;
     msg.innerHTML = `This membership ended${expires ? ` on ${expires}` : ""}. <a href="book.html?type=membership">Buy another month</a> when you're ready.`;
   } else if (!left) {
