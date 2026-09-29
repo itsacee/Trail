@@ -64,6 +64,23 @@ Member lesson times are stored in Vercel Blob (`lessons.json`) and show up
 on the coach schedule and calendar feed. Card payments still live on Stripe
 metadata; cash bookings live in `manual-bookings.json`.
 
+### Facility work: fielding only
+
+Mustang is redoing the indoor facility, so `lib/siteStatus.js` has
+`fieldingOnly: true`. That removes Hitting from every focus picker, refuses a
+non-fielding booking server-side, and prints the reason on the booking page and
+the pricing cards. Memberships are still **on sale** through all of this — the
+notice tells buyers it's fielding only before they pay.
+
+The membership clock is also frozen (`membershipFrozen`), but only for
+memberships that were **already running when the freeze started**. Anyone who
+buys during the facility work runs on their normal 30 days — otherwise the
+later somebody bought, the bigger a free extension they would collect. That
+split lives in `isPeriodFrozen()`.
+
+All three flags are switches on the Coach Desk **Setup** tab, so they can be
+turned off without a redeploy. `AP_SITE_NORMAL=1` forces everything open.
+
 ### Two athletes per hour
 
 An hour holds **two athlete seats** (`SLOT_CAPACITY` in `lib/schedule.js`):
