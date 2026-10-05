@@ -509,7 +509,7 @@ page({
         </details>
         <details>
           <summary>What days and times can we book?</summary>
-          <p>Weeknight evenings and weekend afternoons. Hours change with the season, so the
+          <p>Days and hours follow the current training schedule. Booking stays open from tomorrow through the end of the following week, and the
             <a href="/book.html">booking page</a> always shows what's actually open — pick a day and the free times appear.</p>
         </details>
         <details>
