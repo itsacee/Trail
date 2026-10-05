@@ -27,7 +27,7 @@ import {
 import { loadFinance, saveFinance, addFinanceEntry, financeSummary } from "../lib/finance.js";
 import { loadSettings, saveSettings, unitPriceFor } from "../lib/settings.js";
 import { loadCoachStatus, saveCoachStatus } from "../lib/coachStatus.js";
-import { getSiteStatus } from "../lib/siteStatus.js";
+import { getSiteStatus, normalizeFocus, SITE_STATUS_VERSION } from "../lib/siteStatus.js";
 import {
   getAvailability,
   allowedTimes,
@@ -40,7 +40,6 @@ import {
 } from "../lib/schedule.js";
 import { bookedTimes } from "./slots.js";
 import { MEMBER_PERIOD_DAYS } from "../lib/members.js";
-import { normalizeFocus } from "../lib/siteStatus.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -558,6 +557,7 @@ export default async function handler(req, res) {
       const cur = await loadCoachStatus();
       const next = {
         ...cur,
+        siteStatusVersion: SITE_STATUS_VERSION,
         blockNewMemberships:
           typeof req.body.blockNewMemberships === "boolean" ? req.body.blockNewMemberships : cur.blockNewMemberships,
         membershipFrozen:
