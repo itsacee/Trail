@@ -517,7 +517,7 @@ page({
         </details>
         <details>
           <summary>Where are lessons held?</summary>
-          <p>Mustang High School baseball field. The address and directions come in your confirmation email. Questions? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
+          <p>Mustang High School indoor facility. The address and directions come in your confirmation email. Questions? Call or text <a href="tel:+14058194401">(405) 819-4401</a>.</p>
         </details>
         <details>
           <summary>What should my player bring?</summary>

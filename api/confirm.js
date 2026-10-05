@@ -11,7 +11,12 @@
 
 import { LOCATIONS, locationKeyFor, LOCATION_KEY } from "../lib/schedule.js";
 import { signMemberToken } from "../lib/memberAuth.js";
-import { MEMBER_CREDITS, MEMBER_PERIOD_DAYS, lastUsableDate } from "../lib/members.js";
+import {
+  MEMBER_CREDITS,
+  MEMBER_PERIOD_DAYS,
+  lastUsableDate,
+  memberEffectivePeriodEnd,
+} from "../lib/members.js";
 import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
 import { releaseHold } from "../lib/holds.js";
 import { loadFinance, saveFinance, addFinanceEntry } from "../lib/finance.js";
@@ -298,11 +303,16 @@ apacademybsb.com`;
 function memberFacts(meta, sessions, startedAt) {
   const first = sessions[0] || null;
   const place = LOCATIONS[(first && first.loc) || LOCATION_KEY] || LOCATIONS[LOCATION_KEY];
-  const periodEnd = (startedAt || Math.floor(Date.now() / 1000)) + MEMBER_PERIOD_DAYS * 86400;
+  const periodStart = startedAt || Math.floor(Date.now() / 1000);
+  const periodEnd = periodStart + MEMBER_PERIOD_DAYS * 86400;
+  const effectiveEnd = memberEffectivePeriodEnd({
+    current_period_start: periodStart,
+    current_period_end: periodEnd,
+  });
   return {
     first,
     place,
-    lastDayPretty: prettyDate(lastUsableDate(periodEnd)),
+    lastDayPretty: prettyDate(lastUsableDate(effectiveEnd)),
     left: Math.max(0, MEMBER_CREDITS - sessions.length),
     who: meta.player || "Your player",
     // Deposit checkouts leave a balance to hand over in cash on day one.

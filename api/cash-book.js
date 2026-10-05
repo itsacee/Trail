@@ -98,20 +98,22 @@ export default async function handler(req, res) {
       res.status(503).json({ error: paused, code: "membership_paused" });
       return;
     }
-    if (key) {
-      try {
-        const { summary } = await getMembershipCapacity(key, email);
-        if (!summary.available) {
-          res.status(409).json({
-            error: `Memberships are full — all ${MEMBERSHIP_LIMIT} spots are taken.`,
-            code: "membership_full",
-          });
-          return;
-        }
-      } catch {
-        res.status(503).json({ error: "Couldn't confirm membership availability. Try again shortly." });
+    if (!key) {
+      res.status(503).json({ error: "Couldn't confirm membership availability. Try again shortly." });
+      return;
+    }
+    try {
+      const { summary } = await getMembershipCapacity(key, email);
+      if (!summary.available) {
+        res.status(409).json({
+          error: `Memberships are full — all ${MEMBERSHIP_LIMIT} spots are taken.`,
+          code: "membership_full",
+        });
         return;
       }
+    } catch {
+      res.status(503).json({ error: "Couldn't confirm membership availability. Try again shortly." });
+      return;
     }
   }
 
@@ -149,7 +151,11 @@ export default async function handler(req, res) {
         return;
       }
     } catch {
-      /* continue */
+      res.status(503).json({
+        error: "Couldn't confirm that time is still available. Please try again shortly.",
+        code: "schedule_unavailable",
+      });
+      return;
     }
   }
 

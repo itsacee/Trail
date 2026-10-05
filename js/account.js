@@ -220,15 +220,13 @@
     document.getElementById("acctTitle").textContent = data.bookingPaused
       ? "Membership paused"
       : left && !data.expired
-      ? status.membershipFrozen
-        ? "Book a Fielding Lesson"
-        : "Book Your Next Lesson"
+      ? "Book Your Next Lesson"
       : "This membership is used up";
     document.getElementById("acctLead").textContent = data.bookingPaused
       ? data.bookingPausedReason || "This membership is paused. Call or text (405) 819-4401."
       : left && !data.expired
       ? status.membershipFrozen
-        ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Book fielding only — your expiry date is paused while the facility is renovated, but each lesson you book uses one credit.`
+        ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Your expiry date is temporarily paused, but each lesson you book uses one credit.`
         : `You have ${left} lesson${left === 1 ? "" : "s"} left. Pick any day that works${
             expires ? ` — they expire ${expires}` : ""
           }. Book one at a time; you don't have to plan them all now.`
@@ -243,7 +241,7 @@
           `⏳ <strong>${left} lesson${left === 1 ? "" : "s"} left</strong> · must be used by <strong>${expires}</strong>` +
           (days !== null && !status.membershipFrozen ? ` (${days} day${days === 1 ? "" : "s"} from today)` : "") +
           (status.membershipFrozen
-            ? "<br />Your expiry clock is paused during facility work — booking a lesson still uses one credit."
+            ? "<br />Your expiry clock is temporarily paused — booking a lesson still uses one credit."
             : "") +
           "<br />Unused lessons don't roll over, and your membership does not auto-renew.";
       } else {
@@ -327,11 +325,7 @@
       </div>`;
         })
         .join("") +
-      `<p class="acct__hint">${
-        status.membershipFrozen
-          ? "Fielding only right now. Move or cancel at least 12 hours before the lesson — that credit stays on your membership."
-          : "Need a different day? Tap Move and pick a new time, at least 12 hours before the lesson. That credit stays on your membership either way."
-      }</p>`;
+      '<p class="acct__hint">Need a different day? Tap Move and pick a new time, at least 12 hours before the lesson. That credit stays on your membership either way.</p>';
     list.querySelectorAll("[data-cancel]").forEach((btn) => {
       btn.addEventListener("click", () => cancelLesson(btn.dataset.cancel));
     });

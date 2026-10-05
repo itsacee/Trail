@@ -114,3 +114,19 @@ test("bookedTimes can exclude the lesson being rescheduled", async () => {
     mock.restoreAll();
   }
 });
+
+test("bookedTimes fails closed when Stripe cannot confirm paid bookings", async () => {
+  mock.method(globalThis, "fetch", async () => ({
+    ok: false,
+    status: 503,
+    json: async () => ({}),
+  }));
+  try {
+    await assert.rejects(
+      bookedTimes("sk_test", "2026-09-28"),
+      /Stripe slot lookup failed/
+    );
+  } finally {
+    mock.restoreAll();
+  }
+});

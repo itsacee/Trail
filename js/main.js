@@ -473,7 +473,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     }
     els.where.hidden = false;
     els.where.innerHTML =
-      "📍 Lessons train at <strong>Mustang High School</strong>'s baseball field in Mustang, OK. " +
+      "📍 Lessons train at the <strong>Mustang High School indoor facility</strong> in Mustang, OK. " +
       "You'll get the exact address and directions in your confirmation email.";
   }
 
