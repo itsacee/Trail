@@ -36,7 +36,9 @@ test("activeMembershipsFromPayments counts current members once per coach-page e
   const rows = [
     payment("new", "PARENT@example.com"),
     payment("old", "parent@example.com", 2),
-    payment("expired", "past@example.com", 31),
+    payment("expired", "past@example.com", 0, {
+      created: Math.floor(Date.parse("2026-08-01T12:00:00Z") / 1000),
+    }),
     payment("failed", "failed@example.com", 0, { status: "requires_payment_method" }),
     payment("single", "single@example.com", 0, { metadata: { type: "single" } }),
   ];
