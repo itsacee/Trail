@@ -238,16 +238,16 @@ test("reschedule: a fully-used membership can still move an existing lesson", ()
       current_period_end: Math.floor(Date.parse("2026-10-20T12:00:00Z") / 1000),
     };
     const all = [
-      lesson("a", "2026-10-05", "5:00 PM"),
-      lesson("b", "2026-10-06", "5:00 PM"),
-      lesson("c", "2026-10-07", "5:00 PM"),
-      lesson("d", "2026-10-08", "5:00 PM"),
+      lesson("a", "2026-09-28", "5:00 PM"),
+      lesson("b", "2026-09-29", "5:00 PM"),
+      lesson("c", "2026-09-30", "5:00 PM"),
+      lesson("d", "2026-10-01", "5:00 PM"),
     ];
     // All 4 credits used → a brand-new booking is refused.
-    assert.match(bookingBlocked(membershipSummary(sub, all), "2026-10-09", all), /used all 4/);
+    assert.match(bookingBlocked(membershipSummary(sub, all), "2026-10-02", all), /used all 4/);
     // Moving lesson "a" excludes it, so remaining is 1 and the move is allowed within the open week.
     const others = all.filter((l) => l.id !== "a");
-    assert.equal(bookingBlocked(membershipSummary(sub, others), "2026-10-09", others), null);
+    assert.equal(bookingBlocked(membershipSummary(sub, others), "2026-10-02", others), null);
   });
 });
 
