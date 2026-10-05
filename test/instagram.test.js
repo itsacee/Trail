@@ -8,6 +8,7 @@ import {
   postsFromProfileHtml,
   latestPosts,
   featuredPosts,
+  withLocalMedia,
   SEED_POSTS,
 } from "../lib/instagram.js";
 
@@ -168,4 +169,18 @@ test("featuredPosts chooses the two most-viewed reels", () => {
 test("seed posts cover known academy clips", () => {
   assert.ok(SEED_POSTS.length >= 4);
   assert.ok(SEED_POSTS.every((p) => p.code && p.url.includes(p.code)));
+});
+
+test("known reels use stored video files when Instagram media is unavailable", () => {
+  const [post] = withLocalMedia([
+    {
+      code: "DcMGqr2ua5P",
+      url: "https://www.instagram.com/reel/DcMGqr2ua5P/",
+      image: "",
+      video: "",
+    },
+  ]);
+  assert.equal(post.image, "/img/work/DcMGqr2ua5P.jpg");
+  assert.equal(post.video, "/img/work/DcMGqr2ua5P.mp4");
+  assert.ok(SEED_POSTS.filter((item) => item.video).length >= 4);
 });
