@@ -64,7 +64,7 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
   const search = async (resource, query, pick) => {
     const url = `https://api.stripe.com/v1/${resource}/search?query=${encodeURIComponent(query)}&limit=100`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
-    if (!res.ok) return;
+    if (!res.ok) throw new Error(`Stripe slot lookup failed (${res.status}).`);
     ((await res.json()).data || []).forEach((item) => {
       const m = item.metadata || {};
       const { time, mins } = pick(m);
@@ -201,6 +201,9 @@ export default async function handler(req, res) {
           })),
     });
   } catch {
-    res.status(200).json({ booked: [] });
+    res.status(503).json({
+      error: "Couldn't confirm open times. Please try again shortly.",
+      code: "schedule_unavailable",
+    });
   }
 }

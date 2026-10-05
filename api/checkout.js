@@ -230,7 +230,11 @@ export default async function handler(req, res) {
       return;
     }
   } catch {
-    // If the check fails, continue; the owner reconciles via Stripe dashboard.
+    res.status(503).json({
+      error: "I couldn't confirm that time is still available. Please try again in a moment.",
+      code: "schedule_unavailable",
+    });
+    return;
   }
 
   const origin = `https://${req.headers.host}`;

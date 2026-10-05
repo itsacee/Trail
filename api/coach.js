@@ -294,7 +294,11 @@ export default async function handler(req, res) {
             return;
           }
         } catch {
-          /* continue — the coach can see the schedule */
+          res.status(503).json({
+            error: "Couldn't confirm that time is still available. Try again shortly.",
+            code: "schedule_unavailable",
+          });
+          return;
         }
       }
 

@@ -37,17 +37,20 @@ function responseRecorder() {
   };
 }
 
-function mockFullStripe(storedLessons = null) {
+function mockFullStripe(storedLessons = null, { stripeCount = 15, membersState = null } = {}) {
   mock.method(globalThis, "fetch", async (url) => {
     const value = String(url);
     if (value.includes("/payment_intents?")) {
-      return stripeResponse({ data: activePayments(15), has_more: false });
+      return stripeResponse({ data: activePayments(stripeCount), has_more: false });
     }
     if (value.includes("/checkout/sessions?")) {
       return stripeResponse({ data: [], has_more: false });
     }
     if (value.includes("lessons.json") && storedLessons) {
       return { ok: true, text: async () => JSON.stringify(storedLessons) };
+    }
+    if (value.includes("members.json") && membersState) {
+      return { ok: true, text: async () => JSON.stringify(membersState) };
     }
     throw new Error(`Unexpected Stripe request: ${value}`);
   });
@@ -115,6 +118,44 @@ test("checkout API refuses membership number 16 before creating a payment", asyn
     previousNormal === undefined
       ? delete process.env.AP_SITE_NORMAL
       : (process.env.AP_SITE_NORMAL = previousNormal);
+    mock.restoreAll();
+  }
+});
+
+test("cash memberships count toward the same 15-member limit", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  mockFullStripe(null, {
+    stripeCount: 14,
+    membersState: {
+      freezeAll: false,
+      byEmail: {
+        "cash@example.com": {
+          email: "cash@example.com",
+          cashMembership: true,
+          cashMembershipStart: now - 86400,
+          cashMembershipEnd: now + 29 * 86400,
+        },
+      },
+    },
+  });
+  const previousKey = process.env.STRIPE_SECRET_KEY;
+  const previousUrl = process.env.AVAILABILITY_URL;
+  process.env.STRIPE_SECRET_KEY = "sk_test_capacity";
+  process.env.AVAILABILITY_URL = "https://blob.example/availability.json";
+  try {
+    const res = responseRecorder();
+    await capacityHandler({ method: "GET" }, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.active, 15);
+    assert.equal(res.body.spotsAvailable, 0);
+    assert.equal(res.body.available, false);
+  } finally {
+    previousKey === undefined
+      ? delete process.env.STRIPE_SECRET_KEY
+      : (process.env.STRIPE_SECRET_KEY = previousKey);
+    previousUrl === undefined
+      ? delete process.env.AVAILABILITY_URL
+      : (process.env.AVAILABILITY_URL = previousUrl);
     mock.restoreAll();
   }
 });

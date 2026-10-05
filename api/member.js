@@ -333,7 +333,11 @@ export default async function handler(req, res) {
         return;
       }
     } catch {
-      /* continue */
+      res.status(503).json({
+        error: "Couldn't confirm that time is still available. Please try again shortly.",
+        code: "schedule_unavailable",
+      });
+      return;
     }
 
     if (!(await releaseLesson(key, acct, lesson, email))) {
@@ -392,7 +396,11 @@ export default async function handler(req, res) {
       return;
     }
   } catch {
-    /* continue */
+    res.status(503).json({
+      error: "Couldn't confirm that time is still available. Please try again shortly.",
+      code: "schedule_unavailable",
+    });
+    return;
   }
 
   const lesson = makeMemberLesson({
