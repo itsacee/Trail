@@ -126,35 +126,37 @@ test("bookingBlocked enforces the window, credit cap, and one-per-day", () => {
       []
     );
     assert.match(bookingBlocked(endingSoon, "2026-08-29", []), /have to be used by/);
-    // A valid day still inside this calendar week passes.
+    // Valid days in this week and the following week pass.
     assert.equal(bookingBlocked(summary, "2026-08-28", []), null);
-    // Next week is still closed on Wednesday.
-    assert.match(bookingBlocked(summary, "2026-09-02", []), /isn't open yet/);
-    assert.match(bookingBlocked(summary, "2026-09-03", []), /isn't open yet/);
+    assert.equal(bookingBlocked(summary, "2026-09-02", []), null);
+    assert.equal(bookingBlocked(summary, "2026-09-03", []), null);
+    assert.match(bookingBlocked(summary, "2026-09-07", []), /isn't open yet/);
   });
 });
 
-test("bookingWindow opens through this Sunday on weekdays", () => {
+test("bookingWindow opens through the end of next week on weekdays", () => {
   atTime(NOW, () => {
     const w = bookingWindow("2026-08-26");
     assert.equal(w.startKey, "2026-08-27");
-    assert.equal(w.endKey, "2026-08-30");
-    assert.deepEqual(w.dates, ["2026-08-27", "2026-08-28", "2026-08-29", "2026-08-30"]);
+    assert.equal(w.endKey, "2026-09-06");
+    assert.equal(w.dates.length, 11);
+    assert.equal(w.dates[0], "2026-08-27");
+    assert.equal(w.dates[10], "2026-09-06");
   });
 });
 
-test("bookingWindow on Sunday opens the next Mon–Sun batch", () => {
+test("bookingWindow on Sunday opens the immediate next Mon–Sun", () => {
   atTime("2026-09-27T12:00:00-05:00", () => {
     const w = bookingWindow("2026-09-27");
-    assert.equal(w.startKey, "2026-10-05");
-    assert.equal(w.endKey, "2026-10-11");
+    assert.equal(w.startKey, "2026-09-28");
+    assert.equal(w.endKey, "2026-10-04");
     assert.equal(w.dates.length, 7);
-    assert.equal(w.dates[0], "2026-10-05");
-    assert.equal(w.dates[6], "2026-10-11");
+    assert.equal(w.dates[0], "2026-09-28");
+    assert.equal(w.dates[6], "2026-10-04");
   });
 });
 
-test("bookingWindow on Monday includes this week plus the Sunday release", () => {
+test("bookingWindow on Monday includes the rest of this week and all of next week", () => {
   atTime("2026-09-28T12:00:00-05:00", () => {
     const w = bookingWindow("2026-09-28");
     assert.deepEqual(w.dates.slice(0, 6), [
@@ -185,13 +187,13 @@ test("bookingWindow on a same-month Sunday opens the immediate next week", () =>
   });
 });
 
-test("bookWindowBlocked follows the calendar week", () => {
+test("bookWindowBlocked allows the complete following week", () => {
   atTime(NOW, () => {
     assert.match(bookWindowBlocked("2026-08-26"), /tomorrow onward/);
     assert.equal(bookWindowBlocked("2026-08-27"), null);
-    assert.equal(bookWindowBlocked("2026-08-30"), null);
-    assert.match(bookWindowBlocked("2026-08-31"), /isn't open yet/);
-    assert.match(bookWindowBlocked("2026-09-02"), /isn't open yet/);
+    assert.equal(bookWindowBlocked("2026-09-02"), null);
+    assert.equal(bookWindowBlocked("2026-09-06"), null);
+    assert.match(bookWindowBlocked("2026-09-07"), /isn't open yet/);
   });
 });
 
@@ -236,16 +238,16 @@ test("reschedule: a fully-used membership can still move an existing lesson", ()
       current_period_end: Math.floor(Date.parse("2026-10-20T12:00:00Z") / 1000),
     };
     const all = [
-      lesson("a", "2026-10-05", "5:00 PM"),
-      lesson("b", "2026-10-06", "5:00 PM"),
-      lesson("c", "2026-10-07", "5:00 PM"),
-      lesson("d", "2026-10-08", "5:00 PM"),
+      lesson("a", "2026-09-28", "5:00 PM"),
+      lesson("b", "2026-09-29", "5:00 PM"),
+      lesson("c", "2026-09-30", "5:00 PM"),
+      lesson("d", "2026-10-01", "5:00 PM"),
     ];
     // All 4 credits used → a brand-new booking is refused.
-    assert.match(bookingBlocked(membershipSummary(sub, all), "2026-10-09", all), /used all 4/);
+    assert.match(bookingBlocked(membershipSummary(sub, all), "2026-10-02", all), /used all 4/);
     // Moving lesson "a" excludes it, so remaining is 1 and the move is allowed within the open week.
     const others = all.filter((l) => l.id !== "a");
-    assert.equal(bookingBlocked(membershipSummary(sub, others), "2026-10-09", others), null);
+    assert.equal(bookingBlocked(membershipSummary(sub, others), "2026-10-02", others), null);
   });
 });
 
