@@ -1,6 +1,7 @@
 const root = document.getElementById("igNews");
 if (root) {
   const HANDLE = "apacademybsb";
+  const mode = root.dataset.feedMode === "all" ? "all" : "featured";
   const soundHint = `<span class="ig-card__sound-phone">Tap for sound</span><span class="ig-card__sound-desk">Click for sound</span>`;
 
   const esc = (s) =>
@@ -24,6 +25,7 @@ if (root) {
   };
 
   const card = (post) => {
+    const classes = mode === "featured" ? "ig-card ig-card--featured" : "ig-card";
     const top = `<a class="ig-card__top" href="${esc(post.url)}" target="_blank" rel="noopener">
         <img src="/img/logo-mark.png" alt="" />
         <span class="ig-card__who">AP Academy<small>@${HANDLE}</small></span>
@@ -31,7 +33,7 @@ if (root) {
       </a>`;
     if (!post.image && !post.video && post.code) {
       const kind = (post.url || "").includes("/p/") ? "p" : "reel";
-      return `<article class="ig-card">
+      return `<article class="${classes}">
       ${top}
       <iframe class="ig-card__embed" src="https://www.instagram.com/${kind}/${esc(post.code)}/embed/captioned/" loading="lazy" title="Instagram post from @${HANDLE}"></iframe>
     </article>`;
@@ -43,7 +45,7 @@ if (root) {
     const cap = post.caption
       ? `<p class="ig-card__cap">${esc(post.caption)}</p>`
       : "";
-    return `<article class="ig-card">
+    return `<article class="${classes}">
       ${top}
       <div class="ig-card__media">${media}</div>
       ${cap}
@@ -93,11 +95,23 @@ if (root) {
     });
   };
 
-  root.innerHTML = `<p class="ig-news__status">Loading posts…</p>`;
+  root.innerHTML = `<p class="ig-news__status">Loading training videos…</p>`;
   fetch("/api/instagram")
     .then((r) => r.json())
     .then((data) => {
-      const posts = (Array.isArray(data.posts) ? data.posts : []).slice(0, 2);
+      const reels = (Array.isArray(data.posts) ? data.posts : []).filter(
+        (post) => post.video || String(post.url || "").includes("/reel/")
+      );
+      const posts =
+        mode === "all"
+          ? reels
+          : [...reels]
+              .sort(
+                (a, b) =>
+                  (Number(b.viewCount) || 0) - (Number(a.viewCount) || 0) ||
+                  (Number(b.takenAt) || 0) - (Number(a.takenAt) || 0)
+              )
+              .slice(0, 2);
       if (!posts.length) {
         root.innerHTML = `<p class="ig-news__status">Couldn't load the feed. <a href="https://instagram.com/${HANDLE}">Open Instagram</a></p>`;
         return;

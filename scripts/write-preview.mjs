@@ -11,7 +11,7 @@ mkdirSync(outDir, { recursive: true });
 const TABS = [
   ["coaching.html", "Coaching"],
   ["work.html", "Work"],
-  ["instagram.html", "Instagram"],
+  ["instagram.html", "Training Videos"],
   ["about.html", "Coach"],
   ["pricing.html", "Pricing"],
   ["faq.html", "FAQ"],
@@ -114,7 +114,7 @@ ${main}
           <li><a href="about.html">Coach</a></li>
           <li><a href="pricing.html">Pricing</a></li>
           <li><a href="faq.html">FAQ</a></li>
-          <li><a href="instagram.html">Instagram</a></li>
+          <li><a href="instagram.html">Training videos</a></li>
           <li><a href="camps.html">Camps</a></li>
           <li><a href="/account.html">Member login</a></li>
           <li><a href="/apply.html">3 days a week</a></li>
@@ -211,14 +211,15 @@ page({
 
   <section class="section" id="work">
     <div class="container">
-      <p class="eyebrow center reveal">Latest</p>
-      <h2 class="center reveal">From the field</h2>
-      <p class="section__sub center reveal">A few recent clips. More on Instagram.</p>
+      <p class="eyebrow center reveal">See the work</p>
+      <h2 class="center reveal">Train With Purpose</h2>
+      <p class="section__sub center reveal">Two of our most-watched training clips. See the full reel collection for hitting, fielding, and athletic work.</p>
     </div>
-    <div id="igNews" class="ig-news reveal"></div>
-    <p class="center film__more reveal">
-      <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow on Instagram</a>
-    </p>
+    <div id="igNews" class="ig-news ig-news--featured reveal" data-feed-mode="featured"></div>
+    <div class="center training-feed__actions reveal">
+      <a class="btn btn--primary" href="instagram.html">See All Training Videos</a>
+      <a class="training-feed__follow" href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow @apacademybsb ↗</a>
+    </div>
   </section>
 
   <section class="section section--alt" id="coach">
@@ -350,7 +351,7 @@ page({
       <h1 class="center reveal">From the field</h1>
       <p class="section__sub center reveal">A few recent clips. More on Instagram.</p>
     </div>
-    <div id="igNews" class="ig-news reveal"></div>
+    <div id="igNews" class="ig-news ig-news--all reveal" data-feed-mode="all"></div>
     <p class="center film__more reveal">
       <a href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow on Instagram</a>
     </p>
@@ -360,22 +361,22 @@ page({
 
 page({
   file: "instagram.html",
-  title: "Instagram | AP Academy",
-  desc: "See everything AP Academy posts on Instagram.",
+  title: "Training Videos | AP Academy",
+  desc: "See how AP Academy trains hitting, fielding, speed, and agility.",
   current: "instagram.html",
   extraScripts: `  <script src="/js/feed.js"></script>`,
-  main: `  <section class="section book-page">
+  main: `  <section class="section book-page training-feed">
     <div class="container">
-      <p class="eyebrow center reveal">Latest</p>
-      <h1 class="center reveal">From the Field.</h1>
+      <p class="eyebrow center reveal">What we train</p>
+      <h1 class="center reveal">See the Work.</h1>
       <p class="section__sub center reveal">
-        A few recent clips so you can see the work. Follow for the rest.
+        Hitting, fielding, speed, and agility from real AP Academy sessions. Every reel is collected here so you can see how we train.
       </p>
       <p class="center reveal" style="margin-top:1.2rem">
         <a class="btn btn--primary" href="https://instagram.com/apacademybsb" target="_blank" rel="noopener">Follow @apacademybsb</a>
       </p>
     </div>
-    <div id="igNews" class="ig-news reveal"></div>
+    <div id="igNews" class="ig-news ig-news--all reveal" data-feed-mode="all"></div>
   </section>
 `,
 });

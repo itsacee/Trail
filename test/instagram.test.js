@@ -1,6 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeItem, prettyAgo, permalink, fetchAllPosts, postsFromProfileHtml, latestPosts, SEED_POSTS } from "../lib/instagram.js";
+import {
+  normalizeItem,
+  prettyAgo,
+  permalink,
+  fetchAllPosts,
+  postsFromProfileHtml,
+  latestPosts,
+  featuredPosts,
+  withLocalMedia,
+  SEED_POSTS,
+} from "../lib/instagram.js";
 
 test("normalizeItem maps a clip and a photo", () => {
   const clip = normalizeItem({
@@ -10,11 +20,13 @@ test("normalizeItem maps a clip and a photo", () => {
     caption: { text: "Tee work" },
     image_versions2: { candidates: [{ url: "https://img/a.jpg" }] },
     video_versions: [{ url: "https://vid/a.mp4" }],
+    play_count: 4200,
     taken_at: 1700000000,
   });
   assert.equal(clip.url, "https://www.instagram.com/reel/Abc123/");
   assert.equal(clip.video, "https://vid/a.mp4");
   assert.equal(clip.caption, "Tee work");
+  assert.equal(clip.viewCount, 4200);
 
   const photo = normalizeItem({
     pk: "2",
@@ -144,7 +156,31 @@ test("latestPosts keeps only the newest few", () => {
   assert.deepEqual(latestPosts(posts).map((p) => p.code), ["new", "mid"]);
 });
 
+test("featuredPosts chooses the two most-viewed reels", () => {
+  const posts = [
+    { code: "new", url: "https://www.instagram.com/reel/new/", video: "new.mp4", takenAt: 30, viewCount: 100 },
+    { code: "top", url: "https://www.instagram.com/reel/top/", video: "top.mp4", takenAt: 10, viewCount: 900 },
+    { code: "second", url: "https://www.instagram.com/reel/second/", video: "", takenAt: 20, viewCount: 500 },
+    { code: "photo", url: "https://www.instagram.com/p/photo/", video: "", takenAt: 40, viewCount: 5000 },
+  ];
+  assert.deepEqual(featuredPosts(posts).map((post) => post.code), ["top", "second"]);
+});
+
 test("seed posts cover known academy clips", () => {
   assert.ok(SEED_POSTS.length >= 4);
   assert.ok(SEED_POSTS.every((p) => p.code && p.url.includes(p.code)));
+});
+
+test("known reels use stored video files when Instagram media is unavailable", () => {
+  const [post] = withLocalMedia([
+    {
+      code: "DcMGqr2ua5P",
+      url: "https://www.instagram.com/reel/DcMGqr2ua5P/",
+      image: "",
+      video: "",
+    },
+  ]);
+  assert.equal(post.image, "/img/work/DcMGqr2ua5P.jpg");
+  assert.equal(post.video, "/img/work/DcMGqr2ua5P.mp4");
+  assert.ok(SEED_POSTS.filter((item) => item.video).length >= 4);
 });
