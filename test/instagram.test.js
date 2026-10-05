@@ -167,8 +167,12 @@ test("featuredPosts chooses the two most-viewed reels", () => {
 });
 
 test("seed posts cover known academy clips", () => {
-  assert.ok(SEED_POSTS.length >= 4);
+  assert.equal(SEED_POSTS.length, 12);
   assert.ok(SEED_POSTS.every((p) => p.code && p.url.includes(p.code)));
+  assert.deepEqual(
+    featuredPosts(SEED_POSTS).map((post) => post.code),
+    ["DceOc_JqsGa", "DdfUzstu4qJ"]
+  );
 });
 
 test("known reels use stored video files when Instagram media is unavailable", () => {

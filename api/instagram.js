@@ -55,7 +55,13 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("Instagram feed failed:", err);
-    const fallback = cache.posts || (await savedPosts()) || SEED_POSTS;
+    const saved = await savedPosts();
+    // Older deployments saved only the original reel set. Do not let that
+    // stale Blob hide the current profile snapshot bundled below.
+    const savedHasCurrentPosts = Boolean(
+      saved?.some((post) => post?.code === SEED_POSTS[0]?.code)
+    );
+    const fallback = cache.posts || (savedHasCurrentPosts ? saved : SEED_POSTS);
     cache = { at: now, posts: fallback };
     res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     res.status(200).json({
