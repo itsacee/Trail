@@ -309,6 +309,32 @@ h3 { font-size: 1.6rem; }
   line-height: 1.6;
 }
 .hero__sub em { color: var(--text); font-style: normal; font-weight: 600; }
+.athlete-proof {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.7rem;
+  width: fit-content;
+  margin: -0.7rem 0 1.5rem;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.athlete-proof span {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(223, 228, 234, 0.3);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.athlete-proof--center {
+  justify-content: center;
+  width: 100%;
+  margin: 1rem auto 0;
+  text-align: center;
+}
 .hero__actions {
   display: flex;
   gap: 1rem;
@@ -1388,6 +1414,7 @@ html.js .hero__copy .reveal:nth-child(1) { transition-delay: 0.05s; }
 html.js .hero__copy .reveal:nth-child(2) { transition-delay: 0.16s; }
 html.js .hero__copy .reveal:nth-child(3) { transition-delay: 0.28s; }
 html.js .hero__copy .reveal:nth-child(4) { transition-delay: 0.4s; }
+html.js .hero__copy .reveal:nth-child(5) { transition-delay: 0.5s; }
 
 @media (prefers-reduced-motion: reduce) {
   .hero__media img { animation: none; transform: none; }

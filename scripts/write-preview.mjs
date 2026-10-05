@@ -158,6 +158,10 @@ page({
         <p class="hero__sub reveal">
           Hitting and fielding with a D1 hitter who coaches kids every day.
         </p>
+        <p class="athlete-proof reveal">
+          <span>Trusted at the next level</span>
+          Training professional and college athletes.
+        </p>
         <div class="hero__actions reveal">
           <a class="btn btn--primary btn--lg" href="/book.html?type=single">Book a Lesson — $80</a>
         </div>
