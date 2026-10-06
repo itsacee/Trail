@@ -193,6 +193,7 @@ async function releaseLesson(key, acct, lesson, email) {
   }
   if (lesson.source === "stripe") {
     voidStripeLesson(acct.stored, { ...lesson, email });
+    removeLesson(acct.stored, lesson.id, email);
     const id = lesson.sourceId || acct.sub?.id;
     if (id && key && !String(id).startsWith("cash_")) {
       const slot = String(lesson.id).match(/-([1-4])$/)?.[1] || "1";

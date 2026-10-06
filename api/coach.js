@@ -358,6 +358,7 @@ export default async function handler(req, res) {
       const stored = await loadLessons();
       if (row.source === "stripe") {
         voidStripeLesson(stored, { email: row.email, date: row.date, time: row.time, sourceId: row.sourceId });
+        removeLesson(stored, row.id, row.email);
       } else if (!removeLesson(stored, row.id, row.email)) {
         res.status(404).json({ error: "That lesson isn't on file anymore." });
         return;
