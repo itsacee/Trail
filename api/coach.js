@@ -39,7 +39,7 @@ import {
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
 import { bookedTimes } from "./slots.js";
-import { MEMBER_PERIOD_DAYS } from "../lib/members.js";
+import { lessonHasEnded, MEMBER_PERIOD_DAYS } from "../lib/members.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -88,6 +88,10 @@ async function dashboard() {
   let sessions = [];
   try {
     sessions = await fetchBookings(key);
+    sessions = sessions.map((session) => ({
+      ...session,
+      canChange: !lessonHasEnded(session),
+    }));
   } catch {
     sessions = [];
   }
@@ -261,6 +265,13 @@ export default async function handler(req, res) {
         res.status(404).json({ error: "That lesson isn't on the schedule anymore — refresh and try again." });
         return;
       }
+      if (lessonHasEnded(row)) {
+        res.status(400).json({
+          error: "That lesson has already ended, so it cannot be moved or returned as a credit.",
+          code: "lesson_ended",
+        });
+        return;
+      }
       if (row.date === date && row.time === time) {
         res.status(400).json({ error: "That's the day and time it's already on." });
         return;
@@ -342,6 +353,13 @@ export default async function handler(req, res) {
       const store = await loadManualBookings();
       const b = findBooking(store, id);
       if (b) {
+        if (lessonHasEnded(b)) {
+          res.status(400).json({
+            error: "That lesson has already ended, so it cannot be cancelled or returned as a credit.",
+            code: "lesson_ended",
+          });
+          return;
+        }
         const cancelledLesson = { ...b };
         b.status = "cancelled";
         b.cancelledAt = Date.now();
@@ -370,6 +388,13 @@ export default async function handler(req, res) {
       const row = sessions.find((s) => s.id === id);
       if (!row) {
         res.status(404).json({ error: "That lesson isn't on the schedule anymore." });
+        return;
+      }
+      if (lessonHasEnded(row)) {
+        res.status(400).json({
+          error: "That lesson has already ended, so it cannot be cancelled or returned as a credit.",
+          code: "lesson_ended",
+        });
         return;
       }
       const stored = await loadLessons();
