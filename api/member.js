@@ -25,6 +25,7 @@ import {
 import { tokenFromRequest } from "../lib/memberAuth.js";
 import { buildCalendar, stamp } from "../lib/ics.js";
 import { bookingEvent } from "./calendar.js";
+import { sendLessonCancelledEmail, sendLessonMovedEmail } from "../lib/lessonMail.js";
 import { getSiteStatus, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -103,56 +104,6 @@ async function emailMemberBooking(to, lesson, summary) {
     });
   } catch {
     /* booking still stands */
-  }
-}
-
-async function emailMemberReschedule(to, oldLesson, newLesson, summary) {
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey || !to) return;
-  const loc = LOCATIONS.mustang || {};
-  const from = process.env.FROM_EMAIL || "AP Academy <bookings@apacademybsb.com>";
-  // Fresh calendar invite for the new time — the coach is BCC'd, so their
-  // calendar picks up the moved lesson in one tap, same as a new booking.
-  const events = bookingEvent(newLesson, stamp());
-  const invite = events.length
-    ? {
-        filename: "ap-academy-lesson.ics",
-        content: Buffer.from(
-          buildCalendar({ name: "AP Academy", events: [events] }),
-          "utf8"
-        ).toString("base64"),
-        content_type: "text/calendar; charset=utf-8; method=PUBLISH",
-      }
-    : null;
-  const was = `${prettyDate(oldLesson.date)} at ${oldLesson.time}`;
-  const now = `${prettyDate(newLesson.date)} at ${newLesson.time}`;
-  const player = newLesson.player;
-  const left = summary.remaining || 0;
-  const leftLine = left
-    ? `You still have ${left} lesson${left === 1 ? "" : "s"} left on this membership, good through ${summary.lastDayPretty}.`
-    : `That's all ${summary.credits} lessons spent for this membership.`;
-  try {
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        bcc: [REPLY_TO],
-        reply_to: REPLY_TO,
-        subject: `Lesson moved — now ${now}`,
-        text:
-          `${player ? player + "'s" : "Your"} lesson has been moved.\n\n` +
-          `WAS: ${was}\nNOW: ${now}\n\n` +
-          (loc.address ? `WHERE\n${loc.name}\n${loc.address}\n${loc.note || ""}\n\n` : "") +
-          `${leftLine}\n\n` +
-          `Need to change it again? Sign in at apacademybsb.com/account.html (12 hours notice).\n` +
-          `Questions? Call or text (405) 819-4401.`,
-        ...(invite ? { attachments: [invite] } : {}),
-      }),
-    });
-  } catch {
-    /* the move still stands */
   }
 }
 
@@ -272,7 +223,13 @@ export default async function handler(req, res) {
       return;
     }
     await refreshScheduled(acct);
-    res.status(200).json({ ok: true, ...publicAccount(acct) });
+    const notified = await sendLessonCancelledEmail({
+      to: email,
+      lesson,
+      cancelledBy: "parent",
+      extraLine: `That lesson credit is available to book again through ${acct.summary.lastDayPretty}.`,
+    });
+    res.status(200).json({ ok: true, notified, ...publicAccount(acct) });
     return;
   }
 
@@ -356,8 +313,16 @@ export default async function handler(req, res) {
     }
 
     await refreshScheduled(acct);
-    emailMemberReschedule(email, lesson, moved, acct.summary);
-    res.status(200).json({ ok: true, lesson: moved, ...publicAccount(acct) });
+    const notified = await sendLessonMovedEmail({
+      to: email,
+      oldLesson: lesson,
+      newLesson: moved,
+      movedBy: "parent",
+      extraLine: `You still have ${acct.summary.remaining || 0} lesson${
+        acct.summary.remaining === 1 ? "" : "s"
+      } left, good through ${acct.summary.lastDayPretty}.`,
+    });
+    res.status(200).json({ ok: true, notified, lesson: moved, ...publicAccount(acct) });
     return;
   }
 

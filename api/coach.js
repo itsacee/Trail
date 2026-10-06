@@ -11,7 +11,7 @@ import {
 } from "../lib/manualBookings.js";
 import { loadLessons, saveLessons, removeLesson, voidStripeLesson } from "../lib/lessons.js";
 import { moveLesson, clearStripeSlot, seatsOnLesson } from "../lib/reschedule.js";
-import { sendLessonMovedEmail } from "../lib/lessonMail.js";
+import { sendLessonCancelledEmail, sendLessonMovedEmail } from "../lib/lessonMail.js";
 import { requireCoach } from "../lib/coachAuth.js";
 import {
   loadMembersState,
@@ -322,7 +322,7 @@ export default async function handler(req, res) {
       }
 
       let notified = false;
-      if (req.body.notify !== false && row.email) {
+      if (row.email) {
         notified = await sendLessonMovedEmail({
           to: row.email,
           oldLesson: row,
@@ -342,10 +342,20 @@ export default async function handler(req, res) {
       const store = await loadManualBookings();
       const b = findBooking(store, id);
       if (b) {
+        const cancelledLesson = { ...b };
         b.status = "cancelled";
         b.cancelledAt = Date.now();
-        await saveManualBookings(store);
-        res.status(200).json({ ok: true, ...(await dashboard()) });
+        if (!(await saveManualBookings(store))) {
+          res.status(500).json({ error: "Couldn't cancel that lesson (check Blob)." });
+          return;
+        }
+        const notified = await sendLessonCancelledEmail({
+          to: cancelledLesson.email,
+          lesson: cancelledLesson,
+          cancelledBy: "coach",
+          extraLine: req.body.message || "",
+        });
+        res.status(200).json({ ok: true, notified, ...(await dashboard()) });
         return;
       }
 
@@ -368,7 +378,13 @@ export default async function handler(req, res) {
         return;
       }
       if (row.source === "stripe") await clearStripeSlot(key, row.sourceId, row.id);
-      res.status(200).json({ ok: true, ...(await dashboard()) });
+      const notified = await sendLessonCancelledEmail({
+        to: row.email,
+        lesson: row,
+        cancelledBy: "coach",
+        extraLine: req.body.message || "",
+      });
+      res.status(200).json({ ok: true, notified, ...(await dashboard()) });
       return;
     }
 
