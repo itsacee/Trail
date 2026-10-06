@@ -986,6 +986,7 @@
       const two = Number(s.athletes) > 1 || Boolean(s.player2);
       const who = two && s.player2 ? `${s.player} & ${s.player2}` : s.player || "—";
       const owed = Number(s.amountDueCents) || 0;
+      const ended = s.canChange === false;
       const typeLabel =
         s.type === "private" && two ? "Private · 2 athletes" : typeName(s.type);
       const el = document.createElement("div");
@@ -1006,11 +1007,11 @@
           ${s.source === "manual" ? '<span class="tag">Cash / desk</span>' : ""}
         </div>
         <div class="acts">
-          <button type="button" data-move="${esc(s.id)}">↻ Move</button>
+          <button type="button" data-move="${esc(s.id)}"${ended ? ' disabled title="This lesson has ended"' : ""}>↻ Move</button>
           ${s.phone ? `<a href="sms:${esc(tel(s.phone))}">💬 Text</a>` : ""}
           ${s.phone ? `<a href="tel:${esc(tel(s.phone))}">📞 Call</a>` : ""}
           ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ Email</a>` : ""}
-          <button type="button" class="danger" data-cancel="${esc(s.id)}">Cancel</button>
+          <button type="button" class="danger" data-cancel="${esc(s.id)}"${ended ? ' disabled title="Completed lessons keep their credit"' : ""}>${ended ? "Completed" : "Cancel"}</button>
         </div>`;
       el.querySelector("[data-move]").addEventListener("click", () => openMoveSheet(s));
       el.querySelector("[data-cancel]").addEventListener("click", () => cancelLesson(s));

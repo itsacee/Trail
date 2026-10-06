@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 
 import {
   lessonsForEmail,
+  lessonsOnDate,
   removeLesson,
   lessonFromStripeMeta,
   upsertStripeLessons,
@@ -13,6 +14,7 @@ import {
   scheduledFor,
   voidStripeLesson,
   isVoided,
+  isActiveLesson,
 } from "../lib/lessons.js";
 
 test("newLessonId is unique-ish and prefixed", () => {
@@ -32,6 +34,42 @@ test("lessonsForEmail matches case-insensitively", () => {
   const mine = lessonsForEmail(data, "sam@example.com");
   assert.equal(mine.length, 1);
   assert.equal(mine[0].id, "1");
+});
+
+test("cancelled stored lessons do not occupy a slot or spend a membership credit", () => {
+  const data = {
+    lessons: [
+      {
+        id: "active",
+        email: "sam@example.com",
+        type: "membership",
+        date: "2026-08-27",
+        time: "5:00 PM",
+      },
+      {
+        id: "cancelled",
+        email: "sam@example.com",
+        type: "membership",
+        date: "2026-08-28",
+        time: "5:00 PM",
+        status: "cancelled",
+      },
+      {
+        id: "legacy-cancelled",
+        email: "sam@example.com",
+        type: "membership",
+        date: "2026-08-29",
+        time: "5:00 PM",
+        cancelledAt: Date.now(),
+      },
+    ],
+  };
+
+  assert.equal(isActiveLesson(data.lessons[0]), true);
+  assert.equal(isActiveLesson(data.lessons[1]), false);
+  assert.equal(isActiveLesson(data.lessons[2]), false);
+  assert.deepEqual(lessonsForEmail(data, "sam@example.com").map((lesson) => lesson.id), ["active"]);
+  assert.equal(lessonsOnDate(data, "2026-08-28").length, 0);
 });
 
 test("removeLesson only drops the caller's own matching lesson", () => {

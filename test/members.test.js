@@ -10,6 +10,7 @@ import {
   inPeriod,
   chicagoDate,
   lessonStartMs,
+  lessonHasEnded,
   canCancelLesson,
   todayChicago,
   daysAhead,
@@ -81,6 +82,28 @@ test("canCancelLesson enforces a 12-hour cutoff before the lesson", () => {
   atTime("2026-08-27T09:00:00-05:00", () => assert.equal(canCancelLesson("2026-08-27", "5:00 PM"), false));
   // Exactly 12h before is allowed (>=).
   atTime("2026-08-27T05:00:00-05:00", () => assert.equal(canCancelLesson("2026-08-27", "5:00 PM"), true));
+});
+
+test("a completed lesson cannot be changed to recover its credit", () => {
+  const hourLesson = {
+    type: "membership",
+    date: "2026-08-27",
+    time: "5:00 PM",
+  };
+  assert.equal(
+    lessonHasEnded(hourLesson, Date.parse("2026-08-27T17:59:59-05:00")),
+    false
+  );
+  assert.equal(
+    lessonHasEnded(hourLesson, Date.parse("2026-08-27T18:00:00-05:00")),
+    true
+  );
+
+  const halfHourLesson = { ...hourLesson, type: "thirty" };
+  assert.equal(
+    lessonHasEnded(halfHourLesson, Date.parse("2026-08-27T17:30:00-05:00")),
+    true
+  );
 });
 
 test("membershipSummary counts lessons in the period and reports expiry", () => {
