@@ -353,7 +353,14 @@ export default async function handler(req, res) {
           to: cancelledLesson.email,
           lesson: cancelledLesson,
           cancelledBy: "coach",
-          extraLine: req.body.message || "",
+          extraLine: [
+            cancelledLesson.type === "membership"
+              ? "That lesson credit has been returned to the membership."
+              : "",
+            req.body.message || "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
         });
         res.status(200).json({ ok: true, notified, ...(await dashboard()) });
         return;
@@ -382,7 +389,12 @@ export default async function handler(req, res) {
         to: row.email,
         lesson: row,
         cancelledBy: "coach",
-        extraLine: req.body.message || "",
+        extraLine: [
+          row.type === "membership" ? "That lesson credit has been returned to the membership." : "",
+          req.body.message || "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
       });
       res.status(200).json({ ok: true, notified, ...(await dashboard()) });
       return;
