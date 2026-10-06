@@ -18,7 +18,11 @@ import {
   memberEffectivePeriodEnd,
 } from "../lib/members.js";
 import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
-import { releaseHold } from "../lib/holds.js";
+import {
+  loadLessons,
+  saveLessons,
+  upsertStripeLessons,
+} from "../lib/lessons.js";
 import { loadFinance, saveFinance, addFinanceEntry } from "../lib/finance.js";
 import { loadMembersState, saveMembersState, upsertMember } from "../lib/membersStore.js";
 
@@ -583,15 +587,35 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
     // When the membership month started — the clock the 4 lessons run on.
     let startedAt = session.created || Math.floor(Date.now() / 1000);
 
+    let alreadySent = false;
     if (target) {
       const tRes = await stripe(target.path);
       if (tRes.ok) {
         const obj = await tRes.json();
         if (obj.created) startedAt = obj.created;
         if (obj.metadata?.confirmation_sent === "1") {
-          return { status: 200, body: { sent: true, alreadySent: true, ...summary } };
+          alreadySent = true;
         }
       }
+    }
+
+    // Stripe Search can lag after a payment. Mirror the paid lesson before any
+    // email work so slots and Coach Desk see it immediately and idempotently.
+    if (sessions.length) {
+      try {
+        const stored = await loadLessons();
+        const sourceId = target?.id || session.payment_intent || session.subscription || session.id;
+        if (upsertStripeLessons(stored, sourceId, meta)) {
+          const saved = await saveLessons(stored);
+          if (!saved) console.error("Could not save paid booking mirror:", sourceId);
+        }
+      } catch (error) {
+        console.error("Could not mirror paid booking:", error);
+      }
+    }
+
+    if (alreadySent) {
+      return { status: 200, body: { sent: true, alreadySent: true, ...summary } };
     }
 
     // Record card payment + any deposit balance once (before flagging/email).
@@ -671,10 +695,6 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
         body: { sent: false, error: err.message || "Email failed to send.", ...summary },
       };
     }
-
-    // The payment now covers this slot, so the checkout hold is redundant.
-    // It would expire on its own; clearing it frees the slot listing sooner.
-    releaseHold(sessionId).catch(() => {});
 
     // 4. Flag it so refreshes — and the webhook — don't re-send
     if (target) {

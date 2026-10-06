@@ -102,11 +102,16 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
 
   try {
     lessonsOnDate(stored, date)
-      .filter((l) => !ignoreSourceId || l.id !== ignoreSourceId)
+      .filter((l) => !isVoided(stored, l))
+      .filter(
+        (l) =>
+          !ignoreSourceId ||
+          (l.id !== ignoreSourceId && l.sourceId !== ignoreSourceId)
+      )
       .forEach((l) =>
       add(l.time, durationFor(l.type || "membership"), {
-        kind: "member",
-        id: l.id,
+        kind: l.source === "stripe" ? "paid" : "member",
+        id: l.source === "stripe" ? l.sourceId || l.id : l.id,
         player: l.player || "",
         email: l.email || "",
         focus: l.focus || "",

@@ -130,3 +130,57 @@ test("bookedTimes fails closed when Stripe cannot confirm paid bookings", async 
     mock.restoreAll();
   }
 });
+
+test("Stripe search and its paid Blob mirror count as one athlete", async () => {
+  const previousUrl = process.env.AVAILABILITY_URL;
+  process.env.AVAILABILITY_URL = "https://blob.example/availability.json";
+  const item = {
+    id: "pi_mirrored",
+    metadata: {
+      type: "single",
+      player: "Cashin",
+      email: "parent@example.com",
+      focus: "Both",
+      seats: "1",
+      date1: "2026-10-06",
+      time1: "5:00 PM",
+    },
+  };
+  mock.method(globalThis, "fetch", async (url) => {
+    const path = String(url);
+    if (path.includes("/search?")) return stripeResult(item);
+    if (path.includes("lessons.json")) {
+      return {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            voids: [],
+            lessons: [
+              {
+                id: "pi_mirrored-1",
+                sourceId: "pi_mirrored",
+                source: "stripe",
+                type: "single",
+                focus: "Both",
+                seats: 1,
+                date: "2026-10-06",
+                time: "5:00 PM",
+              },
+            ],
+          }),
+      };
+    }
+    return { ok: false, status: 404 };
+  });
+  try {
+    const rows = await bookedTimes("sk_test", "2026-10-06");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].count, 1);
+    assert.equal(rows[0].seats, 1);
+  } finally {
+    previousUrl === undefined
+      ? delete process.env.AVAILABILITY_URL
+      : (process.env.AVAILABILITY_URL = previousUrl);
+    mock.restoreAll();
+  }
+});

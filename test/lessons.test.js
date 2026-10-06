@@ -7,6 +7,7 @@ import {
   lessonsForEmail,
   removeLesson,
   lessonFromStripeMeta,
+  upsertStripeLessons,
   makeMemberLesson,
   newLessonId,
   scheduledFor,
@@ -69,6 +70,54 @@ test("lessonFromStripeMeta falls back to a single legacy date/time", () => {
   assert.equal(rows[0].type, "single");
 });
 
+test("paid checkout lessons are mirrored idempotently with seat details", () => {
+  const stored = { lessons: [], voids: [] };
+  const metadata = {
+    player: "Cashin",
+    email: "parent@example.com",
+    type: "single",
+    focus: "Both",
+    athletes: "1",
+    seats: "1",
+    date1: "2026-10-06",
+    time1: "5:00 PM",
+    loc1: "mustang",
+  };
+  assert.equal(upsertStripeLessons(stored, "pi_cashin", metadata), true);
+  assert.equal(upsertStripeLessons(stored, "pi_cashin", metadata), true);
+  assert.equal(stored.lessons.length, 1);
+  assert.deepEqual(
+    {
+      id: stored.lessons[0].id,
+      sourceId: stored.lessons[0].sourceId,
+      source: stored.lessons[0].source,
+      seats: stored.lessons[0].seats,
+    },
+    { id: "pi_cashin-1", sourceId: "pi_cashin", source: "stripe", seats: 1 }
+  );
+});
+
+test("a voided paid checkout mirror is not recreated", () => {
+  const stored = {
+    lessons: [],
+    voids: [
+      {
+        sourceId: "pi_cancelled",
+        date: "2026-10-06",
+        time: "5:00 PM",
+      },
+    ],
+  };
+  const changed = upsertStripeLessons(stored, "pi_cancelled", {
+    email: "parent@example.com",
+    type: "single",
+    date1: "2026-10-06",
+    time1: "5:00 PM",
+  });
+  assert.equal(changed, false);
+  assert.deepEqual(stored.lessons, []);
+});
+
 test("makeMemberLesson stamps a member-source membership lesson", () => {
   const av = { slotMinutes: 60, days: { 4: { open: true, start: "17:00", end: "21:00" } }, blocked: [] };
   const l = makeMemberLesson({
@@ -97,6 +146,7 @@ test("voided Stripe signup lessons drop off the member calendar", () => {
     },
   };
   const stored = { lessons: [], voids: [] };
+  upsertStripeLessons(stored, sub.id, { ...sub.metadata, type: "membership" });
   const before = scheduledFor(sub, stored);
   assert.equal(before.length, 1);
   assert.equal(before[0].source, "stripe");
