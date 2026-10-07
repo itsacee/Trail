@@ -124,3 +124,79 @@ test("a 30-minute pair charges per athlete too", async () => {
   assert.equal(stripeBody.get("line_items[0][price_data][unit_amount]"), "12000");
   assert.equal(stripeBody.get("metadata[athletes]"), "2");
 });
+
+test("a later simultaneous checkout is expired before it can overbook the hour", async () => {
+  const slot = await bookableSlot("single");
+  const previous = process.env.STRIPE_SECRET_KEY;
+  process.env.STRIPE_SECRET_KEY = "sk_test_checkout";
+  let checkoutCreated = false;
+  let expired = false;
+  const now = Math.floor(Date.now() / 1000);
+
+  mock.method(globalThis, "fetch", async (url, options) => {
+    const target = String(url);
+    if (target.endsWith("/v1/checkout/sessions") && options?.method === "POST") {
+      checkoutCreated = true;
+      return {
+        ok: true,
+        json: async () => ({
+          id: "cs_later",
+          created: now,
+          url: "https://checkout.stripe.com/c/pay_later",
+        }),
+      };
+    }
+    if (target.includes("/checkout/sessions/cs_later/expire")) {
+      expired = true;
+      return { ok: true, json: async () => ({}) };
+    }
+    if (target.includes("/checkout/sessions?")) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: checkoutCreated
+            ? [
+                {
+                  id: "cs_earlier",
+                  status: "open",
+                  created: now - 1,
+                  expires_at: now + 1200,
+                  metadata: {
+                    type: "single",
+                    focus: "Fielding",
+                    seats: "2",
+                    date1: slot.date,
+                    time1: slot.time,
+                  },
+                },
+              ]
+            : [],
+        }),
+      };
+    }
+    if (target.includes("/search?")) {
+      return { ok: true, json: async () => ({ data: [] }) };
+    }
+    return { ok: true, json: async () => ({ data: [] }) };
+  });
+
+  try {
+    const res = responseRecorder();
+    await checkout(
+      {
+        method: "POST",
+        body: { ...base, type: "single", sessions: [slot] },
+        headers: { host: "www.apacademybsb.com" },
+      },
+      res
+    );
+    assert.equal(res.statusCode, 409);
+    assert.equal(res.body.code, "slot_taken");
+    assert.equal(expired, true);
+  } finally {
+    previous === undefined
+      ? delete process.env.STRIPE_SECRET_KEY
+      : (process.env.STRIPE_SECRET_KEY = previous);
+    mock.restoreAll();
+  }
+});

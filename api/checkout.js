@@ -96,7 +96,13 @@ export default async function handler(req, res) {
   // A retry after an abandoned payment must not collide with the hold that
   // attempt left behind.
   const previous = String(req.body?.previousSession || "");
-  if (SESSION_ID_RE.test(previous)) await releaseHold(previous);
+  if (SESSION_ID_RE.test(previous)) {
+    await releaseHold(previous);
+    await fetch(`https://api.stripe.com/v1/checkout/sessions/${previous}/expire`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}` },
+    }).catch(() => {});
+  }
 
   const { type, player, parent, phone } = req.body || {};
   const player2 = String(req.body?.player2 || "").trim();
@@ -122,6 +128,10 @@ export default async function handler(req, res) {
   }
 
   const focusRaw = FOCUS_LABELS[req.body?.focus] ? String(req.body.focus) : "";
+  if (!focusRaw) {
+    res.status(400).json({ error: "Choose Hitting, Fielding, or Hitting & Fielding." });
+    return;
+  }
   const focusError = focusBlockedMessage(focusRaw);
   if (focusError) {
     res.status(400).json({ error: focusError });
@@ -359,6 +369,59 @@ export default async function handler(req, res) {
       res.status(503).json({
         error: "I couldn't confirm membership availability. Please try again in a moment.",
         code: "membership_unavailable",
+      });
+      return;
+    }
+  }
+
+  // Re-check after Stripe creates the hold. Under simultaneous requests, only
+  // holds created before this session are allowed to claim the remaining seat;
+  // later sessions make the same deterministic comparison and cannot both win.
+  if (data.id && sessions.length) {
+    try {
+      const boundary = {
+        created: (Number(data.created) || Math.floor(Date.now() / 1000)) * 1000,
+        id: data.id,
+      };
+      const dates = [...new Set(sessions.map((s) => s.date))];
+      const takenByDate = Object.fromEntries(
+        await Promise.all(
+          dates.map(async (date) => [
+            date,
+            await bookedTimes(key, date, {
+              ignoreHold: data.id,
+              holdBefore: boundary,
+            }),
+          ])
+        )
+      );
+      const conflict = sessions.find((s) =>
+        slotBlocked(takenByDate[s.date] || [], s.time, lessonMins, focus, {
+          seats,
+          exclusive: isExclusiveType(type),
+        })
+      );
+      if (conflict) {
+        await fetch(`https://api.stripe.com/v1/checkout/sessions/${data.id}/expire`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}` },
+        }).catch(() => {});
+        res.status(409).json({
+          error:
+            `That ${conflict.time} spot was just taken or has a different training focus. ` +
+            `No payment was taken — please choose another time.`,
+          code: "slot_taken",
+        });
+        return;
+      }
+    } catch {
+      await fetch(`https://api.stripe.com/v1/checkout/sessions/${data.id}/expire`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+      }).catch(() => {});
+      res.status(503).json({
+        error: "I couldn't safely hold that time. No payment was taken — please try again.",
+        code: "schedule_unavailable",
       });
       return;
     }

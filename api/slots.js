@@ -18,9 +18,11 @@
 
 import { durationFor, seatsFor, isExclusiveType, SLOT_CAPACITY } from "../lib/schedule.js";
 import { loadLessons, lessonsOnDate, isVoided } from "../lib/lessons.js";
-import { loadHolds, holdsOnDate } from "../lib/holds.js";
+import { HOLD_MINUTES, loadHolds, holdsOnDate } from "../lib/holds.js";
 import { loadManualBookings, bookingsOnDate } from "../lib/manualBookings.js";
 import { isCoachPass } from "../lib/coachAuth.js";
+
+const ACTIVE_SUBSCRIPTION = ["active", "trialing", "past_due"];
 
 // How many of the hour's two athlete seats a booking occupies. Private lessons
 // take both; a sibling pair takes both; a lone athlete takes one.
@@ -39,7 +41,11 @@ function seatsOn(row) {
 // backs out of payment and tries again is blocked by the hold they just
 // created — the slot they were about to buy reads as taken, to them, for the
 // full hold window.
-export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId = "" } = {}) {
+export async function bookedTimes(
+  key,
+  date,
+  { ignoreHold = "", ignoreSourceId = "", holdBefore = null } = {}
+) {
   const byTime = new Map(); // time label -> { mins, sources }
   let stored = { lessons: [], voids: [] };
   try {
@@ -61,11 +67,20 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
     byTime.set(time, cur);
   };
 
+  const holdIsEarlier = (created, id) => {
+    if (!holdBefore) return true;
+    const boundary = Number(holdBefore.created) || 0;
+    const at = Number(created) || 0;
+    if (at !== boundary) return at < boundary;
+    return String(id || "") < String(holdBefore.id || "");
+  };
+
   const search = async (resource, query, pick) => {
     const url = `https://api.stripe.com/v1/${resource}/search?query=${encodeURIComponent(query)}&limit=100`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
     if (!res.ok) throw new Error(`Stripe slot lookup failed (${res.status}).`);
     ((await res.json()).data || []).forEach((item) => {
+      if (resource === "subscriptions" && !ACTIVE_SUBSCRIPTION.includes(item.status)) return;
       const m = item.metadata || {};
       const { time, mins } = pick(m);
       if (ignoreSourceId && item.id === ignoreSourceId) return;
@@ -96,6 +111,49 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
   queries.push(
     search("payment_intents", `status:'succeeded' AND metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) })),
     search("subscriptions", `metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) }))
+  );
+
+  // Open Stripe Checkout Sessions are strongly visible before payment and act
+  // as the authoritative hold. This closes the race where two parents start
+  // Checkout before either payment appears in Stripe Search.
+  queries.push(
+    (async () => {
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const since = nowSeconds - (HOLD_MINUTES + 1) * 60;
+      const url =
+        `https://api.stripe.com/v1/checkout/sessions?limit=100&status=open` +
+        `&created[gte]=${since}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+      if (!res.ok) throw new Error(`Stripe checkout hold lookup failed (${res.status}).`);
+      ((await res.json()).data || [])
+        .filter(
+          (session) =>
+            session.status === "open" &&
+            Number(session.expires_at || 0) > nowSeconds &&
+            (!ignoreHold || session.id !== ignoreHold) &&
+            holdIsEarlier(Number(session.created || 0) * 1000, session.id)
+        )
+        .forEach((session) => {
+          const m = session.metadata || {};
+          const source = {
+            kind: "hold",
+            id: session.id,
+            focus: m.focus || "",
+            seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes }),
+            createdAt: Number(session.created || 0) * 1000,
+            expiresAt: Number(session.expires_at || 0) * 1000,
+          };
+          let found = false;
+          for (let i = 1; i <= 4; i++) {
+            if (m[`date${i}`] !== date || !m[`time${i}`]) continue;
+            found = true;
+            add(m[`time${i}`], durationFor(m.type), source);
+          }
+          if (!found && m.date === date && m.time) {
+            add(m.time, durationFor(m.type), source);
+          }
+        });
+    })()
   );
 
   await Promise.all(queries);
@@ -129,6 +187,7 @@ export async function bookedTimes(key, date, { ignoreHold = "", ignoreSourceId =
     const holds = await loadHolds();
     holdsOnDate(holds, date)
       .filter((h) => !ignoreHold || h.sessionId !== ignoreHold)
+      .filter((h) => holdIsEarlier(h.createdAt || 0, h.sessionId))
       .forEach((h) =>
       add(h.time, h.mins || 60, {
         kind: "hold",

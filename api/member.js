@@ -377,10 +377,42 @@ export default async function handler(req, res) {
     availability,
   });
   lesson.email = email;
-  acct.stored.lessons.push(lesson);
-  const saved = await saveLessons(acct.stored);
+  let saved = false;
+  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+    if (attempt > 0) {
+      acct.stored = await loadLessons();
+      await refreshScheduled(acct);
+      const retryBlocked = bookingBlocked(acct.summary, date, acct.scheduled);
+      const taken = await bookedTimes(key, date);
+      if (
+        retryBlocked ||
+        slotBlocked(taken, time, durationFor("membership"), focus, {
+          seats: 1,
+          exclusive: false,
+        })
+      ) {
+        res.status(409).json({
+          error: retryBlocked || "That time was just taken, became full, or has a different training focus.",
+          code: "slot_taken",
+        });
+        return;
+      }
+    }
+    if (acct.stored.lessons.some((existing) => existing.id === lesson.id)) {
+      saved = true;
+      break;
+    }
+    acct.stored.lessons.push(lesson);
+    saved = Boolean(await saveLessons(acct.stored));
+    if (!saved) {
+      acct.stored.lessons = acct.stored.lessons.filter((existing) => existing.id !== lesson.id);
+    }
+  }
   if (!saved) {
-    res.status(500).json({ error: "Couldn't save that lesson. Call or text (405) 819-4401." });
+    res.status(503).json({
+      error: "Couldn't safely reserve that lesson. Please try again.",
+      code: "schedule_unavailable",
+    });
     return;
   }
 

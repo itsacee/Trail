@@ -176,6 +176,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   let selectedTime = "";
   let payMode = "card";
   const bookedCache = {}; // iso -> [{ time, mins, seats, exclusive, focuses }]
+  const slotErrors = {};
 
   const els = {
     calendar: document.getElementById("bkCalendar"),
@@ -266,6 +267,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   function openDay(iso) {
     if (bookableDates.length && !bookableDates.includes(iso)) return false;
     if (!AP.startsForDate(iso, AVAIL, AP.durationFor(selectedType)).length) return false;
+    if (slotErrors[iso]) return false;
     // Days we've already checked and found nothing open on grey out too.
     const booked = bookedCache[iso];
     if (booked && !openTimesFor(iso, booked).length) return false;
@@ -320,9 +322,13 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     try {
       const mine = myHold();
       const res = await fetch(`/api/slots?date=${iso}${mine ? `&mine=${encodeURIComponent(mine)}` : ""}`);
-      bookedCache[iso] = res.ok ? (await res.json()).booked || [] : [];
+      if (!res.ok) throw new Error("slot lookup failed");
+      bookedCache[iso] = (await res.json()).booked || [];
+      delete slotErrors[iso];
     } catch {
-      bookedCache[iso] = []; // static preview or offline — show all as open
+      // Never present an unverified time as open; the server also fails closed.
+      bookedCache[iso] = [];
+      slotErrors[iso] = true;
     }
   }
 
@@ -491,6 +497,13 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     const booked = bookedCache[selectedDate];
     if (!booked) {
       if (els.timesNote) els.timesNote.textContent = "Checking open times…";
+      return;
+    }
+    if (slotErrors[selectedDate]) {
+      if (els.timesNote) {
+        els.timesNote.textContent =
+          "We couldn't confirm live availability. Refresh and try again, or call/text (405) 819-4401.";
+      }
       return;
     }
 
@@ -733,6 +746,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   function clearSlotCache() {
     Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
+    Object.keys(slotErrors).forEach((k) => delete slotErrors[k]);
   }
 
   form.addEventListener("submit", async (e) => {

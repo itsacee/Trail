@@ -70,6 +70,13 @@ export default async function handler(req, res) {
   }
 
   const key = process.env.STRIPE_SECRET_KEY || "";
+  if (!key) {
+    res.status(503).json({
+      error: "Couldn't confirm live availability. Please try again shortly.",
+      code: "schedule_unavailable",
+    });
+    return;
+  }
   const body = req.body || {};
   const type = ["single", "thirty", "private", "membership"].includes(body.type) ? body.type : "";
   const player = String(body.player || "").trim();
@@ -89,6 +96,10 @@ export default async function handler(req, res) {
   }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     res.status(400).json({ error: "Please enter a valid email." });
+    return;
+  }
+  if (!focusRaw) {
+    res.status(400).json({ error: "Choose Hitting, Fielding, or Hitting & Fielding." });
     return;
   }
 
@@ -182,6 +193,34 @@ export default async function handler(req, res) {
     createdBy: "parent",
   });
 
+  let saved = false;
+  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+    const store = await loadManualBookings();
+    if (store.bookings.some((existing) => existing.id === booking.id)) {
+      saved = true;
+      break;
+    }
+    if (attempt > 0) {
+      const taken = await bookedTimes(key, date);
+      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive: isExclusiveType(type) })) {
+        res.status(409).json({
+          error: "That time was just taken, became full, or has a different training focus. Pick another.",
+          code: "slot_taken",
+        });
+        return;
+      }
+    }
+    store.bookings.push(booking);
+    saved = Boolean(await saveManualBookings(store));
+  }
+  if (!saved) {
+    res.status(503).json({
+      error: "Couldn't safely reserve that time. Please try again.",
+      code: "schedule_unavailable",
+    });
+    return;
+  }
+
   if (isMember) {
     const members = await loadMembersState();
     const start = Math.floor(Date.now() / 1000);
@@ -197,14 +236,6 @@ export default async function handler(req, res) {
       paymentMethod: "cash",
     });
     await saveMembersState(members);
-  }
-
-  const store = await loadManualBookings();
-  store.bookings.push(booking);
-  const saved = await saveManualBookings(store);
-  if (!saved) {
-    res.status(500).json({ error: "Couldn't save that booking. Call or text (405) 819-4401." });
-    return;
   }
 
   const loc = LOCATIONS.mustang || {};
