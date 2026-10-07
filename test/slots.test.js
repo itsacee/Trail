@@ -188,6 +188,35 @@ test("Stripe search and its paid Blob mirror count as one athlete", async () => 
   }
 });
 
+test("a cancelled subscription does not keep its old time blocked", async () => {
+  mock.method(globalThis, "fetch", async (url) => {
+    const path = String(url);
+    if (path.includes("/checkout/sessions?")) {
+      return { ok: true, json: async () => ({ data: [] }) };
+    }
+    if (path.includes("subscriptions/search")) {
+      return stripeResult({
+        id: "sub_old",
+        status: "canceled",
+        metadata: {
+          type: "membership",
+          focus: "Hitting",
+          date1: "2026-10-12",
+          time1: "5:00 PM",
+        },
+      });
+    }
+    if (path.includes("/search?")) return { ok: true, json: async () => ({ data: [] }) };
+    throw new Error(`Unexpected request: ${path}`);
+  });
+
+  try {
+    assert.deepEqual(await bookedTimes("sk_test", "2026-10-12"), []);
+  } finally {
+    mock.restoreAll();
+  }
+});
+
 test("an open Stripe Checkout session immediately reserves its exact focus and seat", async () => {
   const now = Math.floor(Date.now() / 1000);
   mock.method(globalThis, "fetch", async (url) => {

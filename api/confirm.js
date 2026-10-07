@@ -602,16 +602,21 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
     // Stripe Search can lag after a payment. Mirror the paid lesson before any
     // email work so slots and Coach Desk see it immediately and idempotently.
     if (sessions.length) {
-      try {
-        const stored = await loadLessons();
-        const sourceId = target?.id || session.payment_intent || session.subscription || session.id;
-        if (upsertStripeLessons(stored, sourceId, meta)) {
-          const saved = await saveLessons(stored);
-          if (!saved) console.error("Could not save paid booking mirror:", sourceId);
+      const sourceId = target?.id || session.payment_intent || session.subscription || session.id;
+      let mirrored = false;
+      for (let attempt = 0; attempt < 3 && !mirrored; attempt++) {
+        try {
+          const stored = await loadLessons();
+          if (!upsertStripeLessons(stored, sourceId, meta)) {
+            mirrored = true;
+            break;
+          }
+          mirrored = Boolean(await saveLessons(stored));
+        } catch (error) {
+          console.error("Could not mirror paid booking:", error);
         }
-      } catch (error) {
-        console.error("Could not mirror paid booking:", error);
       }
+      if (!mirrored) console.error("Could not save paid booking mirror:", sourceId);
     }
 
     if (alreadySent) {

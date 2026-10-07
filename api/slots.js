@@ -22,6 +22,8 @@ import { HOLD_MINUTES, loadHolds, holdsOnDate } from "../lib/holds.js";
 import { loadManualBookings, bookingsOnDate } from "../lib/manualBookings.js";
 import { isCoachPass } from "../lib/coachAuth.js";
 
+const ACTIVE_SUBSCRIPTION = ["active", "trialing", "past_due"];
+
 // How many of the hour's two athlete seats a booking occupies. Private lessons
 // take both; a sibling pair takes both; a lone athlete takes one.
 function seatsOn(row) {
@@ -78,6 +80,7 @@ export async function bookedTimes(
     const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
     if (!res.ok) throw new Error(`Stripe slot lookup failed (${res.status}).`);
     ((await res.json()).data || []).forEach((item) => {
+      if (resource === "subscriptions" && !ACTIVE_SUBSCRIPTION.includes(item.status)) return;
       const m = item.metadata || {};
       const { time, mins } = pick(m);
       if (ignoreSourceId && item.id === ignoreSourceId) return;
