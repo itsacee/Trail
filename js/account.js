@@ -29,6 +29,7 @@
   let selectedDate = "";
   let selectedTime = "";
   const bookedCache = {};
+  const slotErrors = {};
 
   const LESSON_MINUTES = 60;
 
@@ -97,6 +98,7 @@
   function dayIsOpen(iso) {
     if (!bookableWindow().includes(iso)) return false;
     if (!AP.startsForDate(iso, AVAIL, LESSON_MINUTES).length) return false;
+    if (slotErrors[iso]) return false;
     const booked = bookedCache[iso];
     if (booked && !openTimes(iso, booked).length) return false;
     return true;
@@ -112,9 +114,12 @@
     if (!iso || bookedCache[iso]) return;
     try {
       const res = await fetch(`/api/slots?date=${iso}`);
-      bookedCache[iso] = res.ok ? (await res.json()).booked || [] : [];
+      if (!res.ok) throw new Error("slot lookup failed");
+      bookedCache[iso] = (await res.json()).booked || [];
+      delete slotErrors[iso];
     } catch {
       bookedCache[iso] = [];
+      slotErrors[iso] = true;
     }
   }
 
@@ -140,6 +145,13 @@
     const booked = bookedCache[selectedDate];
     if (!booked) {
       if (timesNote) timesNote.textContent = "Checking open times…";
+      return;
+    }
+    if (slotErrors[selectedDate]) {
+      if (timesNote) {
+        timesNote.textContent =
+          "We couldn't confirm live availability. Refresh and try again, or call/text (405) 819-4401.";
+      }
       return;
     }
     const focus = focusSelect ? focusSelect.value : "";
@@ -414,6 +426,7 @@
       return;
     }
     Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
+    Object.keys(slotErrors).forEach((k) => delete slotErrors[k]);
     renderDash(data);
   }
 
@@ -469,10 +482,12 @@
       weekStatus.textContent = data.error || (moving ? "Couldn't move that lesson." : "Couldn't book that time.");
       btn.textContent = restoreLabel;
       delete bookedCache[date];
+      delete slotErrors[date];
       pickDate(date);
       return;
     }
     Object.keys(bookedCache).forEach((k) => delete bookedCache[k]);
+    Object.keys(slotErrors).forEach((k) => delete slotErrors[k]);
     renderDash(data);
   });
 

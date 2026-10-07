@@ -124,7 +124,7 @@ test("bookedTimes fails closed when Stripe cannot confirm paid bookings", async 
   try {
     await assert.rejects(
       bookedTimes("sk_test", "2026-09-28"),
-      /Stripe slot lookup failed/
+      /Stripe (slot|checkout hold) lookup failed/
     );
   } finally {
     mock.restoreAll();
@@ -148,6 +148,9 @@ test("Stripe search and its paid Blob mirror count as one athlete", async () => 
   };
   mock.method(globalThis, "fetch", async (url) => {
     const path = String(url);
+    if (path.includes("/checkout/sessions?")) {
+      return { ok: true, json: async () => ({ data: [] }) };
+    }
     if (path.includes("/search?")) return stripeResult(item);
     if (path.includes("lessons.json")) {
       return {
@@ -181,6 +184,99 @@ test("Stripe search and its paid Blob mirror count as one athlete", async () => 
     previousUrl === undefined
       ? delete process.env.AVAILABILITY_URL
       : (process.env.AVAILABILITY_URL = previousUrl);
+    mock.restoreAll();
+  }
+});
+
+test("an open Stripe Checkout session immediately reserves its exact focus and seat", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  mock.method(globalThis, "fetch", async (url) => {
+    const path = String(url);
+    if (path.includes("/checkout/sessions?")) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: "cs_hitting_hold",
+              status: "open",
+              created: now - 5,
+              expires_at: now + 1200,
+              metadata: {
+                type: "single",
+                focus: "Hitting",
+                seats: "1",
+                date1: "2026-10-12",
+                time1: "5:00 PM",
+              },
+            },
+          ],
+        }),
+      };
+    }
+    if (path.includes("/search?")) return { ok: true, json: async () => ({ data: [] }) };
+    throw new Error(`Unexpected request: ${path}`);
+  });
+
+  try {
+    const rows = await bookedTimes("sk_test", "2026-10-12");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].time, "5:00 PM");
+    assert.equal(rows[0].seats, 1);
+    assert.deepEqual(rows[0].focuses, ["Hitting"]);
+    assert.equal(rows[0].sources[0].kind, "hold");
+  } finally {
+    mock.restoreAll();
+  }
+});
+
+test("checkout admission counts only holds created before the current session", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const sessions = [
+    {
+      id: "cs_earlier",
+      status: "open",
+      created: now - 10,
+      expires_at: now + 1200,
+      metadata: {
+        type: "membership",
+        focus: "Fielding",
+        seats: "1",
+        date1: "2026-10-12",
+        time1: "5:00 PM",
+      },
+    },
+    {
+      id: "cs_later",
+      status: "open",
+      created: now,
+      expires_at: now + 1200,
+      metadata: {
+        type: "membership",
+        focus: "Fielding",
+        seats: "1",
+        date1: "2026-10-12",
+        time1: "5:00 PM",
+      },
+    },
+  ];
+  mock.method(globalThis, "fetch", async (url) => {
+    const path = String(url);
+    if (path.includes("/checkout/sessions?")) {
+      return { ok: true, json: async () => ({ data: sessions }) };
+    }
+    if (path.includes("/search?")) return { ok: true, json: async () => ({ data: [] }) };
+    throw new Error(`Unexpected request: ${path}`);
+  });
+
+  try {
+    const rows = await bookedTimes("sk_test", "2026-10-12", {
+      ignoreHold: "cs_later",
+      holdBefore: { created: now * 1000, id: "cs_later" },
+    });
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0].sources.map((source) => source.id), ["cs_earlier"]);
+  } finally {
     mock.restoreAll();
   }
 });

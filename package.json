@@ -6,5 +6,8 @@
   "description": "AP Academy booking site (static pages + Vercel serverless functions).",
   "scripts": {
     "test": "node --test"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.1"
   }
 }

@@ -477,6 +477,38 @@ export default async function handler(req, res) {
         note: req.body.note || "",
         createdBy: "coach",
       });
+      let saved = false;
+      for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+        const store = await loadManualBookings();
+        if (store.bookings.some((existing) => existing.id === booking.id)) {
+          saved = true;
+          break;
+        }
+        if (attempt > 0 && key) {
+          const taken = await bookedTimes(key, date);
+          if (
+            slotBlocked(taken, time, durationFor(type), focus, {
+              seats,
+              exclusive: isExclusiveType(type),
+            })
+          ) {
+            res.status(409).json({
+              error: "That time was just taken, became full, or has a different training focus.",
+              code: "slot_taken",
+            });
+            return;
+          }
+        }
+        store.bookings.push(booking);
+        saved = Boolean(await saveManualBookings(store));
+      }
+      if (!saved) {
+        res.status(503).json({
+          error: "Couldn't safely reserve that lesson. Refresh and try again.",
+          code: "schedule_unavailable",
+        });
+        return;
+      }
       if (type === "membership" && email) {
         const members = await loadMembersState();
         const start = Math.floor(Date.now() / 1000);
@@ -491,9 +523,6 @@ export default async function handler(req, res) {
         });
         await saveMembersState(members);
       }
-      const store = await loadManualBookings();
-      store.bookings.push(booking);
-      await saveManualBookings(store);
       if (paid > 0) {
         const fin = await loadFinance();
         addFinanceEntry(fin, {
