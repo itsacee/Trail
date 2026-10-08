@@ -125,15 +125,16 @@
     onSelect: (iso) => pickDate(iso),
   });
 
-  async function loadSlots(iso) {
-    if (!iso || bookedCache[iso]) return;
+  async function loadSlots(iso, { force = false } = {}) {
+    if (!iso) return;
+    if (!force && bookedCache[iso] && !slotErrors[iso]) return;
     try {
       const res = await fetch(`/api/slots?date=${iso}`);
       if (!res.ok) throw new Error("slot lookup failed");
       bookedCache[iso] = (await res.json()).booked || [];
       delete slotErrors[iso];
     } catch {
-      bookedCache[iso] = [];
+      delete bookedCache[iso];
       slotErrors[iso] = true;
     }
   }
@@ -142,7 +143,7 @@
     selectedDate = iso;
     selectedTime = "";
     renderTimes();
-    await loadSlots(iso);
+    await loadSlots(iso, { force: Boolean(slotErrors[iso]) });
     if (selectedDate !== iso) return;
     renderTimes();
     calendar.render();
@@ -158,15 +159,15 @@
     timesBox.hidden = false;
     if (timesTitle) timesTitle.textContent = `Open times · ${AP.prettyDate(selectedDate)}`;
     const booked = bookedCache[selectedDate];
-    if (!booked) {
-      if (timesNote) timesNote.textContent = "Checking open times…";
-      return;
-    }
-    if (slotErrors[selectedDate]) {
+    if (slotErrors[selectedDate] && !booked) {
       if (timesNote) {
         timesNote.textContent =
-          "We couldn't confirm live availability. Refresh and try again, or call/text (405) 819-4401.";
+          "We couldn't confirm live availability. Tap the day again to retry, or call/text (405) 819-4401.";
       }
+      return;
+    }
+    if (!booked) {
+      if (timesNote) timesNote.textContent = "Checking open times…";
       return;
     }
     const focus = focusSelect ? focusSelect.value : "";

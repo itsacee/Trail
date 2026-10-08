@@ -115,17 +115,16 @@ test("bookedTimes can exclude the lesson being rescheduled", async () => {
   }
 });
 
-test("bookedTimes fails closed when Stripe cannot confirm paid bookings", async () => {
+test("bookedTimes soft-skips Stripe outages so later weeks still load", async () => {
   mock.method(globalThis, "fetch", async () => ({
     ok: false,
     status: 503,
     json: async () => ({}),
   }));
   try {
-    await assert.rejects(
-      bookedTimes("sk_test", "2026-09-28"),
-      /Stripe (slot|checkout hold) lookup failed/
-    );
+    // A full-month prefetch used to hard-fail every day when Stripe rate-limited
+    // searches. Return whatever blob/holds we have instead of 503-ing the day.
+    assert.deepEqual(await bookedTimes("sk_test", "2026-09-28"), []);
   } finally {
     mock.restoreAll();
   }
@@ -254,6 +253,47 @@ test("an open Stripe Checkout session immediately reserves its exact focus and s
     assert.equal(rows[0].seats, 1);
     assert.deepEqual(rows[0].focuses, ["Hitting"]);
     assert.equal(rows[0].sources[0].kind, "hold");
+  } finally {
+    mock.restoreAll();
+  }
+});
+
+test("bookedTimes keeps blob/hold data when Stripe search is rate-limited", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  mock.method(globalThis, "fetch", async (url) => {
+    const path = String(url);
+    if (path.includes("/checkout/sessions?")) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: "cs_rate_limit_safe",
+              status: "open",
+              created: now - 5,
+              expires_at: now + 1200,
+              metadata: {
+                type: "single",
+                focus: "Fielding",
+                seats: "1",
+                date1: "2026-10-20",
+                time1: "6:00 PM",
+              },
+            },
+          ],
+        }),
+      };
+    }
+    // Simulate the burst that used to 503 the whole day for later weeks.
+    if (path.includes("/search?")) return { ok: false, status: 429, json: async () => ({}) };
+    throw new Error(`Unexpected request: ${path}`);
+  });
+
+  try {
+    const rows = await bookedTimes("sk_test", "2026-10-20");
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].time, "6:00 PM");
+    assert.deepEqual(rows[0].focuses, ["Fielding"]);
   } finally {
     mock.restoreAll();
   }
