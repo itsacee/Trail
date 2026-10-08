@@ -74,6 +74,16 @@ test("a portal lesson is moved in place", () => {
 
 test("a checkout slot is voided and rewritten, so the old time reopens", () => {
   const { stored, manual } = emptyStores();
+  // Another family's lesson already shares the old hour — moving must not hide it.
+  stored.lessons.push({
+    id: "ml_keep",
+    source: "member",
+    type: "membership",
+    email: "other@example.com",
+    date: "2026-10-05",
+    time: "6:00 PM",
+    focus: "Hitting",
+  });
   const row = {
     id: "pi_123-1",
     sourceId: "pi_123",
@@ -94,9 +104,21 @@ test("a checkout slot is voided and rewritten, so the old time reopens", () => {
 
   // The old Stripe slot no longer blocks 6:00 PM...
   assert.equal(isVoided(stored, { sourceId: "pi_123", date: "2026-10-05", time: "6:00 PM" }), true);
+  // ...but the other lesson at that hour stays on the calendar.
+  assert.equal(
+    isVoided(stored, {
+      id: "ml_keep",
+      email: "other@example.com",
+      date: "2026-10-05",
+      time: "6:00 PM",
+      subId: "sub_other",
+    }),
+    false
+  );
+  assert.equal(stored.lessons.some((l) => l.id === "ml_keep"), true);
   // ...and the new time is on file, still owning the whole hour.
-  assert.equal(stored.lessons.length, 1);
-  const moved = stored.lessons[0];
+  assert.equal(stored.lessons.length, 2);
+  const moved = stored.lessons.find((l) => l.id !== "ml_keep");
   assert.equal(moved.date, "2026-10-06");
   assert.equal(moved.time, "7:00 PM");
   assert.equal(moved.seats, SLOT_CAPACITY);
