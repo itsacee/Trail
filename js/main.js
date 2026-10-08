@@ -163,6 +163,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   let AVAIL = AP.DEFAULT_AVAILABILITY;
   let bookableDates = [];
+  let scheduleReady = false;
   let PRICING = {
     prices: { single: 8000, thirty: 6000, membership: 28000, private: 10000 },
     membershipDeposit: 8000,
@@ -265,13 +266,26 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   }
 
   function openDay(iso) {
+    // Don't paint Mon–Wed defaults as open before live hours arrive — that is
+    // what made Tuesday/Thursday flip between open and closed on load.
+    if (!scheduleReady) return false;
     if (bookableDates.length && !bookableDates.includes(iso)) return false;
     if (!AP.startsForDate(iso, AVAIL, AP.durationFor(selectedType)).length) return false;
-    if (slotErrors[iso]) return false;
-    // Days we've already checked and found nothing open on grey out too.
+    // A failed slots fetch must not grey the day; the times panel shows the error.
+    if (slotErrors[iso]) return true;
     const booked = bookedCache[iso];
-    if (booked && !openTimesFor(iso, booked).length) return false;
+    if (booked && !dayHasCapacity(iso, booked)) return false;
     return true;
+  }
+
+  // Calendar cells ignore focus so a day with a free seat at another focus
+  // stays tappable; time chips still enforce exact focus matching.
+  function dayHasCapacity(iso, booked) {
+    const dur = AP.durationFor(selectedType);
+    const need = want();
+    return AP.startsForDate(iso, AVAIL, dur)
+      .map((t) => AP.fmtTime(t))
+      .some((label) => !AP.slotIsBlocked(booked || [], label, dur, "", need, { ignoreFocus: true }));
   }
 
   function openTimesFor(iso, booked) {
@@ -297,6 +311,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     } catch {
       /* keep defaults — static preview or offline */
     }
+    scheduleReady = true;
     applySiteStatus();
   }
 
@@ -332,9 +347,9 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     }
   }
 
-  // Check every day in the booking window up front so full days can grey out on
-  // the calendar instead of only revealing themselves once tapped. The window is
-  // one week and most days are closed, so this is a handful of requests.
+  // Prefetch open days in the booking window so full days grey out on the
+  // calendar instead of only after tap. Most weekdays are closed, so this stays
+  // a modest number of requests even with a full-month window.
   async function prefetchWindow() {
     const days = (bookableDates.length ? bookableDates : fallbackDates()).filter((iso) =>
       AP.startsForDate(iso, AVAIL, 60).length
@@ -343,11 +358,17 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     calendar.render();
   }
 
+  // Mirrors lib/members.js bookingWindow when /api/availability is unavailable.
   function fallbackDates() {
     const out = [];
     const now = new Date();
-    for (let i = 1; i <= 7; i++) {
-      out.push(AP.isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + i)));
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    let end = new Date(y, m + 1, 0);
+    const daysLeft = end.getDate() - now.getDate();
+    if (daysLeft < 7) end = new Date(y, m + 2, 0);
+    for (let d = new Date(y, m, now.getDate() + 1); d <= end; d.setDate(d.getDate() + 1)) {
+      out.push(AP.isoDate(new Date(d)));
     }
     return out;
   }

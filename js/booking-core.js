@@ -130,10 +130,14 @@
 
   // `want` is how many athlete seats are needed, or { seats, exclusive } for a
   // private lesson that takes the whole hour.
-  function slotIsBlocked(booked, label, dur, focus, want) {
+  //
+  // Pass `ignoreFocus: true` for calendar day cells so a day stays open when
+  // another focus still has a seat — focus only filters the time chips.
+  function slotIsBlocked(booked, label, dur, focus, want, opts) {
     const need = typeof want === "object" && want ? want : { seats: Number(want) || 1, exclusive: false };
     const seats = Math.max(1, Number(need.seats) || 1);
     const exclusive = Boolean(need.exclusive) || seats >= SLOT_CAPACITY;
+    const ignoreFocus = Boolean(opts && opts.ignoreFocus);
     const start = labelToMin(label);
     if (start === null) return true;
     const end = start + dur;
@@ -144,7 +148,7 @@
       if (!(start < be && bs < end)) continue;
       if (b.time !== label || (b.mins || 60) !== dur) return true;
       if (b.exclusive || exclusive) return true;
-      if (!focusMatches(b, focus)) return true;
+      if (!ignoreFocus && !focusMatches(b, focus)) return true;
       if (seatsTaken(b) + seats > SLOT_CAPACITY) return true;
     }
     return false;

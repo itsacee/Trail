@@ -313,19 +313,29 @@ export default async function handler(req, res) {
         }
       }
 
-      const stored = await loadLessons();
-      const manual = await loadManualBookings();
-      const result = moveLesson({ row, stored, manual, date, time, focus, availability });
-      if (!result.ok) {
-        res.status(404).json({ error: result.error });
-        return;
+      // Reload + retry on conflict so a stale ETag / concurrent edit doesn't
+      // surface as a cryptic "check Blob" failure.
+      let result = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const stored = await loadLessons();
+        const manual = await loadManualBookings();
+        result = moveLesson({ row, stored, manual, date, time, focus, availability });
+        if (!result.ok) {
+          res.status(404).json({ error: result.error });
+          return;
+        }
+        let saved = true;
+        if (result.changed.includes("lessons")) saved = Boolean(await saveLessons(stored));
+        if (saved && result.changed.includes("manual")) {
+          saved = Boolean(await saveManualBookings(manual));
+        }
+        if (saved) break;
+        result = null;
       }
-      if (result.changed.includes("lessons") && !(await saveLessons(stored))) {
-        res.status(500).json({ error: "Couldn't save the move (check Blob)." });
-        return;
-      }
-      if (result.changed.includes("manual") && !(await saveManualBookings(manual))) {
-        res.status(500).json({ error: "Couldn't save the move (check Blob)." });
+      if (!result) {
+        res.status(500).json({
+          error: "Couldn't save the move. Refresh and try again in a moment.",
+        });
         return;
       }
       if (result.clearStripe) {
@@ -364,7 +374,7 @@ export default async function handler(req, res) {
         b.status = "cancelled";
         b.cancelledAt = Date.now();
         if (!(await saveManualBookings(store))) {
-          res.status(500).json({ error: "Couldn't cancel that lesson (check Blob)." });
+          res.status(500).json({ error: "Couldn't cancel that lesson. Refresh and try again." });
           return;
         }
         const notified = await sendLessonCancelledEmail({
@@ -406,7 +416,7 @@ export default async function handler(req, res) {
         return;
       }
       if (!(await saveLessons(stored))) {
-        res.status(500).json({ error: "Couldn't cancel that lesson (check Blob)." });
+        res.status(500).json({ error: "Couldn't cancel that lesson. Refresh and try again." });
         return;
       }
       if (row.source === "stripe") await clearStripeSlot(key, row.sourceId, row.id);
@@ -590,7 +600,7 @@ export default async function handler(req, res) {
       removeMember(members, email);
       const saved = await saveMembersState(members);
       if (!saved) {
-        res.status(500).json({ error: "Could not remove that card (check Blob)." });
+        res.status(500).json({ error: "Could not remove that card. Refresh and try again." });
         return;
       }
       res.status(200).json({ ok: true, ...(await dashboard()) });
@@ -607,7 +617,7 @@ export default async function handler(req, res) {
       restoreMember(members, email);
       const saved = await saveMembersState(members);
       if (!saved) {
-        res.status(500).json({ error: "Could not put that card back (check Blob)." });
+        res.status(500).json({ error: "Could not put that card back. Refresh and try again." });
         return;
       }
       res.status(200).json({ ok: true, ...(await dashboard()) });
@@ -666,7 +676,7 @@ export default async function handler(req, res) {
       const cur = await loadSettings();
       const saved = await saveSettings({ ...cur, ...(req.body.settings || {}) });
       if (!saved) {
-        res.status(500).json({ error: "Could not save settings (check Blob)." });
+        res.status(500).json({ error: "Could not save settings. Refresh and try again." });
         return;
       }
       res.status(200).json({ ok: true, ...(await dashboard()) });
