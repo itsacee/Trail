@@ -265,11 +265,15 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     return els.focusSelect.value;
   }
 
+  function windowDates() {
+    return bookableDates.length ? bookableDates : fallbackDates();
+  }
+
   function openDay(iso) {
     // Don't paint Mon–Wed defaults as open before live hours arrive — that is
     // what made Tuesday/Thursday flip between open and closed on load.
     if (!scheduleReady) return false;
-    if (bookableDates.length && !bookableDates.includes(iso)) return false;
+    if (!windowDates().includes(iso)) return false;
     if (!AP.startsForDate(iso, AVAIL, AP.durationFor(selectedType)).length) return false;
     // A failed slots fetch must not grey the day; the times panel shows the error.
     if (slotErrors[iso]) return true;
@@ -351,9 +355,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   // calendar instead of only after tap. Most weekdays are closed, so this stays
   // a modest number of requests even with a full-month window.
   async function prefetchWindow() {
-    const days = (bookableDates.length ? bookableDates : fallbackDates()).filter((iso) =>
-      AP.startsForDate(iso, AVAIL, 60).length
-    );
+    const days = windowDates().filter((iso) => AP.startsForDate(iso, AVAIL, 60).length);
     await Promise.all(days.map((iso) => loadSlots(iso)));
     calendar.render();
   }
@@ -665,7 +667,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   const calendar = AP.createCalendar(els.calendar, {
     isOpen: openDay,
-    dates: () => (bookableDates.length ? bookableDates : fallbackDates()),
+    dates: () => windowDates(),
     onSelect: (iso) => pickDate(iso),
   });
 
