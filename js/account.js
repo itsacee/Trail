@@ -24,6 +24,7 @@
 
   let AVAIL = AP.DEFAULT_AVAILABILITY;
   let bookableDates = []; // from /api/availability → bookingWindow.dates
+  let scheduleReady = false;
   let account = null;
   let rescheduleId = null;
   let selectedDate = "";
@@ -79,11 +80,17 @@
     return lastDay ? dates.filter((iso) => iso <= lastDay) : dates;
   }
 
+  // Mirrors lib/members.js bookingWindow when /api/availability is unavailable.
   function fallbackDates() {
     const out = [];
     const now = new Date();
-    for (let i = 1; i <= 7; i++) {
-      out.push(AP.isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + i)));
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    let end = new Date(y, m + 1, 0);
+    const daysLeft = end.getDate() - now.getDate();
+    if (daysLeft < 7) end = new Date(y, m + 2, 0);
+    for (let d = new Date(y, m, now.getDate() + 1); d <= end; d.setDate(d.getDate() + 1)) {
+      out.push(AP.isoDate(new Date(d)));
     }
     return out;
   }
@@ -95,12 +102,20 @@
       .filter((label) => !AP.slotIsBlocked(booked || [], label, LESSON_MINUTES, focus, 1));
   }
 
+  function dayHasCapacity(iso, booked) {
+    return AP.startsForDate(iso, AVAIL, LESSON_MINUTES)
+      .map((t) => AP.fmtTime(t))
+      .some((label) => !AP.slotIsBlocked(booked || [], label, LESSON_MINUTES, "", 1, { ignoreFocus: true }));
+  }
+
   function dayIsOpen(iso) {
+    if (!scheduleReady) return false;
     if (!bookableWindow().includes(iso)) return false;
     if (!AP.startsForDate(iso, AVAIL, LESSON_MINUTES).length) return false;
-    if (slotErrors[iso]) return false;
+    // A failed slots fetch must not grey the day; the times panel shows the error.
+    if (slotErrors[iso]) return true;
     const booked = bookedCache[iso];
-    if (booked && !openTimes(iso, booked).length) return false;
+    if (booked && !dayHasCapacity(iso, booked)) return false;
     return true;
   }
 
@@ -538,6 +553,7 @@
     } catch {
       /* defaults */
     }
+    scheduleReady = true;
 
     if (token()) loadAccount();
     else showLogin();

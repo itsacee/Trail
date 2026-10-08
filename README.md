@@ -51,7 +51,7 @@ Parents pick a lesson type on the homepage, then land on `book.html`.
   1-on-1 premium (`unitPriceFor` in `lib/settings.js`).
 - **Membership ($280 / 30 days):** one-time payment (does not auto-renew).
   Then sign in at `account.html` with the email they paid with (a sign-in
-  *link*, not a password). They book **one lesson per week**, up to 4 in
+  *link*, not a password). They book **up to 4 lessons** on open days in
   those 30 days. Unused lessons do not roll over. Buy again to continue.
 
 They also choose how to pay: full amount by card, cash at the field, or —
