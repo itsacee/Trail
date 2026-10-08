@@ -33,7 +33,7 @@ test("public CDN reads never enable conditional ifMatch writes", async () => {
   }
 });
 
-test("blobWrite falls back to overwrite when ifMatch is rejected", async (t) => {
+test("blobWrite returns false on ifMatch conflict instead of clobbering", async (t) => {
   // Node's module mock is still experimental; skip if unavailable.
   if (typeof mock.module !== "function") {
     t.skip("mock.module is not available in this Node build");
@@ -62,16 +62,14 @@ test("blobWrite falls back to overwrite when ifMatch is rejected", async (t) => 
 
   process.env.BLOB_READ_WRITE_TOKEN = "test-token";
   try {
-    const { blobWrite } = await import(`../lib/store.js?overwrite=${Date.now()}`);
+    const { blobWrite } = await import(`../lib/store.js?conflict=${Date.now()}`);
+    // A 412 must not fall through to a blind overwrite — that wiped other lessons.
     assert.equal(
       await blobWrite("lessons.json", { lessons: [1] }, { ifMatch: "stale", conditional: true }),
-      true
+      false
     );
-    assert.equal(puts.length, 2);
+    assert.equal(puts.length, 1);
     assert.equal(puts[0].opts.ifMatch, "stale");
-    assert.equal(puts[0].opts.allowOverwrite, true);
-    assert.equal(puts[1].opts.ifMatch, undefined);
-    assert.equal(puts[1].opts.allowOverwrite, true);
   } finally {
     delete process.env.BLOB_READ_WRITE_TOKEN;
     mock.restoreAll();

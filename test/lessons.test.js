@@ -15,6 +15,7 @@ import {
   voidStripeLesson,
   isVoided,
   isActiveLesson,
+  saveLessons,
 } from "../lib/lessons.js";
 
 test("newLessonId is unique-ish and prefixed", () => {
@@ -194,6 +195,43 @@ test("voided Stripe signup lessons drop off the member calendar", () => {
 
   const after = scheduledFor(sub, stored);
   assert.equal(after.length, 0);
+});
+
+test("voiding one Stripe slot does not hide another lesson at the same hour", () => {
+  const stored = { lessons: [], voids: [] };
+  voidStripeLesson(stored, {
+    email: "a@example.com",
+    date: "2026-10-06",
+    time: "6:00 PM",
+    sourceId: "pi_moved",
+  });
+
+  // Same hour, different payment — still open on the coach calendar.
+  assert.equal(
+    isVoided(stored, { sourceId: "pi_other", date: "2026-10-06", time: "6:00 PM", email: "b@example.com" }),
+    false
+  );
+  // A member credit at that hour must stay visible too.
+  assert.equal(
+    isVoided(stored, {
+      date: "2026-10-06",
+      time: "6:00 PM",
+      email: "member@example.com",
+      subId: "sub_1",
+    }),
+    false
+  );
+  // The moved payment's old slot stays hidden.
+  assert.equal(
+    isVoided(stored, { sourceId: "pi_moved", date: "2026-10-06", time: "6:00 PM", email: "a@example.com" }),
+    true
+  );
+});
+
+test("saveLessons refuses to write after a failed empty read", async () => {
+  const empty = { lessons: [], voids: [] };
+  Object.defineProperty(empty, "_readFailed", { value: true, enumerable: false });
+  assert.equal(await saveLessons(empty), false);
 });
 
 test("scheduledFor includes cash/manual membership lessons", () => {
