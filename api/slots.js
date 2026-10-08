@@ -77,8 +77,17 @@ export async function bookedTimes(
 
   const search = async (resource, query, pick) => {
     const url = `https://api.stripe.com/v1/${resource}/search?query=${encodeURIComponent(query)}&limit=100`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
-    if (!res.ok) throw new Error(`Stripe slot lookup failed (${res.status}).`);
+    let res;
+    try {
+      res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+    } catch {
+      // Network blip — keep blob/holds so the calendar still loads.
+      return;
+    }
+    // Prefetching a full month used to fire dozens of searches at once and
+    // Stripe rate-limited them (429/503). Soft-skip that query instead of
+    // failing the whole day — parents were seeing errors on later weeks.
+    if (!res.ok) return;
     ((await res.json()).data || []).forEach((item) => {
       if (resource === "subscriptions" && !ACTIVE_SUBSCRIPTION.includes(item.status)) return;
       const m = item.metadata || {};
@@ -123,8 +132,13 @@ export async function bookedTimes(
       const url =
         `https://api.stripe.com/v1/checkout/sessions?limit=100&status=open` +
         `&created[gte]=${since}`;
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
-      if (!res.ok) throw new Error(`Stripe checkout hold lookup failed (${res.status}).`);
+      let res;
+      try {
+        res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+      } catch {
+        return;
+      }
+      if (!res.ok) return;
       ((await res.json()).data || [])
         .filter(
           (session) =>

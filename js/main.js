@@ -336,8 +336,10 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     refreshSubmit();
   }
 
-  async function loadSlots(iso) {
-    if (!iso || bookedCache[iso]) return;
+  async function loadSlots(iso, { force = false } = {}) {
+    if (!iso) return;
+    // Retry after a failed prefetch — don't keep the day stuck on an error.
+    if (!force && bookedCache[iso] && !slotErrors[iso]) return;
     try {
       const mine = myHold();
       const res = await fetch(`/api/slots?date=${iso}${mine ? `&mine=${encodeURIComponent(mine)}` : ""}`);
@@ -345,19 +347,21 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       bookedCache[iso] = (await res.json()).booked || [];
       delete slotErrors[iso];
     } catch {
-      // Never present an unverified time as open; the server also fails closed.
-      bookedCache[iso] = [];
+      // Don't cache an empty "booked" list on failure — pickDate will retry.
+      delete bookedCache[iso];
       slotErrors[iso] = true;
     }
   }
 
-  // Prefetch open days in the booking window so full days grey out on the
-  // calendar instead of only after tap. Most weekdays are closed, so this stays
-  // a modest number of requests even with a full-month window.
+  // Prefetch open days so full days can grey out, but never stampede Stripe:
+  // a full-month parallel burst was rate-limiting /api/slots and breaking later weeks.
   async function prefetchWindow() {
     const days = windowDates().filter((iso) => AP.startsForDate(iso, AVAIL, 60).length);
-    await Promise.all(days.map((iso) => loadSlots(iso)));
-    calendar.render();
+    const concurrency = 2;
+    for (let i = 0; i < days.length; i += concurrency) {
+      await Promise.all(days.slice(i, i + concurrency).map((iso) => loadSlots(iso)));
+      calendar.render();
+    }
   }
 
   // Mirrors lib/members.js bookingWindow when /api/availability is unavailable.
@@ -518,15 +522,15 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     if (els.timesTitle) els.timesTitle.textContent = `Open times · ${AP.prettyDate(selectedDate)}`;
 
     const booked = bookedCache[selectedDate];
-    if (!booked) {
-      if (els.timesNote) els.timesNote.textContent = "Checking open times…";
-      return;
-    }
-    if (slotErrors[selectedDate]) {
+    if (slotErrors[selectedDate] && !booked) {
       if (els.timesNote) {
         els.timesNote.textContent =
-          "We couldn't confirm live availability. Refresh and try again, or call/text (405) 819-4401.";
+          "We couldn't confirm live availability. Tap the day again to retry, or call/text (405) 819-4401.";
       }
+      return;
+    }
+    if (!booked) {
+      if (els.timesNote) els.timesNote.textContent = "Checking open times…";
       return;
     }
 
@@ -675,7 +679,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     selectedDate = iso;
     selectedTime = "";
     renderTimes();
-    await loadSlots(iso);
+    await loadSlots(iso, { force: Boolean(slotErrors[iso]) });
     if (selectedDate !== iso) return; // they moved on mid-request
     renderTimes();
     calendar.render(); // the day may have just turned out to be full
