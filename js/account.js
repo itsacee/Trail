@@ -195,7 +195,11 @@
       const on = !blocked && selectedTime === label;
       chip.classList.toggle("is-selected", on);
       chip.setAttribute("aria-checked", on ? "true" : "false");
-      const tag = blocked ? "Booked" : left === 1 ? "1 spot left" : "";
+      const tag = blocked
+        ? AP.slotBlockReason(booked, label, LESSON_MINUTES, focus, 1) || "Booked"
+        : left === 1
+        ? "1 spot left"
+        : "";
       chip.innerHTML = `<span class="chip__time">${label}</span>${tag ? `<span class="chip__tag">${tag}</span>` : ""}`;
       if (!blocked) {
         open++;
@@ -209,10 +213,12 @@
     });
     if (timesNote) {
       timesNote.textContent = !open
-        ? "No open times this day."
+        ? focus
+          ? `No open ${focus === "Both" ? "Hitting & Fielding" : focus} times this day. Times with a different focus stay unavailable.`
+          : "No open times this day."
         : selectedTime
         ? ""
-        : "Tap a time to pick it.";
+        : "Same focus can share a time (2 athletes). A different focus is unavailable — pick another time.";
     }
   }
 
@@ -517,7 +523,22 @@
     renderDash(data);
   });
 
-  if (focusSelect) focusSelect.addEventListener("change", () => resetPicker());
+  if (focusSelect) {
+    focusSelect.addEventListener("change", async () => {
+      selectedTime = "";
+      if (selectedDate) {
+        delete bookedCache[selectedDate];
+        delete slotErrors[selectedDate];
+        renderTimes();
+        calendar.render();
+        await loadSlots(selectedDate, { force: true });
+        renderTimes();
+        calendar.render();
+        return;
+      }
+      resetPicker();
+    });
+  }
 
   function signOut() {
     clearToken();

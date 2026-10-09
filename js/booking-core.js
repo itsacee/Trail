@@ -128,6 +128,28 @@
     return count > 0 ? count : 1;
   }
 
+  // Why a chip is unavailable — used for the greyed-out label under the time.
+  // Exact focus match only: Hitting cannot join Fielding or Hitting & Fielding.
+  function slotBlockReason(booked, label, dur, focus, want) {
+    const need = typeof want === "object" && want ? want : { seats: Number(want) || 1, exclusive: false };
+    const seats = Math.max(1, Number(need.seats) || 1);
+    const exclusive = Boolean(need.exclusive) || seats >= SLOT_CAPACITY;
+    const start = labelToMin(label);
+    if (start === null) return "Unavailable";
+    const end = start + dur;
+    for (const b of booked || []) {
+      const bs = labelToMin(b.time);
+      if (bs === null) continue;
+      const be = bs + (b.mins || 60);
+      if (!(start < be && bs < end)) continue;
+      if (b.time !== label || (b.mins || 60) !== dur) return "Booked";
+      if (b.exclusive || exclusive) return "Full";
+      if (!focusMatches(b, focus)) return "Different focus";
+      if (seatsTaken(b) + seats > SLOT_CAPACITY) return "Full";
+    }
+    return "";
+  }
+
   // `want` is how many athlete seats are needed, or { seats, exclusive } for a
   // private lesson that takes the whole hour.
   //
@@ -339,6 +361,8 @@
     todayIso,
     startsForDate,
     slotIsBlocked,
+    slotBlockReason,
+    focusMatches,
     seatsLeft,
     dollars,
     createCalendar,

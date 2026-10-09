@@ -553,7 +553,12 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       const on = !blocked && selectedTime === label;
       chip.classList.toggle("is-selected", on);
       chip.setAttribute("aria-checked", on ? "true" : "false");
-      const tag = blocked ? "Booked" : left === 1 && need.seats === 1 ? "1 spot left" : "";
+      // Different focus must look taken — Hitting cannot join Fielding / Both.
+      const tag = blocked
+        ? AP.slotBlockReason(booked, label, dur, focus, need) || "Booked"
+        : left === 1 && need.seats === 1
+        ? "1 spot left"
+        : "";
       chip.innerHTML = `<span class="chip__time">${label}</span>${tag ? `<span class="chip__tag">${tag}</span>` : ""}`;
       if (!blocked) {
         open++;
@@ -573,10 +578,12 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
           ? "Nothing open for a private hour this day — try another day or book a regular lesson."
           : need.seats > 1
           ? "No hour on this day has room for two athletes. Try another day."
+          : focus
+          ? `No open ${focus === "Both" ? "Hitting & Fielding" : focus} times this day. Times with a different focus stay unavailable.`
           : "No open times this day."
         : selectedTime
         ? ""
-        : "Tap a time to pick it.";
+        : "Same focus can share a time (2 athletes). A different focus is unavailable — pick another time.";
     }
   }
 
@@ -735,7 +742,26 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   );
 
   if (els.focusSelect) {
-    els.focusSelect.addEventListener("change", () => resetSlot());
+    els.focusSelect.addEventListener("change", async () => {
+      selectedTime = "";
+      // Re-check live bookings for this focus so a Hitting slot greys out for Fielding.
+      if (selectedDate) {
+        delete bookedCache[selectedDate];
+        delete slotErrors[selectedDate];
+        renderTimes();
+        calendar.render();
+        refreshSubmit();
+        await loadSlots(selectedDate, { force: true });
+        if (selectedTime && AP.slotIsBlocked(bookedCache[selectedDate] || [], selectedTime, AP.durationFor(selectedType), currentFocus(), want())) {
+          selectedTime = "";
+        }
+        renderTimes();
+        calendar.render();
+        refreshSubmit();
+        return;
+      }
+      resetSlot();
+    });
   }
 
   if (els.addAthlete) {
