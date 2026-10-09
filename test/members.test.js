@@ -134,12 +134,12 @@ test("membershipSummary flags an expired membership", () => {
   });
 });
 
-test("bookingBlocked enforces the window, credit cap, and one-per-day", () => {
+test("bookingBlocked enforces membership expiry, credit cap, and one-per-day", () => {
   atTime(NOW, () => {
     const summary = membershipSummary(SUB, []);
     // Today or earlier is rejected.
     assert.match(bookingBlocked(summary, "2026-08-26", []), /tomorrow onward/);
-    // Past the expiry date is rejected even when that day is still inside the month window.
+    // Past the expiry date is rejected.
     const endingSoon = membershipSummary(
       {
         metadata: { player: "Sam", email: "sam@example.com" },
@@ -149,11 +149,31 @@ test("bookingBlocked enforces the window, credit cap, and one-per-day", () => {
       []
     );
     assert.match(bookingBlocked(endingSoon, "2026-08-29", []), /have to be used by/);
-    // Valid days through the rest of the open month pass.
+    // Any day inside the paid membership month passes — not limited to the
+    // shorter public drop-in window.
     assert.equal(bookingBlocked(summary, "2026-08-28", []), null);
     assert.equal(bookingBlocked(summary, "2026-09-02", []), null);
     assert.equal(bookingBlocked(summary, "2026-09-15", []), null);
-    assert.match(bookingBlocked(summary, "2026-10-01", []), /open for booking yet/);
+    assert.match(bookingBlocked(summary, "2026-10-01", []), /have to be used by/);
+  });
+});
+
+test("members can book past the public month window through membership expiry", () => {
+  atTime("2026-10-08T12:00:00-05:00", () => {
+    // Public drop-in window ends Oct 31; this membership runs into early November.
+    assert.match(bookWindowBlocked("2026-11-03"), /open for booking yet/);
+    const summary = membershipSummary(
+      {
+        metadata: { player: "Sam", email: "sam@example.com" },
+        current_period_start: Math.floor(Date.parse("2026-10-05T12:00:00Z") / 1000),
+        current_period_end: Math.floor(Date.parse("2026-11-04T12:00:00Z") / 1000), // last day 11-03
+      },
+      []
+    );
+    assert.equal(summary.lastDay, "2026-11-03");
+    assert.equal(bookingBlocked(summary, "2026-10-27", []), null);
+    assert.equal(bookingBlocked(summary, "2026-11-03", []), null);
+    assert.match(bookingBlocked(summary, "2026-11-04", []), /have to be used by/);
   });
 });
 

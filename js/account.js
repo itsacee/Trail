@@ -72,15 +72,25 @@
 
   /* ---------- day & time picking ---------- */
 
-  // A member can book any open day inside the booking window that still falls on
-  // or before the day their credits expire.
-  function bookableWindow() {
-    const lastDay = (account && account.lastDay) || "";
-    const dates = bookableDates.length ? bookableDates : fallbackDates();
-    return lastDay ? dates.filter((iso) => iso <= lastDay) : dates;
+  function addDaysIso(iso, n) {
+    const d = new Date(`${iso}T12:00:00`);
+    d.setDate(d.getDate() + n);
+    return AP.isoDate(d);
   }
 
-  // Mirrors lib/members.js bookingWindow when /api/availability is unavailable.
+  // Members can book any day from tomorrow through membership expiry — not just
+  // the shorter public drop-in month window on /api/availability.
+  function bookableWindow() {
+    const lastDay = (account && account.lastDay) || "";
+    if (!lastDay) return bookableDates.length ? bookableDates : fallbackDates();
+    const out = [];
+    const now = new Date();
+    let cur = AP.isoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+    for (; cur <= lastDay; cur = addDaysIso(cur, 1)) out.push(cur);
+    return out;
+  }
+
+  // Fallback when availability hasn't loaded and we don't know lastDay yet.
   function fallbackDates() {
     const out = [];
     const now = new Date();
