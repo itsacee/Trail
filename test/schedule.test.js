@@ -133,6 +133,11 @@ test("slotBlocked lets a second player join only with the same focus", () => {
     false
   );
   assert.equal(slotBlocked([], "5:00 PM", 60, "Both"), false);
+  // Hitting & Fielding is its own focus — Hitting or Fielding alone cannot join it.
+  const both = [{ time: "5:00 PM", mins: 60, seats: 1, focuses: ["Both"] }];
+  assert.equal(slotBlocked(both, "5:00 PM", 60, "Both"), false);
+  assert.equal(slotBlocked(both, "5:00 PM", 60, "Hitting"), true);
+  assert.equal(slotBlocked(both, "5:00 PM", 60, "Fielding"), true);
 });
 
 test("old bookings without a focus stay exclusive", () => {

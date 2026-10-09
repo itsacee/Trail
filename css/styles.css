@@ -1206,10 +1206,17 @@ a.price-card .btn { text-align: center; }
 }
 .chip.is-selected .chip__tag { color: rgba(10, 10, 12, 0.7); }
 .chip.is-off {
-  opacity: 0.45;
+  opacity: 1;
   cursor: not-allowed;
+  background: #141418;
+  border-color: #2a2a32;
+  color: #6b6b76;
   text-decoration: line-through;
   text-decoration-thickness: 1px;
+}
+.chip.is-off .chip__tag {
+  color: #8b8b96;
+  text-decoration: none;
 }
 
 /* ---------- second athlete ---------- */
