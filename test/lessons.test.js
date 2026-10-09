@@ -228,10 +228,35 @@ test("voiding one Stripe slot does not hide another lesson at the same hour", ()
   );
 });
 
-test("saveLessons refuses to write after a failed empty read", async () => {
+test("saveLessons refuses to write when the store was unreachable", async () => {
   const empty = { lessons: [], voids: [] };
   Object.defineProperty(empty, "_readFailed", { value: true, enumerable: false });
   assert.equal(await saveLessons(empty), false);
+});
+
+test("saveLessons allows writing an empty-but-reachable store", async () => {
+  const prevToken = process.env.BLOB_READ_WRITE_TOKEN;
+  const prevFetch = globalThis.fetch;
+  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_test";
+  let wrote = null;
+  globalThis.fetch = async (url, opts = {}) => {
+    if ((opts.method || "GET").toUpperCase() === "PUT") {
+      wrote = opts.body;
+      return { ok: true, json: async () => ({}) };
+    }
+    return { ok: false, status: 404, text: async () => "" };
+  };
+  try {
+    // SDK put will fail in tests; REST fallback with allow-overwrite should land.
+    const empty = { lessons: [{ id: "lsn_1", date: "2026-10-15", time: "6:00 PM" }], voids: [] };
+    Object.defineProperty(empty, "_readFailed", { value: false, enumerable: false });
+    assert.equal(await saveLessons(empty), true);
+    assert.match(String(wrote), /lsn_1/);
+  } finally {
+    globalThis.fetch = prevFetch;
+    if (prevToken === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
+    else process.env.BLOB_READ_WRITE_TOKEN = prevToken;
+  }
 });
 
 test("scheduledFor includes cash/manual membership lessons", () => {
