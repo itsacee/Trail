@@ -136,7 +136,7 @@ Do **not** deploy from this report alone. Before production:
 
 ## M. Git branch, commit, and working-tree status
 
-**Stage 4 commit:** `a1eb5cf` on `cursor/stage2-booking-rules-f621` (PR https://github.com/itsacee/Trail/pull/61).
+**Stage 4 commit:** `ca141a7` on `cursor/stage2-booking-rules-f621` (PR https://github.com/itsacee/Trail/pull/61).
 
 ---
 
