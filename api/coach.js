@@ -35,6 +35,8 @@ import {
   slotBlocked,
   seatsFor,
   isExclusiveType,
+  isExclusiveFocus,
+  isExclusiveBooking,
   canPair,
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
@@ -298,7 +300,7 @@ export default async function handler(req, res) {
           if (
             slotBlocked(taken, time, mins, focus, {
               seats: seatsOnLesson(row),
-              exclusive: isExclusiveType(row.type),
+              exclusive: isExclusiveBooking({ type: row.type, focus }),
             })
           ) {
             res.status(409).json({ error: "Something else is already on that time. Pick another." });
@@ -447,9 +449,16 @@ export default async function handler(req, res) {
         res.status(400).json({ error: "Need athlete, day, and time." });
         return;
       }
-      const athletes = canPair(type) && player2 ? 2 : 1;
-      const seats = isExclusiveType(type) ? SLOT_CAPACITY : seatsFor(type, athletes);
       const focus = normalizeFocus(req.body.focus || "Fielding", type);
+      if (isExclusiveFocus(focus) && player2) {
+        res.status(400).json({
+          error: "Hitting & Fielding is a one-athlete session. Remove the second athlete or pick Hitting/Fielding.",
+        });
+        return;
+      }
+      const athletes = !isExclusiveFocus(focus) && canPair(type) && player2 ? 2 : 1;
+      const exclusive = isExclusiveBooking({ type, focus });
+      const seats = exclusive ? SLOT_CAPACITY : seatsFor(type, athletes);
       const availability = await getAvailability();
       if (!allowedTimes(date, availability, durationFor(type)).includes(time) && !req.body.force) {
         res.status(409).json({ error: "That time isn't in your open hours. Save anyway?", code: "outside_hours" });
@@ -457,7 +466,7 @@ export default async function handler(req, res) {
       }
       if (key) {
         const taken = await bookedTimes(key, date);
-        if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive: isExclusiveType(type) })) {
+        if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive })) {
           res.status(409).json({ error: "That slot is already taken." });
           return;
         }
@@ -496,12 +505,7 @@ export default async function handler(req, res) {
         }
         if (attempt > 0 && key) {
           const taken = await bookedTimes(key, date);
-          if (
-            slotBlocked(taken, time, durationFor(type), focus, {
-              seats,
-              exclusive: isExclusiveType(type),
-            })
-          ) {
+          if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive })) {
             res.status(409).json({
               error: "That time was just taken, became full, or has a different training focus.",
               code: "slot_taken",

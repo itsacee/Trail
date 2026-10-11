@@ -133,11 +133,22 @@ test("slotBlocked lets a second player join only with the same focus", () => {
     false
   );
   assert.equal(slotBlocked([], "5:00 PM", 60, "Both"), false);
-  // Hitting & Fielding is its own focus — Hitting or Fielding alone cannot join it.
+  // Hitting & Fielding is solo — one booking fills the hour for every focus.
   const both = [{ time: "5:00 PM", mins: 60, seats: 1, focuses: ["Both"] }];
-  assert.equal(slotBlocked(both, "5:00 PM", 60, "Both"), false);
+  assert.equal(slotBlocked(both, "5:00 PM", 60, "Both"), true);
   assert.equal(slotBlocked(both, "5:00 PM", 60, "Hitting"), true);
   assert.equal(slotBlocked(both, "5:00 PM", 60, "Fielding"), true);
+});
+
+test("Hitting & Fielding is exclusive even without an exclusive flag on the row", () => {
+  const both = [{ time: "6:00 PM", mins: 60, seats: 1, exclusive: false, focuses: ["Both"] }];
+  assert.equal(slotBlocked(both, "6:00 PM", 60, "Both", 1), true);
+  assert.equal(slotBlocked(both, "6:00 PM", 60, "Hitting", 1), true);
+  assert.equal(seatsLeft(both, "6:00 PM", 60, "Both"), 0);
+  assert.equal(seatsLeft([], "6:00 PM", 60, "Both"), 1);
+  // A Both request also refuses to join an open Hitting seat.
+  const hitting = [{ time: "6:00 PM", mins: 60, seats: 1, focuses: ["Hitting"] }];
+  assert.equal(slotBlocked(hitting, "6:00 PM", 60, "Both", 1), true);
 });
 
 test("old bookings without a focus stay exclusive", () => {
