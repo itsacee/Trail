@@ -14,17 +14,21 @@ import {
   makeMemberLesson,
   removeLesson,
   scheduledFor,
+  scheduledAcrossMemberships,
   voidStripeLesson,
 } from "../lib/lessons.js";
 import {
-  findMembership,
+  listMembershipsForEmail,
+  pickPrimaryMembership,
   membershipSummary,
+  publicMembershipCard,
   membershipOptsFromState,
   bookingBlocked,
   canCancelLesson,
   prettyDate,
   membershipTypeOf,
   membershipTierOf,
+  todayChicago,
 } from "../lib/members.js";
 import { loadMembersState } from "../lib/membersStore.js";
 import {
@@ -46,10 +50,21 @@ const REPLY_TO = "Apacademybsb@gmail.com";
 function publicAccount(acct) {
   const loc = LOCATIONS.mustang || {};
   const membershipType = membershipTypeOf(acct.sub);
+  const memberships = (acct.membershipCards || []).map(publicMembershipCard);
+  const allLessons = (acct.allLessons || acct.summary.lessons || [])
+    .filter((l) => l.date >= todayChicago())
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    .map((l) => ({
+      ...l,
+      canChange: typeof l.canChange === "boolean" ? l.canChange : canCancelLesson(l.date, l.time),
+    }));
   return {
     ...acct.summary,
+    membershipId: acct.sub?.id || acct.summary.membershipId || "",
     membershipType,
     membershipTier: membershipTierOf(acct.sub),
+    memberships,
+    lessons: allLessons,
     siteStatus: getSiteStatus(),
     location: {
       name: loc.name || "Mustang High School",
@@ -60,22 +75,88 @@ function publicAccount(acct) {
   };
 }
 
-function accountBookingType(acct) {
-  return membershipTypeOf(acct.sub);
+function purchaseBookingType(sub) {
+  return membershipTypeOf(sub);
 }
 
-function accountPrivacy(acct, lesson) {
+function purchasePrivacy(sub, lesson) {
   if (lesson?.privacy) return lesson.privacy;
-  return privacyForPurchaseType(accountBookingType(acct));
+  return privacyForPurchaseType(purchaseBookingType(sub));
 }
 
-function summarize(acct, scheduled = acct.scheduled) {
-  return membershipSummary(acct.sub, scheduled, acct.memberOpts || {});
+function summarizePurchase(acct, sub, scheduled) {
+  return membershipSummary(sub, scheduled, {
+    ...(acct.memberOpts || {}),
+    siblings: acct.subs,
+  });
+}
+
+function rebuildMembershipViews(acct) {
+  const siblings = acct.subs || [];
+  acct.membershipCards = siblings.map((sub) => {
+    const scheduled = scheduledFor(sub, acct.stored, acct.manual, siblings);
+    return summarizePurchase(acct, sub, scheduled);
+  });
+  // Period still open (not calendar-expired). Used-up purchases stay listed
+  // until their last day so parents can see 0 credits / buy again messaging.
+  acct.activeCards = acct.membershipCards.filter((s) => s.periodOpen);
+  const activeSubs = siblings.filter((sub) =>
+    acct.activeCards.some((card) => card.membershipId === sub.id)
+  );
+  const primarySub =
+    pickPrimaryMembership(activeSubs) || pickPrimaryMembership(siblings) || acct.sub;
+  acct.sub = primarySub;
+  acct.scheduled = scheduledFor(primarySub, acct.stored, acct.manual, siblings);
+  acct.summary = summarizePurchase(acct, primarySub, acct.scheduled);
+  acct.allLessons = scheduledAcrossMemberships(siblings, acct.stored, acct.manual).map((l) => ({
+    ...l,
+    canChange: canCancelLesson(l.date, l.time),
+  }));
+  return acct;
+}
+
+function resolvePurchase(acct, membershipId) {
+  const id = String(membershipId || "").trim();
+  const siblings = acct.subs || [];
+  if (id) {
+    const hit = siblings.find((s) => s.id === id);
+    if (hit) return hit;
+    return null;
+  }
+  // Single open membership → implicit selection (same portal behavior as before).
+  const open = (acct.activeCards || []).filter((c) => !c.expired && c.remaining > 0);
+  if (open.length === 1) {
+    return siblings.find((s) => s.id === open[0].membershipId) || null;
+  }
+  if ((acct.activeCards || []).length === 1) {
+    return siblings.find((s) => s.id === acct.activeCards[0].membershipId) || null;
+  }
+  if (siblings.length === 1) return siblings[0];
+  return null;
+}
+
+function purchaseForLesson(acct, lesson) {
+  const siblings = acct.subs || [];
+  const bySub = String(lesson?.subId || "").trim();
+  if (bySub) {
+    const hit = siblings.find((s) => s.id === bySub);
+    if (hit) return hit;
+  }
+  const bySource = String(lesson?.sourceId || "").trim();
+  if (bySource && lesson?.source === "stripe") {
+    const hit = siblings.find((s) => s.id === bySource);
+    if (hit) return hit;
+  }
+  // Legacy fallback: unique belonging among siblings.
+  const owners = siblings.filter((s) =>
+    scheduledFor(s, acct.stored, acct.manual, siblings).some((l) => l.id === lesson.id)
+  );
+  if (owners.length === 1) return owners[0];
+  return pickPrimaryMembership(owners) || acct.sub;
 }
 
 async function refreshScheduled(acct) {
-  acct.scheduled = scheduledFor(acct.sub, acct.stored, acct.manual);
-  acct.summary = summarize(acct);
+  rebuildMembershipViews(acct);
   return acct;
 }
 
@@ -130,24 +211,29 @@ async function emailMemberBooking(to, lesson, summary) {
 }
 
 async function loadAccount(key, email) {
-  const sub = await findMembership(key || "", email);
-  if (!sub) return null;
+  const subs = await listMembershipsForEmail(key || "", email);
+  if (!subs.length) return null;
   const [stored, manual, membersState] = await Promise.all([
     loadLessons(),
     loadManualBookings(),
     loadMembersState(),
   ]);
   const memberOpts = membershipOptsFromState(membersState, email);
-  const scheduled = scheduledFor(sub, stored, manual);
-  return {
-    sub,
+  const acct = {
+    subs,
+    sub: pickPrimaryMembership(subs),
     stored,
     manual,
     membersState,
     memberOpts,
-    scheduled,
-    summary: membershipSummary(sub, scheduled, memberOpts),
+    scheduled: [],
+    summary: null,
+    membershipCards: [],
+    activeCards: [],
+    allLessons: [],
   };
+  rebuildMembershipViews(acct);
+  return acct;
 }
 
 // Drop a lesson the member currently holds. Portal-booked lessons live in the
@@ -225,7 +311,7 @@ export default async function handler(req, res) {
 
   if (action === "cancel") {
     const id = String(req.body?.id || "");
-    const lesson = acct.scheduled.find((l) => l.id === id);
+    const lesson = (acct.allLessons || acct.scheduled).find((l) => l.id === id);
     if (!lesson) {
       res.status(404).json({ error: "Lesson not found." });
       return;
@@ -234,6 +320,12 @@ export default async function handler(req, res) {
       res.status(400).json({ error: "Cancellations need 12 hours notice. Call or text (405) 819-4401." });
       return;
     }
+    const owner = purchaseForLesson(acct, lesson);
+    const ownerSummary = summarizePurchase(
+      acct,
+      owner,
+      scheduledFor(owner, acct.stored, acct.manual, acct.subs)
+    );
 
     if (lesson.source === "manual") {
       const cancelled = await mutateManualBookings((manual) => {
@@ -278,7 +370,7 @@ export default async function handler(req, res) {
       to: email,
       lesson,
       cancelledBy: "parent",
-      extraLine: `That lesson credit is available to book again through ${acct.summary.lastDayPretty}.`,
+      extraLine: `That lesson credit is available to book again through ${ownerSummary.lastDayPretty}.`,
     });
     res.status(200).json({ ok: true, notified, ...publicAccount(acct) });
     return;
@@ -286,7 +378,7 @@ export default async function handler(req, res) {
 
   if (action === "reschedule") {
     const id = String(req.body?.id || "");
-    const lesson = acct.scheduled.find((l) => l.id === id);
+    const lesson = (acct.allLessons || acct.scheduled).find((l) => l.id === id);
     if (!lesson) {
       res.status(404).json({ error: "Lesson not found." });
       return;
@@ -294,6 +386,13 @@ export default async function handler(req, res) {
     // The 12-hour window is measured from the lesson they currently hold.
     if (!canCancelLesson(lesson.date, lesson.time)) {
       res.status(400).json({ error: "Changes need 12 hours notice before your lesson. Call or text (405) 819-4401." });
+      return;
+    }
+
+    // Reschedule keeps the original purchase — never switch tiers/credits mid-move.
+    const owner = purchaseForLesson(acct, lesson);
+    if (!owner) {
+      res.status(400).json({ error: "Couldn't find the membership for that lesson. Call or text (405) 819-4401." });
       return;
     }
 
@@ -305,7 +404,7 @@ export default async function handler(req, res) {
       res.status(400).json({ error: newFocusError });
       return;
     }
-    const memberType = accountBookingType(acct);
+    const memberType = purchaseBookingType(owner);
     const newFocus = normalizeFocus(newFocusRaw, memberType);
     if (!DATE_RE.test(newDate) || !TIME_RE.test(newTime) || !newFocus) {
       res.status(400).json({ error: "Pick a training focus, day, and time." });
@@ -318,9 +417,12 @@ export default async function handler(req, res) {
 
     // Judge the new slot as if the lesson being moved weren't on the calendar,
     // so the one-per-day and remaining-credit rules don't count it twice.
-    const others = acct.scheduled.filter((l) => l.id !== id);
-    const summaryWithout = summarize(acct, others);
-    const blocked = bookingBlocked(summaryWithout, newDate, others);
+    const ownerScheduled = scheduledFor(owner, acct.stored, acct.manual, acct.subs).filter(
+      (l) => l.id !== id
+    );
+    const summaryWithout = summarizePurchase(acct, owner, ownerScheduled);
+    const dayOthers = (acct.allLessons || []).filter((l) => l.id !== id);
+    const blocked = bookingBlocked(summaryWithout, newDate, ownerScheduled, dayOthers);
     if (blocked) {
       res.status(400).json({ error: blocked });
       return;
@@ -332,7 +434,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const movePrivacy = accountPrivacy(acct, lesson);
+    const movePrivacy = purchasePrivacy(owner, lesson);
     const moveExclusive = isExclusiveBooking({ type: memberType, focus: newFocus, privacy: movePrivacy });
     const moveSeats = moveExclusive ? 2 : 1;
     try {
@@ -381,7 +483,7 @@ export default async function handler(req, res) {
     }
 
     const moved = makeMemberLesson({
-      sub: acct.sub,
+      sub: owner,
       date: newDate,
       time: newTime,
       focus: newFocus,
@@ -392,9 +494,12 @@ export default async function handler(req, res) {
     const movedSave = await mutateLessons(async (stored) => {
       acct.stored = stored;
       acct.manual = await loadManualBookings();
-      const scheduled = scheduledFor(acct.sub, stored, acct.manual).filter((l) => l.id !== id);
-      const summaryWithout = summarize(acct, scheduled);
-      const retryBlocked = bookingBlocked(summaryWithout, newDate, scheduled);
+      const scheduled = scheduledFor(owner, stored, acct.manual, acct.subs).filter((l) => l.id !== id);
+      const summaryWithout = summarizePurchase(acct, owner, scheduled);
+      const dayOthers = scheduledAcrossMemberships(acct.subs, stored, acct.manual).filter(
+        (l) => l.id !== id
+      );
+      const retryBlocked = bookingBlocked(summaryWithout, newDate, scheduled, dayOthers);
       if (retryBlocked) {
         return { ok: false, error: retryBlocked, status: 400, code: "slot_taken" };
       }
@@ -449,14 +554,19 @@ export default async function handler(req, res) {
     acct.stored = movedSave.data || (await loadLessons());
     acct.manual = await loadManualBookings();
     await refreshScheduled(acct);
+    const ownerAfter = summarizePurchase(
+      acct,
+      owner,
+      scheduledFor(owner, acct.stored, acct.manual, acct.subs)
+    );
     const notified = await sendLessonMovedEmail({
       to: email,
       oldLesson: lesson,
       newLesson: moved,
       movedBy: "parent",
-      extraLine: `You still have ${acct.summary.remaining || 0} lesson${
-        acct.summary.remaining === 1 ? "" : "s"
-      } left, good through ${acct.summary.lastDayPretty}.`,
+      extraLine: `You still have ${ownerAfter.remaining || 0} lesson${
+        ownerAfter.remaining === 1 ? "" : "s"
+      } left on that membership, good through ${ownerAfter.lastDayPretty}.`,
     });
     res.status(200).json({ ok: true, notified, lesson: moved, ...publicAccount(acct) });
     return;
@@ -470,14 +580,28 @@ export default async function handler(req, res) {
     res.status(400).json({ error: focusError });
     return;
   }
-  const memberType = accountBookingType(acct);
+
+  const selected = resolvePurchase(acct, req.body?.membershipId || req.body?.purchaseId);
+  if (!selected) {
+    res.status(400).json({
+      error:
+        (acct.activeCards || []).length > 1
+          ? "Pick which membership to use for this lesson."
+          : "No active membership credits available. Buy another month when you're ready.",
+    });
+    return;
+  }
+
+  const memberType = purchaseBookingType(selected);
   const focus = normalizeFocus(focusRaw, memberType);
   if (!DATE_RE.test(date) || !TIME_RE.test(time) || !focus) {
     res.status(400).json({ error: "Pick a training focus, day, and time." });
     return;
   }
 
-  const blocked = bookingBlocked(acct.summary, date, acct.scheduled);
+  const selectedScheduled = scheduledFor(selected, acct.stored, acct.manual, acct.subs);
+  const selectedSummary = summarizePurchase(acct, selected, selectedScheduled);
+  const blocked = bookingBlocked(selectedSummary, date, selectedScheduled, acct.allLessons);
   if (blocked) {
     res.status(400).json({ error: blocked });
     return;
@@ -489,7 +613,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const privacy = accountPrivacy(acct);
+  const privacy = purchasePrivacy(selected);
   const exclusive = isExclusiveBooking({ type: memberType, focus, privacy });
   const seats = exclusive ? 2 : 1;
   try {
@@ -516,7 +640,7 @@ export default async function handler(req, res) {
   }
 
   const lesson = makeMemberLesson({
-    sub: acct.sub,
+    sub: selected,
     date,
     time,
     focus,
@@ -529,7 +653,10 @@ export default async function handler(req, res) {
     acct.manual = await loadManualBookings();
     await refreshScheduled(acct);
 
-    const retryBlocked = bookingBlocked(acct.summary, date, acct.scheduled);
+    const liveScheduled = scheduledFor(selected, stored, acct.manual, acct.subs);
+    const liveSummary = summarizePurchase(acct, selected, liveScheduled);
+    const liveAll = scheduledAcrossMemberships(acct.subs, stored, acct.manual);
+    const retryBlocked = bookingBlocked(liveSummary, date, liveScheduled, liveAll);
     if (retryBlocked) {
       return { ok: false, error: retryBlocked, status: 400, code: "slot_taken" };
     }
@@ -576,6 +703,11 @@ export default async function handler(req, res) {
 
   acct.stored = booked.data || acct.stored;
   await refreshScheduled(acct);
-  emailMemberBooking(email, lesson, acct.summary);
+  const bookedSummary = summarizePurchase(
+    acct,
+    selected,
+    scheduledFor(selected, acct.stored, acct.manual, acct.subs)
+  );
+  emailMemberBooking(email, lesson, bookedSummary);
   res.status(200).json({ ok: true, lesson, ...publicAccount(acct) });
 }

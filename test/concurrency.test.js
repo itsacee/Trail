@@ -222,6 +222,52 @@ test("two members booking simultaneously — credits and seats both enforced", a
   assert.equal(final.lessons.length, 2);
 });
 
+test("concurrent bookings against one purchase stop at four credits", async () => {
+  const purchaseId = "pi_credit_race";
+  const barrier = makeBarrier(2);
+  let seq = 0;
+  const bookCredit = () =>
+    mutateLessons(async (data) => {
+      await barrier();
+      const mine = data.lessons.filter(
+        (l) => l.subId === purchaseId && (l.type === "membership" || l.type === "membership_private")
+      );
+      if (mine.length >= 4) return { ok: false, code: "no_credits", error: "no credits" };
+      seq += 1;
+      data.lessons.push({
+        id: `credit-${seq}-${Math.random().toString(36).slice(2, 6)}`,
+        subId: purchaseId,
+        date: `2099-06-${String(10 + mine.length).padStart(2, "0")}`,
+        time: TIME,
+        focus: "Hitting",
+        privacy: "private",
+        type: "membership_private",
+        email: "credit-race@example.com",
+      });
+      return { ok: true };
+    });
+
+  // Seed three credits already used so only one more can succeed.
+  await seedLessons(
+    [0, 1, 2].map((i) => ({
+      id: `seed-${i}`,
+      subId: purchaseId,
+      date: `2099-05-${String(10 + i).padStart(2, "0")}`,
+      time: TIME,
+      focus: "Hitting",
+      privacy: "private",
+      type: "membership_private",
+      email: "credit-race@example.com",
+    }))
+  );
+
+  const [a, b] = await Promise.all([bookCredit(), bookCredit()]);
+  assert.equal([a, b].filter((r) => r.ok).length, 1);
+  assert.equal([a, b].filter((r) => r.code === "no_credits").length, 1);
+  const final = await loadLessons();
+  assert.equal(final.lessons.filter((l) => l.subId === purchaseId).length, 4);
+});
+
 test("concurrent private-membership last-seat race admits only one", async () => {
   const barrier = makeBarrier(2);
   const want = { seats: SLOT_CAPACITY, exclusive: true, privacy: "private" };
