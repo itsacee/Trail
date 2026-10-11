@@ -78,7 +78,7 @@ Added coverage: mixed tiers, same-tier duplicates, choose Standard vs Private (`
 
 ## H. Git commit and branch status
 
-**Correction commit:** `518aa65` on `cursor/stage2-booking-rules-f621` (PR https://github.com/itsacee/Trail/pull/61).  
+**Correction commit:** `9d052e9` on `cursor/stage2-booking-rules-f621` (PR https://github.com/itsacee/Trail/pull/61).  
 Untracked preserved: `STAGE-1-INVESTIGATION-REPORT.md`.
 
 ---
