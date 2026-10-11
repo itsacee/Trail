@@ -13,11 +13,15 @@ export default async function handler(req, res) {
     return;
   }
 
-  let sessions = [];
+  let sessions;
   try {
     sessions = await fetchBookings(key);
-  } catch {
-    sessions = [];
+  } catch (e) {
+    res.status(503).json({
+      error: e?.message || "Couldn't load the schedule from storage.",
+      code: e?.code || "schedule_unavailable",
+    });
+    return;
   }
 
   // Whether each integration is configured — booleans only, never the values

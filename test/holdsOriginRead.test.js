@@ -1,6 +1,6 @@
-// Holds / CAS must read capacity files from private origin storage.
-// Public get() ignores useCache:false, so a CDN-stale ETag makes ifMatch 412
-// and placeHold fail-closed before Stripe Checkout opens.
+// Emergency hotfix: capacity files stay on the EXISTING public Blob store.
+// Private access / public→private migration is removed. CAS writes stay
+// fail-closed (and paused unless CAPACITY_WRITES_ENABLED=1).
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -10,6 +10,7 @@ import {
   clearMemoryBlobStore,
   blobAccessFor,
   blobCompareAndSet,
+  capacityWritesEnabled,
   storeConfigured,
 } from "../lib/store.js";
 import { placeHold, releaseHold, loadHolds, saveHolds } from "../lib/holds.js";
@@ -23,10 +24,10 @@ test("installed @vercel/blob only applies useCache:false for private access", as
   );
 });
 
-test("capacity-critical blobs select private access; public schedule files stay public", () => {
-  assert.equal(blobAccessFor("holds.json"), "private");
-  assert.equal(blobAccessFor("lessons.json"), "private");
-  assert.equal(blobAccessFor("manual-bookings.json"), "private");
+test("capacity-critical blobs stay public on the existing store (hotfix)", () => {
+  assert.equal(blobAccessFor("holds.json"), "public");
+  assert.equal(blobAccessFor("lessons.json"), "public");
+  assert.equal(blobAccessFor("manual-bookings.json"), "public");
   assert.equal(blobAccessFor("availability.json"), "public");
   assert.equal(blobAccessFor("settings.json"), "public");
 });
@@ -41,10 +42,12 @@ after(() => {
 
 beforeEach(() => {
   clearMemoryBlobStore();
+  process.env.CAPACITY_WRITES_ENABLED = "1";
 });
 
 test("placeHold creates a hold and releaseHold removes it", async () => {
   assert.equal(storeConfigured(), true);
+  assert.equal(capacityWritesEnabled(), true);
   const ok = await placeHold("cs_test_1", [{ date: "2026-11-12", time: "5:00 PM" }], 60, "Hitting", {
     seats: 1,
     type: "single",
@@ -178,13 +181,31 @@ test("two simultaneous placeHold calls both persist (CAS retry)", async () => {
   assert.deepEqual(loaded.holds.map((h) => h.sessionId).sort(), ["cs_race_1", "cs_race_2"]);
 });
 
+test("capacity writes pause blocks placeHold without inventing empty holds", async () => {
+  process.env.CAPACITY_WRITES_ENABLED = "0";
+  assert.equal(capacityWritesEnabled(), false);
+  assert.equal(
+    await placeHold("cs_paused", [{ date: "2026-11-17", time: "5:00 PM" }], 60, "Hitting", {
+      seats: 1,
+      type: "single",
+      privacy: "standard",
+    }),
+    false
+  );
+  const cas = await blobCompareAndSet("holds.json", { holds: [] }, "");
+  assert.equal(cas.ok, false);
+  assert.equal(cas.paused, true);
+});
+
 test("missing Blob credentials fail CAS closed (no overwrite)", async () => {
   useMemoryBlobStore(false);
   const prevToken = process.env.BLOB_READ_WRITE_TOKEN;
   const prevUrl = process.env.AVAILABILITY_URL;
+  const prevWrites = process.env.CAPACITY_WRITES_ENABLED;
   delete process.env.BLOB_READ_WRITE_TOKEN;
   delete process.env.AVAILABILITY_URL;
   delete process.env.BLOB_MEMORY_STORE;
+  process.env.CAPACITY_WRITES_ENABLED = "1";
 
   try {
     assert.equal(storeConfigured(), false);
@@ -196,6 +217,8 @@ test("missing Blob credentials fail CAS closed (no overwrite)", async () => {
     else process.env.BLOB_READ_WRITE_TOKEN = prevToken;
     if (prevUrl === undefined) delete process.env.AVAILABILITY_URL;
     else process.env.AVAILABILITY_URL = prevUrl;
+    if (prevWrites === undefined) delete process.env.CAPACITY_WRITES_ENABLED;
+    else process.env.CAPACITY_WRITES_ENABLED = prevWrites;
     useMemoryBlobStore(true);
   }
 });

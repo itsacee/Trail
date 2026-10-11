@@ -92,16 +92,12 @@ async function listOutstanding() {
 async function dashboard() {
   await loadCoachStatus();
   const key = process.env.STRIPE_SECRET_KEY || "";
-  let sessions = [];
-  try {
-    sessions = await fetchBookings(key);
-    sessions = sessions.map((session) => ({
-      ...session,
-      canChange: !lessonHasEnded(session),
-    }));
-  } catch {
-    sessions = [];
-  }
+  // Fail closed: never replace an unreadable Blob schedule with [].
+  let sessions = await fetchBookings(key);
+  sessions = sessions.map((session) => ({
+    ...session,
+    canChange: !lessonHasEnded(session),
+  }));
   const membersState = await loadMembersState();
   const finance = await loadFinance();
   const outstanding = await listOutstanding();
@@ -186,7 +182,11 @@ export default async function handler(req, res) {
     try {
       res.status(200).json(await dashboard());
     } catch (e) {
-      res.status(500).json({ error: e?.message || "Couldn't load coach data." });
+      const code = e?.code || (e?.name === "StorageUnavailableError" ? "schedule_unavailable" : "");
+      res.status(code === "schedule_unavailable" ? 503 : 500).json({
+        error: e?.message || "Couldn't load coach data.",
+        ...(code ? { code } : {}),
+      });
     }
     return;
   }
