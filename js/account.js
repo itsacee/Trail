@@ -105,12 +105,25 @@
     return out;
   }
 
+  function memberPrivacy() {
+    return account?.privacy || AP.privacyForPurchaseType(account?.membershipType || "membership");
+  }
+
+  function memberWant() {
+    const privacy = memberPrivacy();
+    const exclusive = privacy === "private";
+    return {
+      seats: exclusive ? AP.SLOT_CAPACITY : 1,
+      exclusive,
+      privacy,
+    };
+  }
+
   function openTimes(iso, booked) {
     const focus = focusSelect ? focusSelect.value : "";
-    const privacy = AP.privacyForPurchaseType("membership");
     return AP.startsForDate(iso, AVAIL, LESSON_MINUTES)
       .map((t) => AP.fmtTime(t))
-      .filter((label) => !AP.slotIsBlocked(booked || [], label, LESSON_MINUTES, focus, { seats: 1, privacy }));
+      .filter((label) => !AP.slotIsBlocked(booked || [], label, LESSON_MINUTES, focus, memberWant()));
   }
 
   function dayHasCapacity(iso, booked) {
@@ -182,8 +195,8 @@
       return;
     }
     const focus = focusSelect ? focusSelect.value : "";
-    const privacy = AP.privacyForPurchaseType("membership");
-    const need = { seats: 1, privacy };
+    const privacy = memberPrivacy();
+    const need = memberWant();
     let open = 0;
     AP.startsForDate(selectedDate, AVAIL, LESSON_MINUTES).forEach((t) => {
       const label = AP.fmtTime(t);
@@ -255,13 +268,16 @@
 
     const left = data.remaining || 0;
     const expires = data.lastDayPretty || (data.lastDay ? AP.prettyDate(data.lastDay) : "");
+    const tierLabel = data.membershipLabel || (data.membershipTier === "private" ? "Private Membership" : "Standard Membership");
     document.getElementById("acctPlayer").textContent = data.player
-      ? `${data.player}'s membership`
-      : "Your membership";
+      ? `${data.player}'s ${tierLabel}`
+      : tierLabel;
     const whoName = document.getElementById("acctWhoName");
     if (whoName) whoName.textContent = data.email || data.player || "this member";
     document.getElementById("acctCredits").textContent =
       `${left} of ${data.credits || 4} lessons left${
+        data.membershipTier === "private" ? " · private hours" : ""
+      }${
         expires ? (status.membershipFrozen ? ` · paused clock · use by ${expires}` : ` · use by ${expires}`) : ""
       }`;
     document.getElementById("acctTitle").textContent = data.bookingPaused
@@ -274,6 +290,10 @@
       : left && !data.expired
       ? status.membershipFrozen
         ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Your expiry date is temporarily paused, but each lesson you book uses one credit.`
+        : data.membershipTier === "private"
+        ? `You have ${left} private lesson${left === 1 ? "" : "s"} left. Each one reserves the full hour for one athlete${
+            expires ? ` — they expire ${expires}` : ""
+          }.`
         : `You have ${left} lesson${left === 1 ? "" : "s"} left. Pick any day that works${
             expires ? ` — they expire ${expires}` : ""
           }. Book one at a time; you don't have to plan them all now.`

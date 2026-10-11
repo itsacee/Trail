@@ -157,7 +157,8 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   const SESSIONS = {
     single: { name: "Regular Lesson", picks: 1, focus: "full", pair: true },
     private: { name: "Private 1-on-1", picks: 1, focus: "full", pair: false },
-    membership: { name: "Membership", picks: 1, focus: "full", pair: false },
+    membership: { name: "Standard Membership", picks: 1, focus: "full", pair: false },
+    membership_private: { name: "Private Membership", picks: 1, focus: "full", pair: false },
     thirty: { name: "30-Minute Lesson", picks: 1, focus: "one", pair: true },
   };
 
@@ -165,7 +166,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   let bookableDates = [];
   let scheduleReady = false;
   let PRICING = {
-    prices: { single: 8000, thirty: 6000, membership: 28000, private: 10000 },
+    prices: { single: 8000, thirty: 6000, membership: 28000, membership_private: 36000, private: 10000 },
     membershipDeposit: 8000,
     allowCash: true,
     allowDeposit: true,
@@ -208,7 +209,10 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     single: () => "One hour. A second athlete can share the hour with you unless you add one yourself.",
     private: () =>
       `One hour, just you — nobody else can book it. ${AP.dollars(PRICING.prices.private)} for one athlete.`,
-    membership: () => "Four one-hour lessons a month. You pick lesson 1 today.",
+    membership: () =>
+      `Four one-hour lessons in 30 days (${AP.dollars(PRICING.prices.membership)}). Shareable hours. You pick lesson 1 today.`,
+    membership_private: () =>
+      `Four private one-hour lessons in 30 days (${AP.dollars(PRICING.prices.membership_private)}). Each lesson reserves the full hour. You pick lesson 1 today.`,
     thirty: () => "A focused 30 minutes on one skill.",
   };
 
@@ -239,6 +243,10 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   function athleteCount() {
     return pairType() ? athletes : 1;
+  }
+
+  function isMemberType(type = selectedType) {
+    return type === "membership" || type === "membership_private";
   }
 
   function currentPrivacy() {
@@ -401,7 +409,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       els.notice.innerHTML = parts.map((p) => `<p>${p}</p>`).join("");
     }
 
-    document.querySelectorAll('[data-book="membership"]').forEach((el) => {
+    document.querySelectorAll('[data-book="membership"], [data-book="membership_private"]').forEach((el) => {
       const paused = membershipsPaused();
       el.disabled = paused;
       el.classList.toggle("is-disabled", paused);
@@ -411,7 +419,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     });
 
     if (membershipsPaused()) {
-      if (selectedType === "membership") setType("single");
+      if (isMemberType(selectedType)) setType("single");
       membershipCapacity = {
         state: "ready",
         limit: membershipCapacity.limit || 15,
@@ -431,13 +439,25 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       if (cents) el.textContent = AP.dollars(cents);
     });
     const memPrice = document.getElementById("memberNotePrice");
-    if (memPrice) memPrice.textContent = `${AP.dollars(PRICING.prices.membership)} for one month`;
+    const priceKey = selectedType === "membership_private" ? "membership_private" : "membership";
+    if (memPrice) {
+      memPrice.textContent =
+        selectedType === "membership_private"
+          ? `${AP.dollars(PRICING.prices.membership_private)} for one month · private hours`
+          : `${AP.dollars(PRICING.prices.membership)} for one month · shareable hours`;
+    }
     const memDeposit = document.getElementById("memberNoteDeposit");
     if (memDeposit) {
-      const due = Math.max(0, (PRICING.prices.membership || 0) - depositAmount());
-      memDeposit.innerHTML =
-        `Pay <strong>by card</strong>, put <strong>${AP.dollars(depositAmount())} down by card</strong> and bring ` +
-        `<strong>${AP.dollars(due)} cash to your first lesson</strong>, or <strong>pay all cash</strong> at the field.`;
+      if (selectedType === "membership_private") {
+        memDeposit.innerHTML =
+          `Pay <strong>in full by card</strong> or <strong>pay all cash</strong> at the field. ` +
+          `Card deposit is not offered on Private Membership yet.`;
+      } else {
+        const due = Math.max(0, (PRICING.prices.membership || 0) - depositAmount());
+        memDeposit.innerHTML =
+          `Pay <strong>by card</strong>, put <strong>${AP.dollars(depositAmount())} down by card</strong> and bring ` +
+          `<strong>${AP.dollars(due)} cash to your first lesson</strong>, or <strong>pay all cash</strong> at the field.`;
+      }
     }
   }
 
@@ -451,15 +471,24 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     const title = document.getElementById("bookTitle");
     const lead = document.getElementById("bookLead");
     const slotTitle = document.getElementById("slotStepTitle");
-    const isMem = selectedType === "membership";
+    const isMem = isMemberType();
     if (els.memberNote) els.memberNote.hidden = !isMem;
     if (slotTitle) slotTitle.textContent = isMem ? "Pick your first lesson" : "Pick a day";
-    if (title) title.textContent = isMem ? "Join. Pick Your First Day." : "Pick a Day. Grab Your Spot.";
+    if (title) {
+      title.textContent = isMem
+        ? selectedType === "membership_private"
+          ? "Private Membership. Pick Your First Day."
+          : "Join. Pick Your First Day."
+        : "Pick a Day. Grab Your Spot.";
+    }
     if (lead) {
       lead.textContent = isMem
-        ? "Pay today and lock in lesson 1 of 4. Book the other 3 one at a time from the Members page. It does not auto-renew."
+        ? selectedType === "membership_private"
+          ? "Pay today and lock in private lesson 1 of 4. Each credit reserves the full hour. Book the other 3 from the Members page. It does not auto-renew."
+          : "Pay today and lock in lesson 1 of 4. Book the other 3 one at a time from the Members page. It does not auto-renew."
         : "Choose your lesson, pick a time, and we'll email the training address after you book.";
     }
+    renderPrices();
   }
 
   // Show the Hitting/Fielding focus picker per session type:
@@ -595,16 +624,18 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   }
 
   function syncPayOptions() {
-    const isMem = selectedType === "membership";
+    const isMem = isMemberType();
+    // Deposit remains standard-membership only until a private deposit policy is approved.
+    const depositOk = selectedType === "membership" && PRICING.allowDeposit;
     const total = totalPrice();
     const deposit = depositAmount();
     const due = Math.max(0, total - deposit);
 
     const depositBtn = document.getElementById("payDepositBtn");
     const cashBtn = document.getElementById("payCashBtn");
-    if (depositBtn) depositBtn.hidden = !(isMem && PRICING.allowDeposit);
+    if (depositBtn) depositBtn.hidden = !depositOk;
     if (cashBtn) cashBtn.hidden = !PRICING.allowCash;
-    if (payMode === "deposit" && (!isMem || !PRICING.allowDeposit)) payMode = "card";
+    if (payMode === "deposit" && !depositOk) payMode = "card";
     if (payMode === "cash" && !PRICING.allowCash) payMode = "card";
 
     const cardHint = document.getElementById("payCardHint");
@@ -651,32 +682,33 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   function refreshSubmit() {
     if (!els.submit) return;
     syncPayOptions();
-    if (selectedType === "membership" && membershipsPaused()) {
+    if (isMemberType() && membershipsPaused()) {
       els.submit.textContent = "Memberships Paused";
       els.submit.disabled = true;
       return;
     }
-    if (selectedType === "membership" && membershipCapacity.state !== "ready") {
+    if (isMemberType() && membershipCapacity.state !== "ready") {
       els.submit.textContent =
         membershipCapacity.state === "loading" ? "Checking Membership Availability…" : "Membership Unavailable";
       els.submit.disabled = true;
       return;
     }
-    if (selectedType === "membership" && !membershipCapacity.available) {
+    if (isMemberType() && !membershipCapacity.available) {
       els.submit.textContent = `Memberships Full — 0 of ${membershipCapacity.limit} Spots`;
       els.submit.disabled = true;
       return;
     }
     const total = totalPrice();
+    const memLabel = selectedType === "membership_private" ? "Private Membership" : "Membership";
     els.submit.textContent =
       payMode === "cash"
-        ? selectedType === "membership"
-          ? `Reserve Membership — Pay ${AP.dollars(total)} Cash`
+        ? isMemberType()
+          ? `Reserve ${memLabel} — Pay ${AP.dollars(total)} Cash`
           : `Reserve — Pay ${AP.dollars(total)} Cash at the Field`
         : payMode === "deposit"
         ? `Pay ${AP.dollars(depositAmount())} Deposit — Start Membership`
-        : selectedType === "membership"
-        ? `Start Membership — ${AP.dollars(total)}`
+        : isMemberType()
+        ? `Start ${memLabel} — ${AP.dollars(total)}`
         : `Pay ${AP.dollars(total)} — Book Lesson`;
     els.submit.disabled = false;
   }

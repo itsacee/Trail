@@ -14,7 +14,7 @@ import {
   SLOT_CAPACITY,
   LOCATIONS,
 } from "../lib/schedule.js";
-import { bookWindowBlocked, MEMBER_PERIOD_DAYS } from "../lib/members.js";
+import { bookWindowBlocked, MEMBER_PERIOD_DAYS, isMembershipType } from "../lib/members.js";
 import {
   mutateManualBookings,
   makeManualBooking,
@@ -79,7 +79,9 @@ export default async function handler(req, res) {
     return;
   }
   const body = req.body || {};
-  const type = ["single", "thirty", "private", "membership"].includes(body.type) ? body.type : "";
+  const type = ["single", "thirty", "private", "membership", "membership_private"].includes(body.type)
+    ? body.type
+    : "";
   const player = String(body.player || "").trim();
   const player2 = String(body.player2 || "").trim();
   const parent = String(body.parent || "").trim();
@@ -109,7 +111,7 @@ export default async function handler(req, res) {
   }
   const athletes = canPair(type) && player2 ? 2 : 1;
 
-  if (type === "membership") {
+  if (isMembershipType(type)) {
     const paused = membershipBlockedMessage();
     if (paused) {
       res.status(503).json({ error: paused, code: "membership_paused" });
@@ -180,7 +182,7 @@ export default async function handler(req, res) {
   }
 
   const price = unitPriceFor(type, athletes, settings.prices) * athletes;
-  const isMember = type === "membership";
+  const isMember = isMembershipType(type);
   const booking = makeManualBooking({
     type,
     player,
@@ -245,6 +247,9 @@ export default async function handler(req, res) {
       cashMembership: true,
       cashMembershipStart: start,
       cashMembershipEnd: start + MEMBER_PERIOD_DAYS * 86400,
+      membershipType: type,
+      type,
+      privacy,
       player,
       parent,
       phone,

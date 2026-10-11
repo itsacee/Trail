@@ -10,7 +10,7 @@
 (function () {
   const SLOT_CAPACITY = 2;
   const STEP_MINUTES = 60;
-  const DURATIONS = { single: 60, thirty: 30, private: 60, membership: 60 };
+  const DURATIONS = { single: 60, thirty: 30, private: 60, membership: 60, membership_private: 60 };
 
   const DEFAULT_AVAILABILITY = {
     slotMinutes: 60,
@@ -39,7 +39,7 @@
   }
 
   function seatsFor(type, athletes) {
-    if (type === "private") return SLOT_CAPACITY;
+    if (type === "private" || type === "membership_private") return SLOT_CAPACITY;
     const n = Math.round(Number(athletes) || 1);
     return Math.min(SLOT_CAPACITY, Math.max(1, n));
   }
@@ -54,7 +54,15 @@
   }
 
   function isExclusiveType(type) {
-    return type === "private";
+    return type === "private" || type === "membership_private";
+  }
+
+  function isMembershipType(type) {
+    return type === "membership" || type === "membership_private";
+  }
+
+  function membershipTierFromType(type) {
+    return type === "membership_private" ? "private" : "standard";
   }
 
   function normalizePrivacy(privacy) {
@@ -406,6 +414,8 @@
     isExclusiveFocus,
     isExclusiveType,
     isExclusiveBooking,
+    isMembershipType,
+    membershipTierFromType,
     normalizePrivacy,
     resolvePrivacy,
     privacyForPurchaseType,

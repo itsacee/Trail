@@ -18,7 +18,7 @@ import {
 } from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
 import { storeConfigured } from "../lib/store.js";
-import { bookWindowBlocked } from "../lib/members.js";
+import { bookWindowBlocked, isMembershipType, membershipTierOf } from "../lib/members.js";
 import {
   getMembershipCapacity,
   MEMBERSHIP_CHECKOUT_MINUTES,
@@ -45,7 +45,20 @@ const SESSION_TYPES = {
     mode: "payment",
   },
   // Members pick lesson 1 of 4 here; the other 3 get booked from /account.html.
-  membership: { amount: 28000, quantity: 1, picks: 1, label: "Membership — 4 one-hour lessons (1 month, does not auto-renew)", mode: "payment" },
+  membership: {
+    amount: 28000,
+    quantity: 1,
+    picks: 1,
+    label: "Standard Membership — 4 one-hour lessons (1 month, does not auto-renew)",
+    mode: "payment",
+  },
+  membership_private: {
+    amount: 36000,
+    quantity: 1,
+    picks: 1,
+    label: "Private Membership — 4 private one-hour lessons (1 month, does not auto-renew)",
+    mode: "payment",
+  },
 };
 
 // A membership's credits belong to one player, so only per-athlete lesson types
@@ -113,7 +126,7 @@ export default async function handler(req, res) {
   const email = String(req.body?.email || "").trim().toLowerCase();
   const session = SESSION_TYPES[type];
 
-  if (type === "membership") {
+  if (isMembershipType(type)) {
     const paused = membershipBlockedMessage();
     if (paused) {
       res.status(503).json({ error: paused, code: "membership_paused" });
@@ -121,9 +134,16 @@ export default async function handler(req, res) {
     }
   }
 
+  // Deposit is standard-membership only until a private-membership deposit
+  // amount is approved (business decision). Private memberships pay in full.
   if (payMode === "deposit") {
     if (type !== "membership" || !settings.allowDeposit) {
-      res.status(400).json({ error: "Deposit option isn't available. Pay in full by card or choose cash." });
+      res.status(400).json({
+        error:
+          type === "membership_private"
+            ? "Private Membership is paid in full. Deposit isn't available for this plan yet."
+            : "Deposit option isn't available. Pay in full by card or choose cash.",
+      });
       return;
     }
   }
@@ -144,8 +164,9 @@ export default async function handler(req, res) {
   if (!sessions.length && req.body?.date && req.body?.time) {
     sessions = [{ date: req.body.date, time: req.body.time }];
   }
-  const isMember = type === "membership";
+  const isMember = isMembershipType(type);
   const privacy = privacyForPurchaseType(type);
+  const membershipTier = isMember ? membershipTierOf({ type, privacy }) : "";
   // Private drop-ins are always one athlete at $100 — no sibling exception.
   if (type === "private" && (player2 || Number(req.body?.athletes) > 1)) {
     res.status(400).json({
@@ -324,6 +345,7 @@ export default async function handler(req, res) {
     ["type", type],
     ["focus", focus],
     ["privacy", privacy],
+    ["membership_tier", membershipTier || ""],
     ["payment_mode", payMode],
     ["payment_status", amountDue > 0 ? "deposit_paid" : "paid"],
     ["amount_paid", String(chargeAmount)],

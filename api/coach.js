@@ -40,11 +40,17 @@ import {
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
 import { bookedTimes } from "./slots.js";
-import { lessonHasEnded, MEMBER_PERIOD_DAYS } from "../lib/members.js";
+import {
+  lessonHasEnded,
+  MEMBER_PERIOD_DAYS,
+  isMembershipType,
+  membershipTierOf,
+  membershipLabel,
+} from "../lib/members.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
-const BOOKING_TYPES = ["single", "thirty", "private", "membership"];
+const BOOKING_TYPES = ["single", "thirty", "private", "membership", "membership_private"];
 
 async function listOutstanding() {
   const manual = await loadManualBookings();
@@ -105,26 +111,37 @@ async function dashboard() {
 
   const members = Object.values(membersState.byEmail || {})
     .filter((m) => !m.removed)
-    .map((m) => ({
-      email: m.email,
-      player: m.player || "",
-      parent: m.parent || "",
-      phone: m.phone || "",
-      frozen: isMemberFrozen(membersState, m.email).frozen,
-      amountDueCents: m.amountDueCents || 0,
-      cashMembership: Boolean(m.cashMembership),
-      note: m.note || "",
-    }));
+    .map((m) => {
+      const tier = membershipTierOf({
+        type: m.membershipType || m.type || "membership",
+        privacy: m.privacy || "",
+      });
+      return {
+        email: m.email,
+        player: m.player || "",
+        parent: m.parent || "",
+        phone: m.phone || "",
+        frozen: isMemberFrozen(membersState, m.email).frozen,
+        amountDueCents: m.amountDueCents || 0,
+        cashMembership: Boolean(m.cashMembership),
+        membershipType: m.membershipType || m.type || (m.cashMembership ? "membership" : ""),
+        membershipTier: tier,
+        membershipLabel: m.cashMembership || m.membershipType ? membershipLabel(tier) : "",
+        privacy: m.privacy || "",
+        note: m.note || "",
+      };
+    });
 
   // Also surface emails from upcoming membership lessons
   sessions
-    .filter((s) => s.type === "membership" && s.email)
+    .filter((s) => isMembershipType(s.type || "membership") && s.email)
     .forEach((s) => {
       const e = String(s.email).toLowerCase();
       if (members.some((m) => m.email === e)) return;
       // Stripe is the source of this one, so a removed card would otherwise
       // reappear here on the next load.
       if (isMemberRemoved(membersState, e)) return;
+      const tier = membershipTierOf(s);
       members.push({
         email: e,
         player: s.player || "",
@@ -133,6 +150,10 @@ async function dashboard() {
         frozen: isMemberFrozen(membersState, e).frozen,
         amountDueCents: 0,
         cashMembership: false,
+        membershipType: s.type || "membership",
+        membershipTier: tier,
+        membershipLabel: membershipLabel(tier),
+        privacy: s.privacy || "",
         note: "",
       });
     });
@@ -238,7 +259,7 @@ export default async function handler(req, res) {
       }
       const b = collectedBooking;
       const take = collected.take;
-      if (b.email && b.type === "membership") {
+      if (b.email && isMembershipType(b.type)) {
         const members = await loadMembersState();
         const row = memberRecord(members, b.email);
         if (row) {
@@ -452,7 +473,7 @@ export default async function handler(req, res) {
           lesson: cancelledLesson,
           cancelledBy: "coach",
           extraLine: [
-            cancelledLesson.type === "membership"
+            isMembershipType(cancelledLesson.type)
               ? "That lesson credit has been returned to the membership."
               : "",
             req.body.message || "",
@@ -506,7 +527,7 @@ export default async function handler(req, res) {
         lesson: row,
         cancelledBy: "coach",
         extraLine: [
-          row.type === "membership" ? "That lesson credit has been returned to the membership." : "",
+          isMembershipType(row.type) ? "That lesson credit has been returned to the membership." : "",
           req.body.message || "",
         ]
           .filter(Boolean)
@@ -611,13 +632,16 @@ export default async function handler(req, res) {
         });
         return;
       }
-      if (type === "membership" && email) {
+      if (isMembershipType(type) && email) {
         const members = await loadMembersState();
         const start = Math.floor(Date.now() / 1000);
         upsertMember(members, email, {
           cashMembership: true,
           cashMembershipStart: start,
           cashMembershipEnd: start + MEMBER_PERIOD_DAYS * 86400,
+          membershipType: type,
+          type,
+          privacy,
           player,
           amountDueCents: due,
           amountPaidCents: paid,

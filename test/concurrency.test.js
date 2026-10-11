@@ -197,7 +197,11 @@ test("two members booking simultaneously — credits and seats both enforced", a
   const bookMember = (id) =>
     mutateLessons(async (data) => {
       await barrier();
-      const mine = data.lessons.filter((l) => l.email === `${id}@example.com` && l.type === "membership");
+      const mine = data.lessons.filter(
+        (l) =>
+          l.email === `${id}@example.com` &&
+          (l.type === "membership" || l.type === "membership_private")
+      );
       if (mine.length >= 4) return { ok: false, code: "no_credits", error: "no credits" };
       const want = { seats: 1, privacy: "standard" };
       if (slotBlocked(bookedFromLessons(data.lessons), TIME, 60, "Hitting", want)) {
@@ -216,6 +220,32 @@ test("two members booking simultaneously — credits and seats both enforced", a
   assert.equal([a, b].filter((r) => r.code === "slot_taken").length, 1);
   const final = await loadLessons();
   assert.equal(final.lessons.length, 2);
+});
+
+test("concurrent private-membership last-seat race admits only one", async () => {
+  const barrier = makeBarrier(2);
+  const want = { seats: SLOT_CAPACITY, exclusive: true, privacy: "private" };
+  const bookPrivateMember = (id) =>
+    mutateLessons(async (data) => {
+      await barrier();
+      if (slotBlocked(bookedFromLessons(data.lessons), TIME, 60, "Hitting", want)) {
+        return { ok: false, code: "slot_taken" };
+      }
+      data.lessons.push({
+        id,
+        date: DATE,
+        time: TIME,
+        focus: "Hitting",
+        privacy: "private",
+        seats: SLOT_CAPACITY,
+        type: "membership_private",
+        email: `${id}@example.com`,
+      });
+      return { ok: true };
+    });
+  const [a, b] = await Promise.all([bookPrivateMember("pm-a"), bookPrivateMember("pm-b")]);
+  assert.equal([a, b].filter((r) => r.ok).length, 1);
+  assert.equal([a, b].filter((r) => r.code === "slot_taken").length, 1);
 });
 
 test("concurrent booking and cancellation preserve other rows", async () => {

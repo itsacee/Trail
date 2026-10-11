@@ -23,6 +23,8 @@ import {
   bookingBlocked,
   canCancelLesson,
   prettyDate,
+  membershipTypeOf,
+  membershipTierOf,
 } from "../lib/members.js";
 import { loadMembersState } from "../lib/membersStore.js";
 import {
@@ -43,8 +45,11 @@ const REPLY_TO = "Apacademybsb@gmail.com";
 
 function publicAccount(acct) {
   const loc = LOCATIONS.mustang || {};
+  const membershipType = membershipTypeOf(acct.sub);
   return {
     ...acct.summary,
+    membershipType,
+    membershipTier: membershipTierOf(acct.sub),
     siteStatus: getSiteStatus(),
     location: {
       name: loc.name || "Mustang High School",
@@ -53,6 +58,15 @@ function publicAccount(acct) {
       mapUrl: loc.address ? `https://maps.google.com/?q=${encodeURIComponent(loc.address)}` : "",
     },
   };
+}
+
+function accountBookingType(acct) {
+  return membershipTypeOf(acct.sub);
+}
+
+function accountPrivacy(acct, lesson) {
+  if (lesson?.privacy) return lesson.privacy;
+  return privacyForPurchaseType(accountBookingType(acct));
 }
 
 function summarize(acct, scheduled = acct.scheduled) {
@@ -291,7 +305,8 @@ export default async function handler(req, res) {
       res.status(400).json({ error: newFocusError });
       return;
     }
-    const newFocus = normalizeFocus(newFocusRaw, "membership");
+    const memberType = accountBookingType(acct);
+    const newFocus = normalizeFocus(newFocusRaw, memberType);
     if (!DATE_RE.test(newDate) || !TIME_RE.test(newTime) || !newFocus) {
       res.status(400).json({ error: "Pick a training focus, day, and time." });
       return;
@@ -312,20 +327,22 @@ export default async function handler(req, res) {
     }
 
     const availability = await getAvailability();
-    if (!allowedTimes(newDate, availability, durationFor("membership")).includes(newTime)) {
+    if (!allowedTimes(newDate, availability, durationFor(memberType)).includes(newTime)) {
       res.status(400).json({ error: "That time isn't open. Pick another slot." });
       return;
     }
 
-    const movePrivacy = lesson.privacy || privacyForPurchaseType("membership");
+    const movePrivacy = accountPrivacy(acct, lesson);
+    const moveExclusive = isExclusiveBooking({ type: memberType, focus: newFocus, privacy: movePrivacy });
+    const moveSeats = moveExclusive ? 2 : 1;
     try {
       const ignoreSourceId = newDate === lesson.date ? lesson.sourceId || lesson.id : "";
       const taken = await bookedTimes(key, newDate, { ignoreSourceId });
-      const dur = durationFor("membership");
+      const dur = durationFor(memberType);
       if (
         slotBlocked(taken, newTime, dur, newFocus, {
-          seats: 1,
-          exclusive: isExclusiveBooking({ type: "membership", focus: newFocus, privacy: movePrivacy }),
+          seats: moveSeats,
+          exclusive: moveExclusive,
           privacy: movePrivacy,
         })
       ) {
@@ -386,9 +403,9 @@ export default async function handler(req, res) {
         const ignoreSourceId = newDate === lesson.date ? lesson.sourceId || lesson.id : "";
         const taken = await bookedTimes(key, newDate, { ignoreSourceId });
         if (
-          slotBlocked(taken, newTime, durationFor("membership"), newFocus, {
-            seats: 1,
-            exclusive: isExclusiveBooking({ type: "membership", focus: newFocus, privacy: movePrivacy }),
+          slotBlocked(taken, newTime, durationFor(memberType), newFocus, {
+            seats: moveSeats,
+            exclusive: moveExclusive,
             privacy: movePrivacy,
           })
         ) {
@@ -453,7 +470,8 @@ export default async function handler(req, res) {
     res.status(400).json({ error: focusError });
     return;
   }
-  const focus = normalizeFocus(focusRaw, "membership");
+  const memberType = accountBookingType(acct);
+  const focus = normalizeFocus(focusRaw, memberType);
   if (!DATE_RE.test(date) || !TIME_RE.test(time) || !focus) {
     res.status(400).json({ error: "Pick a training focus, day, and time." });
     return;
@@ -466,19 +484,21 @@ export default async function handler(req, res) {
   }
 
   const availability = await getAvailability();
-  if (!allowedTimes(date, availability, durationFor("membership")).includes(time)) {
+  if (!allowedTimes(date, availability, durationFor(memberType)).includes(time)) {
     res.status(400).json({ error: "That time isn't open. Pick another slot." });
     return;
   }
 
-  const privacy = privacyForPurchaseType("membership");
+  const privacy = accountPrivacy(acct);
+  const exclusive = isExclusiveBooking({ type: memberType, focus, privacy });
+  const seats = exclusive ? 2 : 1;
   try {
     const taken = await bookedTimes(key, date);
-    const dur = durationFor("membership");
+    const dur = durationFor(memberType);
     if (
       slotBlocked(taken, time, dur, focus, {
-        seats: 1,
-        exclusive: isExclusiveBooking({ type: "membership", focus, privacy }),
+        seats,
+        exclusive,
         privacy,
       })
     ) {
@@ -517,9 +537,9 @@ export default async function handler(req, res) {
     try {
       const taken = await bookedTimes(key, date);
       if (
-        slotBlocked(taken, time, durationFor("membership"), focus, {
-          seats: 1,
-          exclusive: isExclusiveBooking({ type: "membership", focus, privacy }),
+        slotBlocked(taken, time, durationFor(memberType), focus, {
+          seats,
+          exclusive,
           privacy,
         })
       ) {

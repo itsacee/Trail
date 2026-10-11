@@ -172,6 +172,7 @@ test("legacy Hitting & Fielding without privacy stays exclusive", () => {
 test("privacy comes from purchase type, not focus", () => {
   assert.equal(privacyForPurchaseType("single"), "standard");
   assert.equal(privacyForPurchaseType("membership"), "standard");
+  assert.equal(privacyForPurchaseType("membership_private"), "private");
   assert.equal(privacyForPurchaseType("private"), "private");
   assert.equal(resolvePrivacy({ type: "single", focus: "Both", privacy: "standard" }), "standard");
   assert.equal(resolvePrivacy({ type: "private", focus: "Both", privacy: "" }), "private");

@@ -16,6 +16,9 @@ import {
   MEMBER_PERIOD_DAYS,
   lastUsableDate,
   memberEffectivePeriodEnd,
+  isMembershipType,
+  membershipLabel,
+  membershipTierOf,
 } from "../lib/members.js";
 import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
 import { mutateLessons, upsertStripeLessons } from "../lib/lessons.js";
@@ -28,7 +31,12 @@ import { loadMembersState, saveMembersState, upsertMember } from "../lib/members
 function inviteAttachment(meta, sessions, sourceId) {
   const now = stamp();
   const player = meta.player || "Lesson";
-  const kind = meta.type === "thirty" ? "30-min" : meta.type === "membership" ? "Membership" : "1 hour";
+  const kind =
+    meta.type === "thirty"
+      ? "30-min"
+      : isMembershipType(meta.type)
+      ? membershipLabel(membershipTierOf(meta))
+      : "1 hour";
   const events = sessions.map((s, i) => {
     const place = LOCATIONS[s.loc] || LOCATIONS[LOCATION_KEY] || {};
     return eventLines({
@@ -68,7 +76,8 @@ const REPLY_TO = "Apacademybsb@gmail.com";
 const TYPE_NAMES = {
   single: "Lesson (1 hour)",
   thirty: "30-Minute Lesson",
-  membership: "Membership — 4 lessons per month",
+  membership: "Standard Membership — 4 lessons per month",
+  membership_private: "Private Membership — 4 private lessons per month",
 };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -560,7 +569,7 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
       address: p.address || "",
       mapUrl: p.address ? mapUrl(p.address) : "",
     }));
-    const isMember = meta.type === "membership" || Boolean(session.subscription);
+    const isMember = isMembershipType(meta.type) || Boolean(session.subscription);
     const memberToken = isMember && to ? signMemberToken(to) : "";
     const summary = {
       player: meta.player || "",
@@ -643,6 +652,9 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
           amountDueCents: amountDue,
           amountPaidCents: amountPaid,
           paymentMethod: "deposit",
+          membershipType: meta.type || "membership",
+          type: meta.type || "membership",
+          privacy: meta.privacy || "",
         });
         await saveMembersState(members);
       }
