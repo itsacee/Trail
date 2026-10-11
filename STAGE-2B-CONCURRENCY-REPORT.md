@@ -3,6 +3,7 @@
 **Branch:** `cursor/stage2-booking-rules-f621`  
 **Base Stage 2 implementation:** `93d32c8`  
 **Prior tip:** `e214c2d`  
+**Stage 2B implementation commit:** `5a979d4`  
 **Scope:** Targeted CAS protection for `lessons.json` / `manual-bookings.json`. No Stage 3. No deploy.
 
 ---
