@@ -1,6 +1,4 @@
-// Holds / CAS must read capacity files from private origin storage.
-// Public get() ignores useCache:false, so a CDN-stale ETag makes ifMatch 412
-// and placeHold fail-closed before Stripe Checkout opens.
+// Holds / CAS against the private capacity store (dual-store architecture).
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -10,6 +8,7 @@ import {
   clearMemoryBlobStore,
   blobAccessFor,
   blobCompareAndSet,
+  capacityStoreConfigured,
   storeConfigured,
 } from "../lib/store.js";
 import { placeHold, releaseHold, loadHolds, saveHolds } from "../lib/holds.js";
@@ -41,10 +40,15 @@ after(() => {
 
 beforeEach(() => {
   clearMemoryBlobStore();
+  process.env.CAPACITY_BLOB_CUTOVER = "1";
+  delete process.env.CAPACITY_MIGRATION_PAUSE;
+  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_mempublic_test";
+  process.env.PRIVATE_BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_memprivate_test";
+  process.env.AVAILABILITY_URL = "https://public.example/availability.json";
 });
 
 test("placeHold creates a hold and releaseHold removes it", async () => {
-  assert.equal(storeConfigured(), true);
+  assert.equal(capacityStoreConfigured(), true);
   const ok = await placeHold("cs_test_1", [{ date: "2026-11-12", time: "5:00 PM" }], 60, "Hitting", {
     seats: 1,
     type: "single",
@@ -97,11 +101,10 @@ test("saveHolds create-only path conflicts when holds.json already exists", asyn
   const loaded = await loadHolds();
   assert.equal(loaded._conditional, true);
 
-  // Empty ifMatch must not clobber the existing file.
-  const createAgain = await saveHolds({ holds: [{ sessionId: "cs_clobber", date: "2026-11-12", time: "5:00 PM", expiresAt: Date.now() + 60000 }] }, {
-    etag: "",
-    conditional: false,
-  });
+  const createAgain = await saveHolds(
+    { holds: [{ sessionId: "cs_clobber", date: "2026-11-12", time: "5:00 PM", expiresAt: Date.now() + 60000 }] },
+    { etag: "", conditional: false }
+  );
   assert.equal(createAgain.ok, false);
   assert.equal(createAgain.conflict, true);
 
@@ -120,7 +123,6 @@ test("placeHold retries through a conflicting concurrent writer", async () => {
   );
 
   const first = await loadHolds();
-  // Simulate another checkout winning a CAS update with the same etag snapshot.
   assert.equal(
     (
       await blobCompareAndSet(
@@ -145,7 +147,6 @@ test("placeHold retries through a conflicting concurrent writer", async () => {
     true
   );
 
-  // placeHold reloads on conflict and still lands its own hold.
   assert.equal(
     await placeHold("cs_b", [{ date: "2026-11-15", time: "7:00 PM" }], 60, "Fielding", {
       seats: 1,
@@ -178,22 +179,27 @@ test("two simultaneous placeHold calls both persist (CAS retry)", async () => {
   assert.deepEqual(loaded.holds.map((h) => h.sessionId).sort(), ["cs_race_1", "cs_race_2"]);
 });
 
-test("missing Blob credentials fail CAS closed (no overwrite)", async () => {
+test("missing private Blob credentials fail CAS closed (no overwrite)", async () => {
   useMemoryBlobStore(false);
-  const prevToken = process.env.BLOB_READ_WRITE_TOKEN;
+  const prevPublic = process.env.BLOB_READ_WRITE_TOKEN;
+  const prevPrivate = process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
   const prevUrl = process.env.AVAILABILITY_URL;
-  delete process.env.BLOB_READ_WRITE_TOKEN;
-  delete process.env.AVAILABILITY_URL;
   delete process.env.BLOB_MEMORY_STORE;
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+  delete process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
+  delete process.env.AVAILABILITY_URL;
 
   try {
     assert.equal(storeConfigured(), false);
+    assert.equal(capacityStoreConfigured(), false);
     const result = await blobCompareAndSet("holds.json", { holds: [{ sessionId: "cs_x" }] }, "");
     assert.equal(result.ok, false);
     assert.equal(result.conflict, false);
   } finally {
-    if (prevToken === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
-    else process.env.BLOB_READ_WRITE_TOKEN = prevToken;
+    if (prevPublic === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
+    else process.env.BLOB_READ_WRITE_TOKEN = prevPublic;
+    if (prevPrivate === undefined) delete process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
+    else process.env.PRIVATE_BLOB_READ_WRITE_TOKEN = prevPrivate;
     if (prevUrl === undefined) delete process.env.AVAILABILITY_URL;
     else process.env.AVAILABILITY_URL = prevUrl;
     useMemoryBlobStore(true);
