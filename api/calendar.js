@@ -28,11 +28,12 @@ export default async function handler(req, res) {
     return;
   }
 
-  let bookings = [];
+  let bookings;
   try {
     bookings = await fetchBookings(key);
-  } catch {
-    bookings = [];
+  } catch (e) {
+    res.status(503).send(e?.message || "Couldn't load the lesson calendar from storage.");
+    return;
   }
 
   const now = stamp();

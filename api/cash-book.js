@@ -35,6 +35,7 @@ import {
   getMembershipCapacity,
   MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
+import { storeConfigured, capacityWritesEnabled } from "../lib/store.js";
 
 const REPLY_TO = "Apacademybsb@gmail.com";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -80,6 +81,16 @@ export default async function handler(req, res) {
   const settings = await loadSettings();
   if (!settings.allowCash) {
     res.status(400).json({ error: "Cash booking isn't turned on. Please pay by card or call (405) 819-4401." });
+    return;
+  }
+
+  if (storeConfigured() && !capacityWritesEnabled()) {
+    res.status(503).json({
+      error:
+        "Online booking is temporarily paused while we restore the calendar. Please try again shortly or call (405) 819-4401.",
+      code: "schedule_unavailable",
+      capacityWritesPaused: true,
+    });
     return;
   }
 

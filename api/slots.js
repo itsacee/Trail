@@ -27,6 +27,16 @@ import { loadLessons, lessonsOnDate, isVoided } from "../lib/lessons.js";
 import { HOLD_MINUTES, loadHolds, holdsOnDate } from "../lib/holds.js";
 import { loadManualBookings, bookingsOnDate } from "../lib/manualBookings.js";
 import { isCoachPass } from "../lib/coachAuth.js";
+import { storeConfigured, StorageUnavailableError } from "../lib/store.js";
+
+function assertCapacityReadable(data, label) {
+  if (!storeConfigured()) return;
+  if (data?._readFailed || data?._unreachable) {
+    throw new StorageUnavailableError(
+      `Couldn't read ${label} from booking storage. Open times were not replaced with an empty schedule.`
+    );
+  }
+}
 
 const ACTIVE_SUBSCRIPTION = ["active", "trialing", "past_due"];
 
@@ -55,12 +65,8 @@ export async function bookedTimes(
   { ignoreHold = "", ignoreSourceId = "", holdBefore = null } = {}
 ) {
   const byTime = new Map(); // time label -> { mins, sources }
-  let stored = { lessons: [], voids: [] };
-  try {
-    stored = await loadLessons();
-  } catch {
-    /* blob optional */
-  }
+  const stored = await loadLessons();
+  assertCapacityReadable(stored, "lessons.json");
 
   const add = (time, mins, source) => {
     if (!time) return;
@@ -183,15 +189,14 @@ export async function bookedTimes(
 
   await Promise.all(queries);
 
-  try {
-    lessonsOnDate(stored, date)
-      .filter((l) => !isVoided(stored, l))
-      .filter(
-        (l) =>
-          !ignoreSourceId ||
-          (l.id !== ignoreSourceId && l.sourceId !== ignoreSourceId)
-      )
-      .forEach((l) =>
+  lessonsOnDate(stored, date)
+    .filter((l) => !isVoided(stored, l))
+    .filter(
+      (l) =>
+        !ignoreSourceId ||
+        (l.id !== ignoreSourceId && l.sourceId !== ignoreSourceId)
+    )
+    .forEach((l) =>
       add(l.time, durationFor(l.type || "membership"), {
         kind: l.source === "stripe" ? "paid" : "member",
         id: l.source === "stripe" ? l.sourceId || l.id : l.id,
@@ -212,18 +217,15 @@ export async function bookedTimes(
         createdAt: l.createdAt || 0,
       })
     );
-  } catch {
-    /* blob optional */
-  }
 
   // Slots someone is part-way through paying for. Read straight from storage,
   // so these are visible immediately — unlike Stripe Search, which lags.
-  try {
-    const holds = await loadHolds();
-    holdsOnDate(holds, date)
-      .filter((h) => !ignoreHold || h.sessionId !== ignoreHold)
-      .filter((h) => holdIsEarlier(h.createdAt || 0, h.sessionId))
-      .forEach((h) =>
+  const holds = await loadHolds();
+  assertCapacityReadable(holds, "holds.json");
+  holdsOnDate(holds, date)
+    .filter((h) => !ignoreHold || h.sessionId !== ignoreHold)
+    .filter((h) => holdIsEarlier(h.createdAt || 0, h.sessionId))
+    .forEach((h) =>
       add(h.time, h.mins || 60, {
         kind: "hold",
         id: h.sessionId,
@@ -237,15 +239,12 @@ export async function bookedTimes(
         expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
       })
     );
-  } catch {
-    /* holds optional */
-  }
 
-  try {
-    const manual = await loadManualBookings();
-    bookingsOnDate(manual, date)
-      .filter((b) => !ignoreSourceId || b.id !== ignoreSourceId)
-      .forEach((b) =>
+  const manual = await loadManualBookings();
+  assertCapacityReadable(manual, "manual-bookings.json");
+  bookingsOnDate(manual, date)
+    .filter((b) => !ignoreSourceId || b.id !== ignoreSourceId)
+    .forEach((b) =>
       add(b.time, durationFor(b.type || "single"), {
         kind: "cash",
         id: b.id,
@@ -267,9 +266,6 @@ export async function bookedTimes(
         createdAt: b.createdAt || 0,
       })
     );
-  } catch {
-    /* optional */
-  }
 
   return [...byTime.entries()].map(([time, v]) => {
     const seats = v.sources.reduce((n, source) => n + (Number(source.seats) || 1), 0);

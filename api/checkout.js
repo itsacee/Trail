@@ -17,7 +17,7 @@ import {
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
-import { storeConfigured } from "../lib/store.js";
+import { storeConfigured, capacityWritesEnabled } from "../lib/store.js";
 import { bookWindowBlocked, isMembershipType, membershipTierOf } from "../lib/members.js";
 import {
   getMembershipCapacity,
@@ -132,6 +132,18 @@ export default async function handler(req, res) {
       error:
         "30-minute lessons aren't available for new bookings. Choose a Standard or Private 60-minute option.",
       code: "thirty_retired",
+    });
+    return;
+  }
+
+  // Emergency hotfix: keep availability checks, but pause new holds/writes on
+  // the public store until a backup-verified safe write path is enabled.
+  if (storeConfigured() && !capacityWritesEnabled()) {
+    res.status(503).json({
+      error:
+        "Online booking is temporarily paused while we restore the calendar. No payment was taken — please try again shortly or call (405) 819-4401.",
+      code: "schedule_unavailable",
+      capacityWritesPaused: true,
     });
     return;
   }
