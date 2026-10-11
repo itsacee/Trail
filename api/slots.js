@@ -16,7 +16,13 @@
 // slot. Without the passcode only times and durations are returned — names and
 // booking ids are never exposed publicly.
 
-import { durationFor, seatsFor, isExclusiveType, SLOT_CAPACITY } from "../lib/schedule.js";
+import {
+  durationFor,
+  seatsFor,
+  isExclusiveType,
+  isExclusiveFocus,
+  SLOT_CAPACITY,
+} from "../lib/schedule.js";
 import { loadLessons, lessonsOnDate, isVoided } from "../lib/lessons.js";
 import { HOLD_MINUTES, loadHolds, holdsOnDate } from "../lib/holds.js";
 import { loadManualBookings, bookingsOnDate } from "../lib/manualBookings.js";
@@ -25,10 +31,11 @@ import { isCoachPass } from "../lib/coachAuth.js";
 const ACTIVE_SUBSCRIPTION = ["active", "trialing", "past_due"];
 
 // How many of the hour's two athlete seats a booking occupies. Private lessons
-// take both; a sibling pair takes both; a lone athlete takes one.
+// take both; Hitting & Fielding locks the hour; a sibling pair takes both; a
+// lone Hitting/Fielding athlete takes one.
 function seatsOn(row) {
   const type = String(row?.type || "");
-  if (isExclusiveType(type)) return SLOT_CAPACITY;
+  if (isExclusiveType(type) || isExclusiveFocus(row?.focus)) return SLOT_CAPACITY;
   const explicit = Number(row?.seats);
   if (explicit > 0) return Math.min(SLOT_CAPACITY, explicit);
   return seatsFor(type, row?.athletes);
@@ -102,7 +109,7 @@ export async function bookedTimes(
         player2: m.player2 || "",
         type: m.type || "",
         focus: m.focus || "",
-        seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes }),
+        seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes, focus: m.focus }),
         created: item.created || 0,
       });
     });
@@ -153,7 +160,7 @@ export async function bookedTimes(
             kind: "hold",
             id: session.id,
             focus: m.focus || "",
-            seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes }),
+            seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes, focus: m.focus }),
             createdAt: Number(session.created || 0) * 1000,
             expiresAt: Number(session.expires_at || 0) * 1000,
           };
@@ -187,7 +194,7 @@ export async function bookedTimes(
         player: l.player || "",
         email: l.email || "",
         focus: l.focus || "",
-        seats: seatsOn({ type: l.type || "membership", seats: l.seats, athletes: l.athletes }),
+        seats: seatsOn({ type: l.type || "membership", seats: l.seats, athletes: l.athletes, focus: l.focus }),
         createdAt: l.createdAt || 0,
       })
     );
@@ -207,7 +214,7 @@ export async function bookedTimes(
         kind: "hold",
         id: h.sessionId,
         focus: h.focus || "",
-        seats: seatsOn({ type: h.type, seats: h.seats, athletes: h.athletes }),
+        seats: seatsOn({ type: h.type, seats: h.seats, athletes: h.athletes, focus: h.focus }),
         expiresAt: h.expiresAt,
         expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
       })
@@ -228,7 +235,7 @@ export async function bookedTimes(
         player2: b.player2 || "",
         email: b.email || "",
         focus: b.focus || "",
-        seats: seatsOn({ type: b.type || "single", seats: b.seats, athletes: b.athletes }),
+        seats: seatsOn({ type: b.type || "single", seats: b.seats, athletes: b.athletes, focus: b.focus }),
         createdAt: b.createdAt || 0,
       })
     );
@@ -238,14 +245,15 @@ export async function bookedTimes(
 
   return [...byTime.entries()].map(([time, v]) => {
     const seats = v.sources.reduce((n, source) => n + (Number(source.seats) || 1), 0);
+    const focuses = [...new Set(v.sources.map((source) => source.focus || "").filter(Boolean))];
     return {
       time,
       mins: v.mins,
       count: v.sources.length,
       seats,
-      // Private lessons (and sibling pairs) own the hour outright.
-      exclusive: seats >= SLOT_CAPACITY,
-      focuses: [...new Set(v.sources.map((source) => source.focus || "").filter(Boolean))],
+      // Private lessons, sibling pairs, and Hitting & Fielding own the hour.
+      exclusive: seats >= SLOT_CAPACITY || focuses.some(isExclusiveFocus),
+      focuses,
       sources: v.sources,
     };
   });

@@ -1,5 +1,12 @@
 import { bookedTimes } from "./slots.js";
-import { allowedTimes, getAvailability, durationFor, slotBlocked, LOCATIONS } from "../lib/schedule.js";
+import {
+  allowedTimes,
+  getAvailability,
+  durationFor,
+  slotBlocked,
+  isExclusiveBooking,
+  LOCATIONS,
+} from "../lib/schedule.js";
 import {
   loadLessons,
   saveLessons,
@@ -284,7 +291,12 @@ export default async function handler(req, res) {
       const ignoreSourceId = newDate === lesson.date ? lesson.sourceId || lesson.id : "";
       const taken = await bookedTimes(key, newDate, { ignoreSourceId });
       const dur = durationFor("membership");
-      if (slotBlocked(taken, newTime, dur, newFocus)) {
+      if (
+        slotBlocked(taken, newTime, dur, newFocus, {
+          seats: 1,
+          exclusive: isExclusiveBooking({ type: "membership", focus: newFocus }),
+        })
+      ) {
         res.status(409).json({
           error: "Sorry — that time is full or has a different training focus. Pick another.",
         });
@@ -355,7 +367,12 @@ export default async function handler(req, res) {
   try {
     const taken = await bookedTimes(key, date);
     const dur = durationFor("membership");
-    if (slotBlocked(taken, time, dur, focus)) {
+    if (
+      slotBlocked(taken, time, dur, focus, {
+        seats: 1,
+        exclusive: isExclusiveBooking({ type: "membership", focus }),
+      })
+    ) {
       res.status(409).json({
         error: "Sorry — that time is full or has a different training focus. Pick another.",
       });
@@ -388,7 +405,7 @@ export default async function handler(req, res) {
         retryBlocked ||
         slotBlocked(taken, time, durationFor("membership"), focus, {
           seats: 1,
-          exclusive: false,
+          exclusive: isExclusiveBooking({ type: "membership", focus }),
         })
       ) {
         res.status(409).json({

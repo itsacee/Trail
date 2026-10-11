@@ -197,7 +197,7 @@
       chip.setAttribute("aria-checked", on ? "true" : "false");
       const tag = blocked
         ? AP.slotBlockReason(booked, label, LESSON_MINUTES, focus, 1) || "Booked"
-        : left === 1
+        : left === 1 && !AP.isExclusiveFocus(focus)
         ? "1 spot left"
         : "";
       chip.innerHTML = `<span class="chip__time">${label}</span>${tag ? `<span class="chip__tag">${tag}</span>` : ""}`;
@@ -218,7 +218,9 @@
           : "No open times this day."
         : selectedTime
         ? ""
-        : "Same focus can share a time (2 athletes). A different focus is unavailable — pick another time.";
+        : AP.isExclusiveFocus(focus)
+        ? "Hitting & Fielding is one athlete and takes the whole time. Hitting or Fielding can share (2 athletes)."
+        : "Same Hitting or Fielding focus can share a time (2 athletes). A different focus is unavailable — pick another time.";
     }
   }
 

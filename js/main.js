@@ -235,7 +235,8 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   /* ---------- derived values ---------- */
 
   function pairType() {
-    return Boolean(SESSIONS[selectedType].pair);
+    // Hitting & Fielding is always one athlete — no sibling pair on that focus.
+    return Boolean(SESSIONS[selectedType].pair) && !AP.isExclusiveFocus(currentFocus());
   }
 
   function athleteCount() {
@@ -243,8 +244,11 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   }
 
   function want() {
-    // A private lesson buys the whole hour; two athletes fill both seats.
-    if (selectedType === "private") return { seats: AP.SLOT_CAPACITY, exclusive: true };
+    // Private and Hitting & Fielding buy the whole hour; two Hitting/Fielding
+    // athletes fill both seats; one Hitting/Fielding athlete leaves a seat open.
+    if (AP.isExclusiveBooking(selectedType, currentFocus())) {
+      return { seats: AP.SLOT_CAPACITY, exclusive: true };
+    }
     return { seats: AP.seatsFor(selectedType, athleteCount()), exclusive: false };
   }
 
@@ -554,9 +558,10 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       chip.classList.toggle("is-selected", on);
       chip.setAttribute("aria-checked", on ? "true" : "false");
       // Different focus must look taken — Hitting cannot join Fielding / Both.
+      // "1 spot left" only for shareable Hitting/Fielding (never empty Both).
       const tag = blocked
         ? AP.slotBlockReason(booked, label, dur, focus, need) || "Booked"
-        : left === 1 && need.seats === 1
+        : left === 1 && need.seats === 1 && !AP.isExclusiveFocus(focus)
         ? "1 spot left"
         : "";
       chip.innerHTML = `<span class="chip__time">${label}</span>${tag ? `<span class="chip__tag">${tag}</span>` : ""}`;
@@ -583,7 +588,9 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
           : "No open times this day."
         : selectedTime
         ? ""
-        : "Same focus can share a time (2 athletes). A different focus is unavailable — pick another time.";
+        : AP.isExclusiveFocus(focus)
+        ? "Hitting & Fielding is one athlete and takes the whole time. Hitting or Fielding can share (2 athletes)."
+        : "Same Hitting or Fielding focus can share a time (2 athletes). A different focus is unavailable — pick another time.";
     }
   }
 
@@ -744,6 +751,9 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   if (els.focusSelect) {
     els.focusSelect.addEventListener("change", async () => {
       selectedTime = "";
+      // Hitting & Fielding can't carry a second athlete.
+      if (AP.isExclusiveFocus(currentFocus())) athletes = 1;
+      syncAthleteField();
       // Re-check live bookings for this focus so a Hitting slot greys out for Fielding.
       if (selectedDate) {
         delete bookedCache[selectedDate];

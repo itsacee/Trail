@@ -11,6 +11,8 @@ import {
   slotBlocked,
   seatsFor,
   isExclusiveType,
+  isExclusiveFocus,
+  isExclusiveBooking,
   canPair,
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
@@ -145,8 +147,18 @@ export default async function handler(req, res) {
   }
   const isMember = type === "membership";
   // Two names means two athletes in one booking — that fills the hour.
-  const athletes = athleteCountFor(type, player2 ? 2 : req.body?.athletes);
-  const seats = isExclusiveType(type) ? SLOT_CAPACITY : seatsFor(type, athletes);
+  // Hitting & Fielding is always one athlete.
+  const athletes = isExclusiveFocus(focus)
+    ? 1
+    : athleteCountFor(type, player2 ? 2 : req.body?.athletes);
+  if (isExclusiveFocus(focus) && (player2 || Number(req.body?.athletes) > 1)) {
+    res.status(400).json({
+      error: "Hitting & Fielding is a one-athlete session. Pick Hitting or Fielding to book two athletes together.",
+    });
+    return;
+  }
+  const exclusive = isExclusiveBooking({ type, focus });
+  const seats = exclusive ? SLOT_CAPACITY : seatsFor(type, athletes);
   const emailOk = email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
   if (athletes > 1 && !player2) {
     res.status(400).json({ error: "Add the second athlete's name, or remove the second athlete." });
@@ -226,13 +238,15 @@ export default async function handler(req, res) {
     const conflict = sessions.find((s) =>
       slotBlocked(takenByDate[s.date] || [], s.time, lessonMins, focus, {
         seats,
-        exclusive: isExclusiveType(type),
+        exclusive,
       })
     );
     if (conflict) {
       res.status(409).json({
-        error: isExclusiveType(type)
+        error: exclusive && isExclusiveType(type)
           ? `Sorry — ${conflict.date} at ${conflict.time} already has a lesson on it, so it can't be a private hour. Please pick another time.`
+          : exclusive && isExclusiveFocus(focus)
+          ? `Sorry — ${conflict.date} at ${conflict.time} is already taken. Hitting & Fielding needs an open hour. Please pick another time.`
           : athletes > 1
           ? `Sorry — ${conflict.date} at ${conflict.time} doesn't have room for two athletes. Please pick another time.`
           : `Sorry — ${conflict.date} at ${conflict.time} is full or has a different training focus. Please pick another time.`,
@@ -398,7 +412,7 @@ export default async function handler(req, res) {
       const conflict = sessions.find((s) =>
         slotBlocked(takenByDate[s.date] || [], s.time, lessonMins, focus, {
           seats,
-          exclusive: isExclusiveType(type),
+          exclusive,
         })
       );
       if (conflict) {
