@@ -1,6 +1,7 @@
 # Dual-store correction report
 
-**Branch:** `cursor/stage2-booking-rules-f621` (PR #62)  
+**Branch:** `cursor/dual-store-capacity-f621` (PR #63)  
+**Note:** PR #62 was already merged with the unsupported in-place private-on-public approach; this correction ships as a follow-up PR.  
 **Status:** Implemented + automated tests green. **Not merged. Not production-migrated.**
 
 ---
