@@ -129,16 +129,17 @@ test("a regular hour still charges per athlete", async () => {
   assert.equal(pair.stripeBody.get("metadata[seats]"), "2");
 });
 
-test("a 30-minute pair charges per athlete too", async () => {
-  const slot = await bookableSlot("thirty");
-  const { stripeBody } = await checkoutWith({
+test("public checkout rejects new 30-minute purchases", async () => {
+  const slot = await bookableSlot("single");
+  const { res, stripeBody } = await checkoutWith({
     ...base,
     type: "thirty",
-    player2: "Max Boyd",
     sessions: [slot],
   });
-  assert.equal(stripeBody.get("line_items[0][price_data][unit_amount]"), "12000");
-  assert.equal(stripeBody.get("metadata[athletes]"), "2");
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.code, "thirty_retired");
+  assert.match(res.body.error, /30-minute/i);
+  assert.equal(stripeBody, undefined);
 });
 
 test("standard membership checkout is a one-time $280 payment", async () => {

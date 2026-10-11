@@ -33,15 +33,14 @@ const SESSION_ID_RE = /^cs_[A-Za-z0-9_]+$/;
 const SESSION_TYPES = {
   // Per-athlete price. Two athletes can share the hour; booking two athletes
   // here charges for both and fills the hour.
-  single: { amount: 8000, quantity: 1, picks: 1, label: "Regular Lesson (1 hour)", mode: "payment" },
-  thirty: { amount: 6000, quantity: 1, picks: 1, label: "30-Minute Lesson", mode: "payment" },
+  single: { amount: 8000, quantity: 1, picks: 1, label: "Standard Drop-In (1 hour)", mode: "payment" },
   // Private buys the whole hour for exactly one athlete ($100). Sibling pairs
   // are not offered on new private drop-ins.
   private: {
     amount: 10000,
     quantity: 1,
     picks: 1,
-    label: "Private 1-on-1 Lesson (1 hour, just you)",
+    label: "Private One-on-One Drop-In (1 hour, just you)",
     mode: "payment",
   },
   // Members pick lesson 1 of 4 here; the other 3 get booked from /account.html.
@@ -49,17 +48,20 @@ const SESSION_TYPES = {
     amount: 28000,
     quantity: 1,
     picks: 1,
-    label: "Standard Membership — 4 one-hour lessons (1 month, does not auto-renew)",
+    label: "Standard Membership — 4 lessons / 30 days (does not auto-renew)",
     mode: "payment",
   },
   membership_private: {
     amount: 36000,
     quantity: 1,
     picks: 1,
-    label: "Private Membership — 4 private one-hour lessons (1 month, does not auto-renew)",
+    label: "Private One-on-One Membership — 4 lessons / 30 days (does not auto-renew)",
     mode: "payment",
   },
 };
+
+/** Public checkout no longer sells new 30-minute lessons (Stage 4). */
+const RETIRED_PUBLIC_TYPES = new Set(["thirty"]);
 
 // A membership's credits belong to one player, so only per-athlete lesson types
 // can carry a second name.
@@ -124,6 +126,16 @@ export default async function handler(req, res) {
   // Stored lowercase so member sign-in can find them later — Stripe's metadata
   // search is case-sensitive, and parents type their address however they like.
   const email = String(req.body?.email || "").trim().toLowerCase();
+
+  if (RETIRED_PUBLIC_TYPES.has(type)) {
+    res.status(400).json({
+      error:
+        "30-minute lessons aren't available for new bookings. Choose a Standard or Private 60-minute option.",
+      code: "thirty_retired",
+    });
+    return;
+  }
+
   const session = SESSION_TYPES[type];
 
   if (isMembershipType(type)) {

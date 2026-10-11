@@ -64,6 +64,19 @@ export default async function handler(req, res) {
   }
 
   await loadCoachStatus();
+  const body = req.body || {};
+  // Public cash booking — 30-minute is retired for new customer purchases.
+  // Coach Desk can still create historical-style 30-min lessons via /api/coach.
+  // Checked before allowCash so API clients cannot probe cash settings via thirty.
+  if (body.type === "thirty") {
+    res.status(400).json({
+      error:
+        "30-minute lessons aren't available for new bookings. Choose a Standard or Private 60-minute option.",
+      code: "thirty_retired",
+    });
+    return;
+  }
+
   const settings = await loadSettings();
   if (!settings.allowCash) {
     res.status(400).json({ error: "Cash booking isn't turned on. Please pay by card or call (405) 819-4401." });
@@ -78,8 +91,7 @@ export default async function handler(req, res) {
     });
     return;
   }
-  const body = req.body || {};
-  const type = ["single", "thirty", "private", "membership", "membership_private"].includes(body.type)
+  const type = ["single", "private", "membership", "membership_private"].includes(body.type)
     ? body.type
     : "";
   const player = String(body.player || "").trim();

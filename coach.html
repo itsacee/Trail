@@ -695,7 +695,7 @@
         <div class="grid2">
           <div class="card">
             <span class="card__title">Prices</span>
-            <p class="muted" style="margin:0.35rem 0 0.2rem">Regular and 30-minute lessons charge per athlete. A private hour blocks the whole hour.</p>
+            <p class="muted" style="margin:0.35rem 0 0.2rem">Standard Drop-In and legacy 30-minute charge per athlete. Private Drop-In / Private Membership block the whole hour. Public checkout no longer sells new 30-minute lessons.</p>
             <label class="field"><span>Regular lesson, per athlete ($)</span><input id="priceSingle" type="number" step="1" inputmode="numeric" /></label>
             <label class="field"><span>Private 1-on-1, one athlete ($)</span><input id="pricePrivate" type="number" step="1" inputmode="numeric" /></label>
             <p class="faint" id="privatePreview" style="margin:-0.3rem 0 0.2rem"></p>
@@ -759,9 +759,9 @@
     const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const TYPE_LABEL = {
-      single: "Regular · 1 hr",
-      thirty: "30 min",
-      private: "Private 1-on-1",
+      single: "Standard Drop-In",
+      thirty: "30 min (legacy)",
+      private: "Private Drop-In",
       membership: "Standard Membership",
       membership_private: "Private Membership",
       // Retired lesson type still sitting in older paid bookings.
@@ -1160,9 +1160,9 @@
         "For cash, walk-ins, and anything you booked by text.",
         `<label class="field"><span>Lesson</span>
            <select id="addType">
-             <option value="single">Regular lesson — ${wholeMoney(prices.single || 8000)} each</option>
-             <option value="private">Private hour — ${wholeMoney(prices.private || 10000)} solo, ${wholeMoney(prices.single || 8000)} each for two</option>
-             <option value="thirty">30-minute — ${wholeMoney(prices.thirty || 6000)} each</option>
+             <option value="single">Standard Drop-In — ${wholeMoney(prices.single || 8000)} each</option>
+             <option value="private">Private Drop-In — ${wholeMoney(prices.private || 10000)} (1 athlete)</option>
+             <option value="thirty">30-minute (legacy / admin) — ${wholeMoney(prices.thirty || 6000)} each</option>
              <option value="membership">Standard Membership first lesson — ${wholeMoney(prices.membership || 28000)}</option>
              <option value="membership_private">Private Membership first lesson — ${wholeMoney(prices.membership_private || 36000)}</option>
            </select></label>
@@ -1187,13 +1187,13 @@
       const slot = wireSlotPicker(60, "");
       const typeEl = $("addType");
       typeEl.addEventListener("change", () => {
-        // A membership credit belongs to one athlete; everything else, private
-        // hours included, can carry a sibling.
-        const canPair = typeEl.value !== "membership";
+        // Standard drop-in and legacy 30-min can pair. Private / membership credits are one athlete.
+        const canPair = typeEl.value === "single" || typeEl.value === "thirty";
         $("addPlayer2Field").hidden = !canPair;
         if (!canPair) $("addPlayer2").value = "";
         slot.setDuration(DURATIONS[typeEl.value] || 60);
       });
+      typeEl.dispatchEvent(new Event("change"));
       $("addGo").addEventListener("click", async () => {
         const btn = $("addGo");
         const pay = $("addPay").value;

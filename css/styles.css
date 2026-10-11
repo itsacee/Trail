@@ -459,8 +459,14 @@ h3 { font-size: 1.6rem; }
 .grid { display: grid; gap: 1.4rem; margin-top: 2.8rem; }
 .grid--4 { grid-template-columns: repeat(4, 1fr); }
 .grid--3 { grid-template-columns: repeat(3, 1fr); }
-/* The pricing row holds four cards now, so let them wrap instead of squeezing. */
-.pricing { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+/* Four primary pricing options — wrap cleanly on tablet/phone. */
+.pricing {
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1.1rem;
+}
+@media (min-width: 960px) {
+  .pricing { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 
 .card {
   background: var(--surface);
