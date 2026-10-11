@@ -34,9 +34,8 @@ import {
   durationFor,
   slotBlocked,
   seatsFor,
-  isExclusiveType,
-  isExclusiveFocus,
   isExclusiveBooking,
+  privacyForPurchaseType,
   canPair,
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
@@ -297,10 +296,12 @@ export default async function handler(req, res) {
           const taken = await bookedTimes(key, date, {
             ignoreSourceId: row.source === "stripe" ? row.sourceId : row.id,
           });
+          const movePrivacy = row.privacy || privacyForPurchaseType(row.type);
           if (
             slotBlocked(taken, time, mins, focus, {
               seats: seatsOnLesson(row),
-              exclusive: isExclusiveBooking({ type: row.type, focus }),
+              exclusive: isExclusiveBooking({ type: row.type, focus, privacy: movePrivacy }),
+              privacy: movePrivacy,
             })
           ) {
             res.status(409).json({ error: "Something else is already on that time. Pick another." });
@@ -450,14 +451,15 @@ export default async function handler(req, res) {
         return;
       }
       const focus = normalizeFocus(req.body.focus || "Fielding", type);
-      if (isExclusiveFocus(focus) && player2) {
+      if (type === "private" && player2) {
         res.status(400).json({
-          error: "Hitting & Fielding is a one-athlete session. Remove the second athlete or pick Hitting/Fielding.",
+          error: "Private lessons are one athlete only. Remove the second athlete or pick a regular lesson.",
         });
         return;
       }
-      const athletes = !isExclusiveFocus(focus) && canPair(type) && player2 ? 2 : 1;
-      const exclusive = isExclusiveBooking({ type, focus });
+      const athletes = canPair(type) && player2 ? 2 : 1;
+      const privacy = privacyForPurchaseType(type);
+      const exclusive = isExclusiveBooking({ type, focus, privacy });
       const seats = exclusive ? SLOT_CAPACITY : seatsFor(type, athletes);
       const availability = await getAvailability();
       if (!allowedTimes(date, availability, durationFor(type)).includes(time) && !req.body.force) {
@@ -466,7 +468,7 @@ export default async function handler(req, res) {
       }
       if (key) {
         const taken = await bookedTimes(key, date);
-        if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive })) {
+        if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive, privacy })) {
           res.status(409).json({ error: "That slot is already taken." });
           return;
         }
@@ -485,6 +487,7 @@ export default async function handler(req, res) {
         phone: req.body.phone || "",
         email,
         focus,
+        privacy,
         date,
         time,
         availability,
@@ -505,7 +508,7 @@ export default async function handler(req, res) {
         }
         if (attempt > 0 && key) {
           const taken = await bookedTimes(key, date);
-          if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive })) {
+          if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive, privacy })) {
             res.status(409).json({
               error: "That time was just taken, became full, or has a different training focus.",
               code: "slot_taken",

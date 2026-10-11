@@ -8,8 +8,8 @@ import {
   slotBlocked,
   seatsFor,
   isExclusiveType,
-  isExclusiveFocus,
   isExclusiveBooking,
+  privacyForPurchaseType,
   canPair,
   SLOT_CAPACITY,
   LOCATIONS,
@@ -102,13 +102,13 @@ export default async function handler(req, res) {
     res.status(400).json({ error: "Choose Hitting, Fielding, or Hitting & Fielding." });
     return;
   }
-  if (isExclusiveFocus(focusRaw) && player2) {
+  if (type === "private" && player2) {
     res.status(400).json({
-      error: "Hitting & Fielding is a one-athlete session. Pick Hitting or Fielding to book two athletes together.",
+      error: "Private lessons are one athlete only. Book a regular lesson to train two athletes together.",
     });
     return;
   }
-  const athletes = !isExclusiveFocus(focusRaw) && canPair(type) && player2 ? 2 : 1;
+  const athletes = canPair(type) && player2 ? 2 : 1;
 
   if (type === "membership") {
     const paused = membershipBlockedMessage();
@@ -141,7 +141,8 @@ export default async function handler(req, res) {
     return;
   }
   const focus = normalizeFocus(focusRaw, type);
-  const exclusive = isExclusiveBooking({ type, focus });
+  const privacy = privacyForPurchaseType(type);
+  const exclusive = isExclusiveBooking({ type, focus, privacy });
   const seats = exclusive ? SLOT_CAPACITY : seatsFor(type, athletes);
 
   const windowBlock = bookWindowBlocked(date);
@@ -160,12 +161,10 @@ export default async function handler(req, res) {
   if (key) {
     try {
       const taken = await bookedTimes(key, date);
-      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive })) {
+      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive, privacy })) {
         res.status(409).json({
           error: isExclusiveType(type)
             ? "Sorry — that hour already has a lesson on it, so it can't be private. Pick another."
-            : isExclusiveFocus(focus)
-            ? "Sorry — that hour is already taken. Hitting & Fielding needs an open hour. Pick another."
             : athletes > 1
             ? "Sorry — that hour doesn't have room for two athletes. Pick another."
             : "Sorry — that time is full or has a different focus. Pick another.",
@@ -192,6 +191,7 @@ export default async function handler(req, res) {
     phone,
     email,
     focus,
+    privacy,
     date,
     time,
     availability,
@@ -213,7 +213,7 @@ export default async function handler(req, res) {
     }
     if (attempt > 0) {
       const taken = await bookedTimes(key, date);
-      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive })) {
+      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive, privacy })) {
         res.status(409).json({
           error: "That time was just taken, became full, or has a different training focus. Pick another.",
           code: "slot_taken",

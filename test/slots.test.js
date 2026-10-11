@@ -53,9 +53,9 @@ test("bookedTimes reports seats, so one athlete leaves the hour joinable", async
   }
 });
 
-test("bookedTimes marks Hitting & Fielding as exclusive with one athlete", async () => {
+test("bookedTimes keeps legacy Hitting & Fielding exclusive without privacy", async () => {
   const item = {
-    id: "pi_both",
+    id: "pi_both_legacy",
     status: "succeeded",
     metadata: {
       type: "single",
@@ -71,6 +71,32 @@ test("bookedTimes marks Hitting & Fielding as exclusive with one athlete", async
     const rows = await bookedTimes("sk_test", "2026-09-28");
     assert.equal(rows[0].seats, 2);
     assert.equal(rows[0].exclusive, true);
+    assert.deepEqual(rows[0].focuses, ["Both"]);
+  } finally {
+    mock.restoreAll();
+  }
+});
+
+test("bookedTimes lets new standard Hitting & Fielding share a seat", async () => {
+  const item = {
+    id: "pi_both_standard",
+    status: "succeeded",
+    metadata: {
+      type: "single",
+      player: "Sam",
+      focus: "Both",
+      privacy: "standard",
+      seats: "1",
+      date1: "2026-09-28",
+      time1: "6:00 PM",
+    },
+  };
+  mock.method(globalThis, "fetch", async () => stripeResult(item));
+  try {
+    const rows = await bookedTimes("sk_test", "2026-09-28");
+    assert.equal(rows[0].seats, 1);
+    assert.equal(rows[0].exclusive, false);
+    assert.equal(rows[0].privacy, "standard");
     assert.deepEqual(rows[0].focuses, ["Both"]);
   } finally {
     mock.restoreAll();
@@ -203,7 +229,7 @@ test("Stripe search and its paid Blob mirror count as one athlete", async () => 
     assert.equal(rows.length, 1);
     // Stripe Search + the paid Blob mirror are the same booking — one source.
     assert.equal(rows[0].count, 1);
-    // Hitting & Fielding still owns the whole hour.
+    // Legacy Both (no privacy metadata) still owns the whole hour.
     assert.equal(rows[0].seats, 2);
     assert.equal(rows[0].exclusive, true);
   } finally {

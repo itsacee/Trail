@@ -107,9 +107,10 @@
 
   function openTimes(iso, booked) {
     const focus = focusSelect ? focusSelect.value : "";
+    const privacy = AP.privacyForPurchaseType("membership");
     return AP.startsForDate(iso, AVAIL, LESSON_MINUTES)
       .map((t) => AP.fmtTime(t))
-      .filter((label) => !AP.slotIsBlocked(booked || [], label, LESSON_MINUTES, focus, 1));
+      .filter((label) => !AP.slotIsBlocked(booked || [], label, LESSON_MINUTES, focus, { seats: 1, privacy }));
   }
 
   function dayHasCapacity(iso, booked) {
@@ -181,11 +182,13 @@
       return;
     }
     const focus = focusSelect ? focusSelect.value : "";
+    const privacy = AP.privacyForPurchaseType("membership");
+    const need = { seats: 1, privacy };
     let open = 0;
     AP.startsForDate(selectedDate, AVAIL, LESSON_MINUTES).forEach((t) => {
       const label = AP.fmtTime(t);
-      const blocked = AP.slotIsBlocked(booked, label, LESSON_MINUTES, focus, 1);
-      const left = AP.seatsLeft(booked, label, LESSON_MINUTES, focus);
+      const blocked = AP.slotIsBlocked(booked, label, LESSON_MINUTES, focus, need);
+      const left = AP.seatsLeft(booked, label, LESSON_MINUTES, focus, privacy);
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "chip";
@@ -196,8 +199,8 @@
       chip.classList.toggle("is-selected", on);
       chip.setAttribute("aria-checked", on ? "true" : "false");
       const tag = blocked
-        ? AP.slotBlockReason(booked, label, LESSON_MINUTES, focus, 1) || "Booked"
-        : left === 1 && !AP.isExclusiveFocus(focus)
+        ? AP.slotBlockReason(booked, label, LESSON_MINUTES, focus, need) || "Booked"
+        : left === 1
         ? "1 spot left"
         : "";
       chip.innerHTML = `<span class="chip__time">${label}</span>${tag ? `<span class="chip__tag">${tag}</span>` : ""}`;
@@ -218,9 +221,7 @@
           : "No open times this day."
         : selectedTime
         ? ""
-        : AP.isExclusiveFocus(focus)
-        ? "Hitting & Fielding is one athlete and takes the whole time. Hitting or Fielding can share (2 athletes)."
-        : "Same Hitting or Fielding focus can share a time (2 athletes). A different focus is unavailable — pick another time.";
+        : "Same focus can share a time (2 athletes), including Hitting & Fielding. A different focus is unavailable — pick another time.";
     }
   }
 

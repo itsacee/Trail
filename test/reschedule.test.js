@@ -26,9 +26,11 @@ test("seatsOnLesson reads the seat count off any kind of lesson", () => {
   assert.equal(seatsOnLesson({ type: "single", seats: 2 }), 2);
   assert.equal(seatsOnLesson({ type: "single" }), 1);
   assert.equal(seatsOnLesson({ type: "membership" }), 1);
-  // Hitting & Fielding always owns the hour.
+  // Legacy Both without privacy stays exclusive; new standard Both does not.
   assert.equal(seatsOnLesson({ type: "single", focus: "Both", seats: 1 }), SLOT_CAPACITY);
   assert.equal(seatsOnLesson({ type: "membership", focus: "Both" }), SLOT_CAPACITY);
+  assert.equal(seatsOnLesson({ type: "single", focus: "Both", privacy: "standard", seats: 1 }), 1);
+  assert.equal(seatsOnLesson({ type: "membership", focus: "Both", privacy: "standard" }), 1);
 });
 
 test("a cash booking is moved in place", () => {

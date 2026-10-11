@@ -152,11 +152,11 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   /* ---------- state ---------- */
 
-  // `pair` = you can put a second athlete of your own on the booking. A private
-  // hour is never shared with a stranger, but two siblings can share it.
+  // `pair` = you can put a second athlete on a standard booking. Private
+  // drop-ins are always one athlete and reserve the whole hour.
   const SESSIONS = {
     single: { name: "Regular Lesson", picks: 1, focus: "full", pair: true },
-    private: { name: "Private 1-on-1", picks: 1, focus: "full", pair: true },
+    private: { name: "Private 1-on-1", picks: 1, focus: "full", pair: false },
     membership: { name: "Membership", picks: 1, focus: "full", pair: false },
     thirty: { name: "30-Minute Lesson", picks: 1, focus: "one", pair: true },
   };
@@ -207,8 +207,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   const TYPE_NOTE = {
     single: () => "One hour. A second athlete can share the hour with you unless you add one yourself.",
     private: () =>
-      `One hour, nobody else can book into it. ${AP.dollars(PRICING.prices.private)} for one athlete, ` +
-      `or add a second athlete of your own for the regular ${AP.dollars(PRICING.prices.single)} each.`,
+      `One hour, just you — nobody else can book it. ${AP.dollars(PRICING.prices.private)} for one athlete.`,
     membership: () => "Four one-hour lessons a month. You pick lesson 1 today.",
     thirty: () => "A focused 30 minutes on one skill.",
   };
@@ -235,21 +234,25 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   /* ---------- derived values ---------- */
 
   function pairType() {
-    // Hitting & Fielding is always one athlete — no sibling pair on that focus.
-    return Boolean(SESSIONS[selectedType].pair) && !AP.isExclusiveFocus(currentFocus());
+    return Boolean(SESSIONS[selectedType].pair);
   }
 
   function athleteCount() {
     return pairType() ? athletes : 1;
   }
 
+  function currentPrivacy() {
+    return AP.privacyForPurchaseType(selectedType);
+  }
+
   function want() {
-    // Private and Hitting & Fielding buy the whole hour; two Hitting/Fielding
-    // athletes fill both seats; one Hitting/Fielding athlete leaves a seat open.
-    if (AP.isExclusiveBooking(selectedType, currentFocus())) {
-      return { seats: AP.SLOT_CAPACITY, exclusive: true };
+    // Private buys the whole hour; two standard athletes fill both seats;
+    // one standard athlete leaves a seat open (any matching focus, including Both).
+    const privacy = currentPrivacy();
+    if (AP.isExclusiveBooking(selectedType, currentFocus(), privacy)) {
+      return { seats: AP.SLOT_CAPACITY, exclusive: true, privacy };
     }
-    return { seats: AP.seatsFor(selectedType, athleteCount()), exclusive: false };
+    return { seats: AP.seatsFor(selectedType, athleteCount()), exclusive: false, privacy };
   }
 
   function unitPrice() {
@@ -496,8 +499,6 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     if (els.player2Hint) {
       els.player2Hint.textContent = !show
         ? ""
-        : selectedType === "private"
-        ? `Two athletes already fill the hour, so you pay the regular ${AP.dollars(unitPrice())} each instead of the private rate.`
         : `Two athletes fill the hour — nobody else can book it. ${AP.dollars(unitPrice())} each.`;
     }
   }
@@ -547,7 +548,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     starts.forEach((t) => {
       const label = AP.fmtTime(t);
       const blocked = AP.slotIsBlocked(booked, label, dur, focus, need);
-      const left = AP.seatsLeft(booked, label, dur, focus);
+      const left = AP.seatsLeft(booked, label, dur, focus, currentPrivacy());
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "chip";
@@ -557,11 +558,10 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       const on = !blocked && selectedTime === label;
       chip.classList.toggle("is-selected", on);
       chip.setAttribute("aria-checked", on ? "true" : "false");
-      // Different focus must look taken — Hitting cannot join Fielding / Both.
-      // "1 spot left" only for shareable Hitting/Fielding (never empty Both).
+      // Different focus must look taken. "1 spot left" for shareable standard hours.
       const tag = blocked
         ? AP.slotBlockReason(booked, label, dur, focus, need) || "Booked"
-        : left === 1 && need.seats === 1 && !AP.isExclusiveFocus(focus)
+        : left === 1 && need.seats === 1 && currentPrivacy() === "standard"
         ? "1 spot left"
         : "";
       chip.innerHTML = `<span class="chip__time">${label}</span>${tag ? `<span class="chip__tag">${tag}</span>` : ""}`;
@@ -588,9 +588,9 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
           : "No open times this day."
         : selectedTime
         ? ""
-        : AP.isExclusiveFocus(focus)
-        ? "Hitting & Fielding is one athlete and takes the whole time. Hitting or Fielding can share (2 athletes)."
-        : "Same Hitting or Fielding focus can share a time (2 athletes). A different focus is unavailable — pick another time.";
+        : currentPrivacy() === "private"
+        ? "Private lessons take the whole hour — pick an open time."
+        : "Same focus can share a time (2 athletes), including Hitting & Fielding. A different focus is unavailable — pick another time.";
     }
   }
 
@@ -751,9 +751,6 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   if (els.focusSelect) {
     els.focusSelect.addEventListener("change", async () => {
       selectedTime = "";
-      // Hitting & Fielding can't carry a second athlete.
-      if (AP.isExclusiveFocus(currentFocus())) athletes = 1;
-      syncAthleteField();
       // Re-check live bookings for this focus so a Hitting slot greys out for Fielding.
       if (selectedDate) {
         delete bookedCache[selectedDate];

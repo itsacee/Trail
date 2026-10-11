@@ -5,6 +5,7 @@ import {
   durationFor,
   slotBlocked,
   isExclusiveBooking,
+  privacyForPurchaseType,
   LOCATIONS,
 } from "../lib/schedule.js";
 import {
@@ -291,10 +292,12 @@ export default async function handler(req, res) {
       const ignoreSourceId = newDate === lesson.date ? lesson.sourceId || lesson.id : "";
       const taken = await bookedTimes(key, newDate, { ignoreSourceId });
       const dur = durationFor("membership");
+      const movePrivacy = lesson.privacy || privacyForPurchaseType("membership");
       if (
         slotBlocked(taken, newTime, dur, newFocus, {
           seats: 1,
-          exclusive: isExclusiveBooking({ type: "membership", focus: newFocus }),
+          exclusive: isExclusiveBooking({ type: "membership", focus: newFocus, privacy: movePrivacy }),
+          privacy: movePrivacy,
         })
       ) {
         res.status(409).json({
@@ -364,13 +367,15 @@ export default async function handler(req, res) {
     return;
   }
 
+  const privacy = privacyForPurchaseType("membership");
   try {
     const taken = await bookedTimes(key, date);
     const dur = durationFor("membership");
     if (
       slotBlocked(taken, time, dur, focus, {
         seats: 1,
-        exclusive: isExclusiveBooking({ type: "membership", focus }),
+        exclusive: isExclusiveBooking({ type: "membership", focus, privacy }),
+        privacy,
       })
     ) {
       res.status(409).json({
@@ -405,7 +410,8 @@ export default async function handler(req, res) {
         retryBlocked ||
         slotBlocked(taken, time, durationFor("membership"), focus, {
           seats: 1,
-          exclusive: isExclusiveBooking({ type: "membership", focus }),
+          exclusive: isExclusiveBooking({ type: "membership", focus, privacy }),
+          privacy,
         })
       ) {
         res.status(409).json({
