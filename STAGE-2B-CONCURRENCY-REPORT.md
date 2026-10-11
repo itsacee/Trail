@@ -123,7 +123,9 @@ Do not treat Stage 3 as a substitute for this concurrency fix. Prefer merging/re
 
 ## J. Git branch, commit, and working-tree status
 
-See git output after commit in the agent summary. Working tree should be clean aside from any intentional untracked Stage 1 report.
+- **Branch:** `cursor/stage2-booking-rules-f621`
+- **Commit:** `5a979d4` — Stage 2B: CAS transactions for lessons and manual bookings
+- **Working tree:** clean except intentional untracked `STAGE-1-INVESTIGATION-REPORT.md`
 
 ---
 
