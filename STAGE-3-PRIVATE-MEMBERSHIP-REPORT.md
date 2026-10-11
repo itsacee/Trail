@@ -144,9 +144,8 @@ Do not start Stage 4 until approved.
 ## N. Git branch, commit, and working-tree status
 
 **Stage 3 implementation commit:** `a7dec38`  
-**Branch tip:** `df17f39`  
-**Branch:** `cursor/stage2-booking-rules-f621` (pushed; PR #61)  
-Working tree clean aside from untracked `STAGE-1-INVESTIGATION-REPORT.md`.
+**Branch:** `cursor/stage2-booking-rules-f621` (pushed; PR https://github.com/itsacee/Trail/pull/61)  
+Report-only follow-up commits may sit on tip after `a7dec38`. Working tree clean aside from untracked `STAGE-1-INVESTIGATION-REPORT.md`.
 
 ---
 
