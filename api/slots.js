@@ -19,8 +19,8 @@
 import {
   durationFor,
   seatsFor,
-  isExclusiveType,
-  isExclusiveFocus,
+  resolvePrivacy,
+  normalizePrivacy,
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
 import { loadLessons, lessonsOnDate, isVoided } from "../lib/lessons.js";
@@ -30,12 +30,13 @@ import { isCoachPass } from "../lib/coachAuth.js";
 
 const ACTIVE_SUBSCRIPTION = ["active", "trialing", "past_due"];
 
-// How many of the hour's two athlete seats a booking occupies. Private lessons
-// take both; Hitting & Fielding locks the hour; a sibling pair takes both; a
-// lone Hitting/Fielding athlete takes one.
+// How many of the hour's two athlete seats a booking occupies.
+// Private (type or privacy) takes both. Legacy Both-without-privacy is treated
+// as private. Standard Both with privacy:"standard" takes its seat count only.
 function seatsOn(row) {
   const type = String(row?.type || "");
-  if (isExclusiveType(type) || isExclusiveFocus(row?.focus)) return SLOT_CAPACITY;
+  const privacy = resolvePrivacy({ type, focus: row?.focus, privacy: row?.privacy });
+  if (privacy === "private") return SLOT_CAPACITY;
   const explicit = Number(row?.seats);
   if (explicit > 0) return Math.min(SLOT_CAPACITY, explicit);
   return seatsFor(type, row?.athletes);
@@ -109,7 +110,8 @@ export async function bookedTimes(
         player2: m.player2 || "",
         type: m.type || "",
         focus: m.focus || "",
-        seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes, focus: m.focus }),
+        privacy: normalizePrivacy(m.privacy) || resolvePrivacy({ type: m.type, focus: m.focus, privacy: m.privacy }),
+        seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes, focus: m.focus, privacy: m.privacy }),
         created: item.created || 0,
       });
     });
@@ -159,8 +161,10 @@ export async function bookedTimes(
           const source = {
             kind: "hold",
             id: session.id,
+            type: m.type || "",
             focus: m.focus || "",
-            seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes, focus: m.focus }),
+            privacy: normalizePrivacy(m.privacy) || resolvePrivacy({ type: m.type, focus: m.focus, privacy: m.privacy }),
+            seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes, focus: m.focus, privacy: m.privacy }),
             createdAt: Number(session.created || 0) * 1000,
             expiresAt: Number(session.expires_at || 0) * 1000,
           };
@@ -193,8 +197,18 @@ export async function bookedTimes(
         id: l.source === "stripe" ? l.sourceId || l.id : l.id,
         player: l.player || "",
         email: l.email || "",
+        type: l.type || "membership",
         focus: l.focus || "",
-        seats: seatsOn({ type: l.type || "membership", seats: l.seats, athletes: l.athletes, focus: l.focus }),
+        privacy:
+          normalizePrivacy(l.privacy) ||
+          resolvePrivacy({ type: l.type || "membership", focus: l.focus, privacy: l.privacy }),
+        seats: seatsOn({
+          type: l.type || "membership",
+          seats: l.seats,
+          athletes: l.athletes,
+          focus: l.focus,
+          privacy: l.privacy,
+        }),
         createdAt: l.createdAt || 0,
       })
     );
@@ -213,8 +227,12 @@ export async function bookedTimes(
       add(h.time, h.mins || 60, {
         kind: "hold",
         id: h.sessionId,
+        type: h.type || "",
         focus: h.focus || "",
-        seats: seatsOn({ type: h.type, seats: h.seats, athletes: h.athletes, focus: h.focus }),
+        privacy:
+          normalizePrivacy(h.privacy) ||
+          resolvePrivacy({ type: h.type, focus: h.focus, privacy: h.privacy }),
+        seats: seatsOn({ type: h.type, seats: h.seats, athletes: h.athletes, focus: h.focus, privacy: h.privacy }),
         expiresAt: h.expiresAt,
         expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
       })
@@ -234,8 +252,18 @@ export async function bookedTimes(
         player: b.player || "",
         player2: b.player2 || "",
         email: b.email || "",
+        type: b.type || "single",
         focus: b.focus || "",
-        seats: seatsOn({ type: b.type || "single", seats: b.seats, athletes: b.athletes, focus: b.focus }),
+        privacy:
+          normalizePrivacy(b.privacy) ||
+          resolvePrivacy({ type: b.type || "single", focus: b.focus, privacy: b.privacy }),
+        seats: seatsOn({
+          type: b.type || "single",
+          seats: b.seats,
+          athletes: b.athletes,
+          focus: b.focus,
+          privacy: b.privacy,
+        }),
         createdAt: b.createdAt || 0,
       })
     );
@@ -246,13 +274,20 @@ export async function bookedTimes(
   return [...byTime.entries()].map(([time, v]) => {
     const seats = v.sources.reduce((n, source) => n + (Number(source.seats) || 1), 0);
     const focuses = [...new Set(v.sources.map((source) => source.focus || "").filter(Boolean))];
+    const privacies = [...new Set(v.sources.map((source) => normalizePrivacy(source.privacy)).filter(Boolean))];
+    const privacy = privacies.length === 1 ? privacies[0] : privacies.includes("private") ? "private" : "";
+    // Private privacy, private type seats, or a full standard hour.
+    const exclusive =
+      seats >= SLOT_CAPACITY ||
+      privacy === "private" ||
+      v.sources.some((source) => resolvePrivacy(source) === "private");
     return {
       time,
       mins: v.mins,
       count: v.sources.length,
       seats,
-      // Private lessons, sibling pairs, and Hitting & Fielding own the hour.
-      exclusive: seats >= SLOT_CAPACITY || focuses.some(isExclusiveFocus),
+      exclusive,
+      privacy: exclusive && privacy !== "standard" ? privacy || "private" : privacy || (exclusive ? "" : "standard"),
       focuses,
       sources: v.sources,
     };
@@ -277,12 +312,13 @@ export default async function handler(req, res) {
       // Names and ids stay private unless the coach asked.
       booked: isCoach
         ? booked
-        : booked.map(({ time, mins, count, seats, exclusive, focuses }) => ({
+        : booked.map(({ time, mins, count, seats, exclusive, privacy, focuses }) => ({
             time,
             mins,
             count,
             seats,
             exclusive,
+            privacy,
             focuses,
           })),
     });

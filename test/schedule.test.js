@@ -16,6 +16,9 @@ import {
   seatsFor,
   seatsLeft,
   isExclusiveType,
+  isExclusiveBooking,
+  resolvePrivacy,
+  privacyForPurchaseType,
   canPair,
   SLOT_CAPACITY,
   DEFAULT_AVAILABILITY,
@@ -118,37 +121,91 @@ test("normalizeAvailability fills gaps and drops malformed blocked dates", () =>
 
 test("slotBlocked lets a second player join only with the same focus", () => {
   assert.equal(SLOT_CAPACITY, 2);
-  const hitting = [{ time: "5:00 PM", mins: 60, count: 1, focuses: ["Hitting"] }];
-  assert.equal(slotBlocked(hitting, "5:00 PM", 60, "Hitting"), false);
-  assert.equal(slotBlocked(hitting, "5:00 PM", 60, "Fielding"), true);
-  assert.equal(slotBlocked(hitting, "5:00 PM", 60, "Both"), true);
-  assert.equal(slotBlocked(hitting, "5:30 PM", 60, "Hitting"), true);
+  const std = { seats: 1, privacy: "standard" };
+  const hitting = [{ time: "5:00 PM", mins: 60, count: 1, focuses: ["Hitting"], privacy: "standard" }];
+  assert.equal(slotBlocked(hitting, "5:00 PM", 60, "Hitting", std), false);
+  assert.equal(slotBlocked(hitting, "5:00 PM", 60, "Fielding", std), true);
+  assert.equal(slotBlocked(hitting, "5:00 PM", 60, "Both", std), true);
+  assert.equal(slotBlocked(hitting, "5:30 PM", 60, "Hitting", std), true);
   assert.equal(
-    slotBlocked([{ time: "5:00 PM", mins: 60, count: 2, focuses: ["Hitting"] }], "5:00 PM", 60, "Hitting"),
+    slotBlocked([{ time: "5:00 PM", mins: 60, count: 2, focuses: ["Hitting"], privacy: "standard" }], "5:00 PM", 60, "Hitting", std),
     true
   );
-  assert.equal(slotBlocked(hitting, "5:00 PM", 30, "Hitting"), true);
+  assert.equal(slotBlocked(hitting, "5:00 PM", 30, "Hitting", std), true);
   assert.equal(
-    slotBlocked([{ time: "5:00 PM", mins: 30, count: 1, focuses: ["Fielding"] }], "5:30 PM", 30, "Fielding"),
+    slotBlocked([{ time: "5:00 PM", mins: 30, count: 1, focuses: ["Fielding"], privacy: "standard" }], "5:30 PM", 30, "Fielding", std),
     false
   );
-  assert.equal(slotBlocked([], "5:00 PM", 60, "Both"), false);
-  // Hitting & Fielding is solo — one booking fills the hour for every focus.
-  const both = [{ time: "5:00 PM", mins: 60, seats: 1, focuses: ["Both"] }];
-  assert.equal(slotBlocked(both, "5:00 PM", 60, "Both"), true);
-  assert.equal(slotBlocked(both, "5:00 PM", 60, "Hitting"), true);
-  assert.equal(slotBlocked(both, "5:00 PM", 60, "Fielding"), true);
+  // New standard Both can share.
+  assert.equal(slotBlocked([], "5:00 PM", 60, "Both", std), false);
+  const bothStd = [{ time: "5:00 PM", mins: 60, seats: 1, focuses: ["Both"], privacy: "standard" }];
+  assert.equal(slotBlocked(bothStd, "5:00 PM", 60, "Both", std), false);
+  assert.equal(slotBlocked(bothStd, "5:00 PM", 60, "Hitting", std), true);
+  assert.equal(slotBlocked(bothStd, "5:00 PM", 60, "Fielding", std), true);
+  assert.equal(
+    slotBlocked(
+      [
+        { time: "5:00 PM", mins: 60, seats: 1, focuses: ["Both"], privacy: "standard" },
+        { time: "5:00 PM", mins: 60, seats: 1, focuses: ["Both"], privacy: "standard" },
+      ],
+      "5:00 PM",
+      60,
+      "Both",
+      std
+    ),
+    true
+  );
 });
 
-test("Hitting & Fielding is exclusive even without an exclusive flag on the row", () => {
+test("legacy Hitting & Fielding without privacy stays exclusive", () => {
+  // Historical Both rows (no privacy field) were sold under exclusive-Both (#60).
   const both = [{ time: "6:00 PM", mins: 60, seats: 1, exclusive: false, focuses: ["Both"] }];
-  assert.equal(slotBlocked(both, "6:00 PM", 60, "Both", 1), true);
-  assert.equal(slotBlocked(both, "6:00 PM", 60, "Hitting", 1), true);
-  assert.equal(seatsLeft(both, "6:00 PM", 60, "Both"), 0);
-  assert.equal(seatsLeft([], "6:00 PM", 60, "Both"), 1);
-  // A Both request also refuses to join an open Hitting seat.
-  const hitting = [{ time: "6:00 PM", mins: 60, seats: 1, focuses: ["Hitting"] }];
-  assert.equal(slotBlocked(hitting, "6:00 PM", 60, "Both", 1), true);
+  assert.equal(slotBlocked(both, "6:00 PM", 60, "Both", { seats: 1, privacy: "standard" }), true);
+  assert.equal(slotBlocked(both, "6:00 PM", 60, "Hitting", { seats: 1, privacy: "standard" }), true);
+  assert.equal(seatsLeft(both, "6:00 PM", 60, "Both", "standard"), 0);
+  // Empty hour: new standard Both sees two seats.
+  assert.equal(seatsLeft([], "6:00 PM", 60, "Both", "standard"), SLOT_CAPACITY);
+  const hitting = [{ time: "6:00 PM", mins: 60, seats: 1, focuses: ["Hitting"], privacy: "standard" }];
+  assert.equal(slotBlocked(hitting, "6:00 PM", 60, "Both", { seats: 1, privacy: "standard" }), true);
+});
+
+test("privacy comes from purchase type, not focus", () => {
+  assert.equal(privacyForPurchaseType("single"), "standard");
+  assert.equal(privacyForPurchaseType("membership"), "standard");
+  assert.equal(privacyForPurchaseType("membership_private"), "private");
+  assert.equal(privacyForPurchaseType("private"), "private");
+  assert.equal(resolvePrivacy({ type: "single", focus: "Both", privacy: "standard" }), "standard");
+  assert.equal(resolvePrivacy({ type: "private", focus: "Both", privacy: "" }), "private");
+  assert.equal(resolvePrivacy({ type: "single", focus: "Both", privacy: "" }), "private"); // legacy
+  assert.equal(isExclusiveBooking({ type: "single", focus: "Both", privacy: "standard" }), false);
+  assert.equal(isExclusiveBooking({ type: "private", focus: "Hitting", privacy: "private" }), true);
+});
+
+test("private and standard bookings cannot overlap", () => {
+  const stdWant = { seats: 1, privacy: "standard" };
+  const privWant = { seats: SLOT_CAPACITY, exclusive: true, privacy: "private" };
+  const standard = [{ time: "6:00 PM", mins: 60, seats: 1, focuses: ["Hitting"], privacy: "standard" }];
+  const priv = [{ time: "6:00 PM", mins: 60, seats: 2, exclusive: true, focuses: ["Fielding"], privacy: "private" }];
+  assert.equal(slotBlocked(standard, "6:00 PM", 60, "Hitting", privWant), true);
+  assert.equal(slotBlocked(priv, "6:00 PM", 60, "Hitting", stdWant), true);
+  assert.equal(slotBlocked([], "6:00 PM", 60, "Both", privWant), false);
+  assert.equal(slotBlocked([{ time: "6:00 PM", mins: 60, seats: 2, exclusive: true, focuses: ["Both"], privacy: "private" }], "6:00 PM", 60, "Both", stdWant), true);
+});
+
+test("simultaneous standard requests cannot exceed two seats", () => {
+  const std = { seats: 1, privacy: "standard" };
+  let booked = [];
+  // Admit first
+  assert.equal(slotBlocked(booked, "5:00 PM", 60, "Hitting", std), false);
+  booked = [{ time: "5:00 PM", mins: 60, seats: 1, focuses: ["Hitting"], privacy: "standard" }];
+  // Admit second
+  assert.equal(slotBlocked(booked, "5:00 PM", 60, "Hitting", std), false);
+  booked = [
+    { time: "5:00 PM", mins: 60, seats: 1, focuses: ["Hitting"], privacy: "standard" },
+    { time: "5:00 PM", mins: 60, seats: 1, focuses: ["Hitting"], privacy: "standard" },
+  ];
+  // Reject third
+  assert.equal(slotBlocked(booked, "5:00 PM", 60, "Hitting", std), true);
 });
 
 test("old bookings without a focus stay exclusive", () => {
@@ -169,10 +226,10 @@ test("seatsFor caps at the hour's capacity and a private lesson takes it all", (
   assert.equal(isExclusiveType("single"), false);
 });
 
-test("a private hour can carry a sibling, but a membership credit can't", () => {
+test("only standard drop-in types can carry a sibling pair", () => {
   assert.equal(canPair("single"), true);
   assert.equal(canPair("thirty"), true);
-  assert.equal(canPair("private"), true);
+  assert.equal(canPair("private"), false);
   assert.equal(canPair("membership"), false);
 });
 

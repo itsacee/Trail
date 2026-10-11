@@ -16,13 +16,12 @@ import {
   MEMBER_PERIOD_DAYS,
   lastUsableDate,
   memberEffectivePeriodEnd,
+  isMembershipType,
+  membershipLabel,
+  membershipTierOf,
 } from "../lib/members.js";
 import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
-import {
-  loadLessons,
-  saveLessons,
-  upsertStripeLessons,
-} from "../lib/lessons.js";
+import { mutateLessons, upsertStripeLessons } from "../lib/lessons.js";
 import { loadFinance, saveFinance, addFinanceEntry } from "../lib/finance.js";
 import { loadMembersState, saveMembersState, upsertMember } from "../lib/membersStore.js";
 
@@ -32,7 +31,12 @@ import { loadMembersState, saveMembersState, upsertMember } from "../lib/members
 function inviteAttachment(meta, sessions, sourceId) {
   const now = stamp();
   const player = meta.player || "Lesson";
-  const kind = meta.type === "thirty" ? "30-min" : meta.type === "membership" ? "Membership" : "1 hour";
+  const kind =
+    meta.type === "thirty"
+      ? "30-min"
+      : isMembershipType(meta.type)
+      ? membershipLabel(membershipTierOf(meta))
+      : "1 hour";
   const events = sessions.map((s, i) => {
     const place = LOCATIONS[s.loc] || LOCATIONS[LOCATION_KEY] || {};
     return eventLines({
@@ -72,7 +76,8 @@ const REPLY_TO = "Apacademybsb@gmail.com";
 const TYPE_NAMES = {
   single: "Lesson (1 hour)",
   thirty: "30-Minute Lesson",
-  membership: "Membership — 4 lessons per month",
+  membership: "Standard Membership — 4 lessons per month",
+  membership_private: "Private Membership — 4 private lessons per month",
 };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -564,7 +569,7 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
       address: p.address || "",
       mapUrl: p.address ? mapUrl(p.address) : "",
     }));
-    const isMember = meta.type === "membership" || Boolean(session.subscription);
+    const isMember = isMembershipType(meta.type) || Boolean(session.subscription);
     const memberToken = isMember && to ? signMemberToken(to) : "";
     const summary = {
       player: meta.player || "",
@@ -601,22 +606,21 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
 
     // Stripe Search can lag after a payment. Mirror the paid lesson before any
     // email work so slots and Coach Desk see it immediately and idempotently.
+    // Payment remains authoritative in Stripe even if Blob mirroring fails.
     if (sessions.length) {
       const sourceId = target?.id || session.payment_intent || session.subscription || session.id;
-      let mirrored = false;
-      for (let attempt = 0; attempt < 3 && !mirrored; attempt++) {
-        try {
-          const stored = await loadLessons();
-          if (!upsertStripeLessons(stored, sourceId, meta)) {
-            mirrored = true;
-            break;
-          }
-          mirrored = Boolean(await saveLessons(stored));
-        } catch (error) {
-          console.error("Could not mirror paid booking:", error);
+      try {
+        const mirrored = await mutateLessons((stored) => {
+          const changed = upsertStripeLessons(stored, sourceId, meta);
+          if (!changed) return { ok: true, skipSave: true };
+          return { ok: true };
+        });
+        if (!mirrored.ok) {
+          console.error("Could not save paid booking mirror:", sourceId, mirrored.error || mirrored.code);
         }
+      } catch (error) {
+        console.error("Could not mirror paid booking:", error);
       }
-      if (!mirrored) console.error("Could not save paid booking mirror:", sourceId);
     }
 
     if (alreadySent) {
@@ -648,6 +652,9 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
           amountDueCents: amountDue,
           amountPaidCents: amountPaid,
           paymentMethod: "deposit",
+          membershipType: meta.type || "membership",
+          type: meta.type || "membership",
+          privacy: meta.privacy || "",
         });
         await saveMembersState(members);
       }

@@ -35,16 +35,32 @@ async function bookableSlot(type) {
 
 async function checkoutWith(body) {
   let stripeBody;
+  let createdSession = null;
+  const now = Math.floor(Date.now() / 1000);
   mock.method(globalThis, "fetch", async (url, options) => {
     const target = String(url);
     // Only the POST creates the Checkout session; the GET of the same path is
     // the membership-capacity lookup for open checkouts.
     if (target.includes("/v1/checkout/sessions") && options?.method === "POST") {
       stripeBody = new URLSearchParams(options.body);
+      createdSession = {
+        id: "cs_test_private",
+        status: "open",
+        created: now,
+        expires_at: now + 1800,
+        metadata: {
+          type: stripeBody.get("metadata[type]") || "",
+          email: stripeBody.get("metadata[email]") || "",
+          privacy: stripeBody.get("metadata[privacy]") || "",
+        },
+      };
       return {
         ok: true,
-        json: async () => ({ id: "cs_test_private", url: "https://checkout.stripe.com/c/pay_test" }),
+        json: async () => ({ id: createdSession.id, created: now, url: "https://checkout.stripe.com/c/pay_test" }),
       };
+    }
+    if (target.includes("/v1/checkout/sessions?") && createdSession) {
+      return { ok: true, json: async () => ({ data: [createdSession] }) };
     }
     // Slot lookups and anything else: nothing is on the books.
     return { ok: true, json: async () => ({ data: [] }) };
@@ -81,7 +97,7 @@ test("a solo private hour charges the $100 premium", async () => {
   assert.equal(stripeBody.get("metadata[seats]"), "2");
 });
 
-test("a private hour for two of your own athletes charges $80 each, not the premium", async () => {
+test("a private hour rejects a second athlete and stays $100 for one", async () => {
   const slot = await bookableSlot("private");
   const { res, stripeBody } = await checkoutWith({
     ...base,
@@ -90,15 +106,15 @@ test("a private hour for two of your own athletes charges $80 each, not the prem
     sessions: [slot],
   });
 
-  assert.equal(res.statusCode, 200);
-  assert.equal(stripeBody.get("line_items[0][price_data][unit_amount]"), "16000");
-  assert.equal(stripeBody.get("metadata[athletes]"), "2");
-  assert.equal(stripeBody.get("metadata[seats]"), "2");
-  assert.equal(stripeBody.get("metadata[player2]"), "Max Boyd");
-  assert.match(
-    stripeBody.get("line_items[0][price_data][product_data][name]"),
-    /just your two athletes/
-  );
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.error, /one athlete only/i);
+  assert.equal(stripeBody, undefined);
+
+  const solo = await checkoutWith({ ...base, type: "private", sessions: [slot] });
+  assert.equal(solo.res.statusCode, 200);
+  assert.equal(solo.stripeBody.get("line_items[0][price_data][unit_amount]"), "10000");
+  assert.equal(solo.stripeBody.get("metadata[athletes]"), "1");
+  assert.equal(solo.stripeBody.get("metadata[privacy]"), "private");
 });
 
 test("a regular hour still charges per athlete", async () => {
@@ -123,6 +139,51 @@ test("a 30-minute pair charges per athlete too", async () => {
   });
   assert.equal(stripeBody.get("line_items[0][price_data][unit_amount]"), "12000");
   assert.equal(stripeBody.get("metadata[athletes]"), "2");
+});
+
+test("standard membership checkout is a one-time $280 payment", async () => {
+  const slot = await bookableSlot("membership");
+  const { res, stripeBody } = await checkoutWith({
+    ...base,
+    type: "membership",
+    sessions: [slot],
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(stripeBody.get("mode"), "payment");
+  assert.equal(stripeBody.get("line_items[0][price_data][unit_amount]"), "28000");
+  assert.equal(stripeBody.get("metadata[type]"), "membership");
+  assert.equal(stripeBody.get("metadata[privacy]"), "standard");
+  assert.equal(stripeBody.get("metadata[membership_tier]"), "standard");
+  assert.equal(stripeBody.get("metadata[seats]"), "1");
+});
+
+test("private membership checkout is a one-time $360 payment", async () => {
+  const slot = await bookableSlot("membership_private");
+  const { res, stripeBody } = await checkoutWith({
+    ...base,
+    type: "membership_private",
+    sessions: [slot],
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(stripeBody.get("mode"), "payment");
+  assert.equal(stripeBody.get("line_items[0][price_data][unit_amount]"), "36000");
+  assert.equal(stripeBody.get("metadata[type]"), "membership_private");
+  assert.equal(stripeBody.get("metadata[privacy]"), "private");
+  assert.equal(stripeBody.get("metadata[membership_tier]"), "private");
+  assert.equal(stripeBody.get("metadata[seats]"), "2");
+});
+
+test("private membership rejects the standard membership deposit path", async () => {
+  const slot = await bookableSlot("membership_private");
+  const { res, stripeBody } = await checkoutWith({
+    ...base,
+    type: "membership_private",
+    payMode: "deposit",
+    sessions: [slot],
+  });
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.error, /deposit/i);
+  assert.equal(stripeBody, undefined);
 });
 
 test("a later simultaneous checkout is expired before it can overbook the hour", async () => {

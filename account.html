@@ -77,6 +77,8 @@
           <button type="button" id="switchUser">Not you? Use a different email</button>
         </p>
 
+        <div id="acctMemberships" class="acct__memberships" hidden></div>
+
         <p class="booking__where" id="acctExpiry" hidden></p>
         <p class="booking__where" id="acctWhere" hidden></p>
 
@@ -84,6 +86,10 @@
 
         <form id="weekForm" hidden>
           <h3 class="booking__step-title" id="weekFormTitle"><span class="booking__step-num">+</span> Book another lesson</h3>
+          <div class="booking__field" id="memPurchaseField" hidden style="margin-bottom:1.1rem">
+            <label for="memPurchase">Which membership are you using?</label>
+            <select id="memPurchase"></select>
+          </div>
           <div class="booking__field" style="margin-bottom:1.1rem">
             <label for="memFocus">What should we work on?</label>
             <select id="memFocus">
@@ -99,7 +105,7 @@
             <p class="booking__note booking__note--tight" id="memTimesNote"></p>
           </div>
           <button type="submit" class="btn btn--primary btn--lg booking__submit" id="weekSubmit">Lock in this lesson</button>
-          <p class="booking__note">4 lessons per month · book any open day before your membership expires · Hitting or Fielding can share a time (2 athletes) · Hitting &amp; Fielding is one athlete and takes the whole time · unused lessons don't roll over · does not auto-renew</p>
+          <p class="booking__note">4 lessons per month · book any open day before your membership expires · same focus can share a time (2 athletes), including Hitting &amp; Fielding · unused lessons don't roll over · does not auto-renew</p>
           <p class="booking__status" id="weekStatus" role="status"></p>
         </form>
 

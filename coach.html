@@ -700,8 +700,9 @@
             <label class="field"><span>Private 1-on-1, one athlete ($)</span><input id="pricePrivate" type="number" step="1" inputmode="numeric" /></label>
             <p class="faint" id="privatePreview" style="margin:-0.3rem 0 0.2rem"></p>
             <label class="field"><span>30-minute, per athlete ($)</span><input id="priceThirty" type="number" step="1" inputmode="numeric" /></label>
-            <label class="field"><span>Membership, one month ($)</span><input id="priceMembership" type="number" step="1" inputmode="numeric" /></label>
-            <label class="field"><span>Membership card deposit ($)</span><input id="priceDeposit" type="number" step="1" inputmode="numeric" /></label>
+            <label class="field"><span>Standard Membership, one month ($)</span><input id="priceMembership" type="number" step="1" inputmode="numeric" /></label>
+            <label class="field"><span>Private Membership, one month ($)</span><input id="priceMembershipPrivate" type="number" step="1" inputmode="numeric" /></label>
+            <label class="field"><span>Standard Membership card deposit ($)</span><input id="priceDeposit" type="number" step="1" inputmode="numeric" /></label>
             <p class="faint" id="depositPreview" style="margin-top:0.4rem"></p>
             <div class="toggle">
               <span>Allow cash on the booking page<small>Parents can reserve and pay at the field</small></span>
@@ -761,7 +762,8 @@
       single: "Regular · 1 hr",
       thirty: "30 min",
       private: "Private 1-on-1",
-      membership: "Membership",
+      membership: "Standard Membership",
+      membership_private: "Private Membership",
       // Retired lesson type still sitting in older paid bookings.
       group: "Group lesson",
     };
@@ -769,7 +771,7 @@
     const typeName = (type) =>
       TYPE_LABEL[type] || (type ? String(type).charAt(0).toUpperCase() + String(type).slice(1) : "");
     const PLACE_LABEL = { mustang: "Mustang HS", delcity: "Del City", mojo: "Mojo Yard" };
-    const DURATIONS = { single: 60, thirty: 30, private: 60, membership: 60 };
+    const DURATIONS = { single: 60, thirty: 30, private: 60, membership: 60, membership_private: 60 };
 
     const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g,
       (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -1161,7 +1163,8 @@
              <option value="single">Regular lesson — ${wholeMoney(prices.single || 8000)} each</option>
              <option value="private">Private hour — ${wholeMoney(prices.private || 10000)} solo, ${wholeMoney(prices.single || 8000)} each for two</option>
              <option value="thirty">30-minute — ${wholeMoney(prices.thirty || 6000)} each</option>
-             <option value="membership">Membership first lesson — ${wholeMoney(prices.membership || 28000)}</option>
+             <option value="membership">Standard Membership first lesson — ${wholeMoney(prices.membership || 28000)}</option>
+             <option value="membership_private">Private Membership first lesson — ${wholeMoney(prices.membership_private || 36000)}</option>
            </select></label>
          <label class="field"><span>Focus</span>
            <select id="addFocus"><option value="Fielding">Fielding</option><option value="Hitting">Hitting</option><option value="Both">Hitting &amp; Fielding</option></select></label>
@@ -1271,6 +1274,7 @@
           <div class="lesson__sub">${esc(m.email)}${m.phone ? " · " + esc(m.phone) : ""}</div>
           <div class="tags">
             ${left !== null ? `<span class="pill ${left ? "" : "spent"}">${left} of ${link.credits || 4} left</span>` : ""}
+            ${m.membershipLabel || link?.membershipLabel ? `<span class="tag">${esc(m.membershipLabel || link.membershipLabel)}</span>` : ""}
             ${m.frozen ? '<span class="pill frozen">Frozen</span>' : ""}
             ${m.cashMembership ? '<span class="tag">Cash membership</span>' : ""}
             ${m.amountDueCents ? `<span class="tag tag--owed">Owes ${esc(money(m.amountDueCents))}</span>` : ""}
@@ -1431,6 +1435,9 @@
       $("pricePrivate").value = Math.round((p.private || 10000) / 100);
       $("priceThirty").value = Math.round((p.thirty || 6000) / 100);
       $("priceMembership").value = Math.round((p.membership || 28000) / 100);
+      if ($("priceMembershipPrivate")) {
+        $("priceMembershipPrivate").value = Math.round((p.membership_private || 36000) / 100);
+      }
       $("priceDeposit").value = Math.round((s.membershipDeposit || 8000) / 100);
       $("allowCash").checked = s.allowCash !== false;
       $("allowDeposit").checked = s.allowDeposit !== false;
@@ -1474,6 +1481,7 @@
               private: dollars("pricePrivate"),
               thirty: dollars("priceThirty"),
               membership: dollars("priceMembership"),
+              membership_private: dollars("priceMembershipPrivate"),
             },
             membershipDeposit: dollars("priceDeposit"),
             allowCash: $("allowCash").checked,

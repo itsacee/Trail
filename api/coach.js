@@ -4,12 +4,12 @@
 import { fetchBookings } from "../lib/bookings.js";
 import {
   loadManualBookings,
-  saveManualBookings,
+  mutateManualBookings,
   makeManualBooking,
   findBooking,
   activeBookings,
 } from "../lib/manualBookings.js";
-import { loadLessons, saveLessons, removeLesson, voidStripeLesson } from "../lib/lessons.js";
+import { loadLessons, mutateLessons, removeLesson, voidStripeLesson } from "../lib/lessons.js";
 import { moveLesson, clearStripeSlot, seatsOnLesson } from "../lib/reschedule.js";
 import { sendLessonCancelledEmail, sendLessonMovedEmail } from "../lib/lessonMail.js";
 import { requireCoach } from "../lib/coachAuth.js";
@@ -34,18 +34,23 @@ import {
   durationFor,
   slotBlocked,
   seatsFor,
-  isExclusiveType,
-  isExclusiveFocus,
   isExclusiveBooking,
+  privacyForPurchaseType,
   canPair,
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
 import { bookedTimes } from "./slots.js";
-import { lessonHasEnded, MEMBER_PERIOD_DAYS } from "../lib/members.js";
+import {
+  lessonHasEnded,
+  MEMBER_PERIOD_DAYS,
+  isMembershipType,
+  membershipTierOf,
+  membershipLabel,
+} from "../lib/members.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
-const BOOKING_TYPES = ["single", "thirty", "private", "membership"];
+const BOOKING_TYPES = ["single", "thirty", "private", "membership", "membership_private"];
 
 async function listOutstanding() {
   const manual = await loadManualBookings();
@@ -106,26 +111,37 @@ async function dashboard() {
 
   const members = Object.values(membersState.byEmail || {})
     .filter((m) => !m.removed)
-    .map((m) => ({
-      email: m.email,
-      player: m.player || "",
-      parent: m.parent || "",
-      phone: m.phone || "",
-      frozen: isMemberFrozen(membersState, m.email).frozen,
-      amountDueCents: m.amountDueCents || 0,
-      cashMembership: Boolean(m.cashMembership),
-      note: m.note || "",
-    }));
+    .map((m) => {
+      const tier = membershipTierOf({
+        type: m.membershipType || m.type || "membership",
+        privacy: m.privacy || "",
+      });
+      return {
+        email: m.email,
+        player: m.player || "",
+        parent: m.parent || "",
+        phone: m.phone || "",
+        frozen: isMemberFrozen(membersState, m.email).frozen,
+        amountDueCents: m.amountDueCents || 0,
+        cashMembership: Boolean(m.cashMembership),
+        membershipType: m.membershipType || m.type || (m.cashMembership ? "membership" : ""),
+        membershipTier: tier,
+        membershipLabel: m.cashMembership || m.membershipType ? membershipLabel(tier) : "",
+        privacy: m.privacy || "",
+        note: m.note || "",
+      };
+    });
 
   // Also surface emails from upcoming membership lessons
   sessions
-    .filter((s) => s.type === "membership" && s.email)
+    .filter((s) => isMembershipType(s.type || "membership") && s.email)
     .forEach((s) => {
       const e = String(s.email).toLowerCase();
       if (members.some((m) => m.email === e)) return;
       // Stripe is the source of this one, so a removed card would otherwise
       // reappear here on the next load.
       if (isMemberRemoved(membersState, e)) return;
+      const tier = membershipTierOf(s);
       members.push({
         email: e,
         player: s.player || "",
@@ -134,6 +150,10 @@ async function dashboard() {
         frozen: isMemberFrozen(membersState, e).frozen,
         amountDueCents: 0,
         cashMembership: false,
+        membershipType: s.type || "membership",
+        membershipTier: tier,
+        membershipLabel: membershipLabel(tier),
+        privacy: s.privacy || "",
         note: "",
       });
     });
@@ -213,18 +233,33 @@ export default async function handler(req, res) {
         return;
       }
 
-      const store = await loadManualBookings();
-      const b = findBooking(store, id);
-      if (!b) {
-        res.status(404).json({ error: "Booking not found (only cash/manual bookings can be collected here)." });
+      let collectedBooking = null;
+      const collected = await mutateManualBookings((store) => {
+        const b = findBooking(store, id);
+        if (!b) {
+          return {
+            ok: false,
+            error: "Booking not found (only cash/manual bookings can be collected here).",
+            status: 404,
+          };
+        }
+        const take = Math.min(amount, b.amountDueCents || amount);
+        b.amountPaidCents = (b.amountPaidCents || 0) + take;
+        b.amountDueCents = Math.max(0, (b.amountDueCents || 0) - take);
+        b.paymentStatus = b.amountDueCents > 0 ? "deposit_paid" : "paid";
+        collectedBooking = b;
+        return { ok: true, take };
+      });
+      if (!collected.ok) {
+        res.status(collected.status || 503).json({
+          error: collected.error || "Couldn't save that payment. Refresh and try again.",
+          code: collected.code,
+        });
         return;
       }
-      const take = Math.min(amount, b.amountDueCents || amount);
-      b.amountPaidCents = (b.amountPaidCents || 0) + take;
-      b.amountDueCents = Math.max(0, (b.amountDueCents || 0) - take);
-      b.paymentStatus = b.amountDueCents > 0 ? "deposit_paid" : "paid";
-      await saveManualBookings(store);
-      if (b.email && b.type === "membership") {
+      const b = collectedBooking;
+      const take = collected.take;
+      if (b.email && isMembershipType(b.type)) {
         const members = await loadMembersState();
         const row = memberRecord(members, b.email);
         if (row) {
@@ -297,10 +332,12 @@ export default async function handler(req, res) {
           const taken = await bookedTimes(key, date, {
             ignoreSourceId: row.source === "stripe" ? row.sourceId : row.id,
           });
+          const movePrivacy = row.privacy || privacyForPurchaseType(row.type);
           if (
             slotBlocked(taken, time, mins, focus, {
               seats: seatsOnLesson(row),
-              exclusive: isExclusiveBooking({ type: row.type, focus }),
+              exclusive: isExclusiveBooking({ type: row.type, focus, privacy: movePrivacy }),
+              privacy: movePrivacy,
             })
           ) {
             res.status(409).json({ error: "Something else is already on that time. Pick another." });
@@ -315,30 +352,71 @@ export default async function handler(req, res) {
         }
       }
 
-      // Reload + retry on conflict so a stale ETag / concurrent edit doesn't
-      // surface as a cryptic "check Blob" failure.
       let result = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const stored = await loadLessons();
-        const manual = await loadManualBookings();
-        result = moveLesson({ row, stored, manual, date, time, focus, availability });
-        if (!result.ok) {
-          res.status(404).json({ error: result.error });
+      if (row.source === "manual") {
+        const movedSave = await mutateManualBookings(async (manual) => {
+          const stored = await loadLessons();
+          result = moveLesson({ row, stored, manual, date, time, focus, availability });
+          if (!result.ok) return { ok: false, error: result.error, status: 404 };
+          return { ok: true, moved: result.moved };
+        });
+        if (!movedSave.ok) {
+          res.status(movedSave.status || 503).json({
+            error: movedSave.error || "Couldn't save the move. Refresh and try again in a moment.",
+            code: movedSave.code,
+          });
           return;
         }
-        let saved = true;
-        if (result.changed.includes("lessons")) saved = Boolean(await saveLessons(stored));
-        if (saved && result.changed.includes("manual")) {
-          saved = Boolean(await saveManualBookings(manual));
-        }
-        if (saved) break;
-        result = null;
-      }
-      if (!result) {
-        res.status(500).json({
-          error: "Couldn't save the move. Refresh and try again in a moment.",
+        result = { ok: true, moved: movedSave.moved, changed: ["manual"] };
+      } else {
+        const movedSave = await mutateLessons(async (stored) => {
+          const manual = await loadManualBookings();
+          if (key) {
+            try {
+              const taken = await bookedTimes(key, date, {
+                ignoreSourceId: row.source === "stripe" ? row.sourceId : row.id,
+              });
+              const movePrivacy = row.privacy || privacyForPurchaseType(row.type);
+              if (
+                slotBlocked(taken, time, mins, focus, {
+                  seats: seatsOnLesson(row),
+                  exclusive: isExclusiveBooking({ type: row.type, focus, privacy: movePrivacy }),
+                  privacy: movePrivacy,
+                })
+              ) {
+                return {
+                  ok: false,
+                  error: "Something else is already on that time. Pick another.",
+                  status: 409,
+                  code: "slot_taken",
+                };
+              }
+            } catch {
+              return {
+                ok: false,
+                error: "Couldn't confirm that time is still available. Try again shortly.",
+                status: 503,
+                code: "schedule_unavailable",
+              };
+            }
+          }
+          result = moveLesson({ row, stored, manual, date, time, focus, availability });
+          if (!result.ok) return { ok: false, error: result.error, status: 404 };
+          return { ok: true, moved: result.moved, clearStripe: result.clearStripe };
         });
-        return;
+        if (!movedSave.ok) {
+          res.status(movedSave.status || 503).json({
+            error: movedSave.error || "Couldn't save the move. Refresh and try again in a moment.",
+            code: movedSave.code,
+          });
+          return;
+        }
+        result = {
+          ok: true,
+          moved: movedSave.moved,
+          changed: ["lessons"],
+          clearStripe: movedSave.clearStripe,
+        };
       }
       if (result.clearStripe) {
         await clearStripeSlot(key, result.clearStripe.sourceId, result.clearStripe.lessonId);
@@ -362,29 +440,40 @@ export default async function handler(req, res) {
     // lessons are removed, and checkout slots are voided so the time reopens.
     if (action === "cancel_booking") {
       const id = String(req.body?.id || "");
-      const store = await loadManualBookings();
-      const b = findBooking(store, id);
-      if (b) {
+      const manualCancel = await mutateManualBookings((store) => {
+        const b = findBooking(store, id);
+        if (!b) return { ok: true, skipSave: true, missing: true };
         if (lessonHasEnded(b)) {
-          res.status(400).json({
+          return {
+            ok: false,
             error: "That lesson has already ended, so it cannot be cancelled or returned as a credit.",
+            status: 400,
             code: "lesson_ended",
-          });
-          return;
+          };
+        }
+        if (b.status === "cancelled") {
+          return { ok: true, skipSave: true, cancelledLesson: { ...b } };
         }
         const cancelledLesson = { ...b };
         b.status = "cancelled";
         b.cancelledAt = Date.now();
-        if (!(await saveManualBookings(store))) {
-          res.status(500).json({ error: "Couldn't cancel that lesson. Refresh and try again." });
-          return;
-        }
+        return { ok: true, cancelledLesson };
+      });
+      if (!manualCancel.ok) {
+        res.status(manualCancel.status || 503).json({
+          error: manualCancel.error || "Couldn't cancel that lesson. Refresh and try again.",
+          code: manualCancel.code,
+        });
+        return;
+      }
+      if (!manualCancel.missing) {
+        const cancelledLesson = manualCancel.cancelledLesson;
         const notified = await sendLessonCancelledEmail({
           to: cancelledLesson.email,
           lesson: cancelledLesson,
           cancelledBy: "coach",
           extraLine: [
-            cancelledLesson.type === "membership"
+            isMembershipType(cancelledLesson.type)
               ? "That lesson credit has been returned to the membership."
               : "",
             req.body.message || "",
@@ -409,16 +498,27 @@ export default async function handler(req, res) {
         });
         return;
       }
-      const stored = await loadLessons();
-      if (row.source === "stripe") {
-        voidStripeLesson(stored, { email: row.email, date: row.date, time: row.time, sourceId: row.sourceId });
-        removeLesson(stored, row.id, row.email);
-      } else if (!removeLesson(stored, row.id, row.email)) {
-        res.status(404).json({ error: "That lesson isn't on file anymore." });
-        return;
-      }
-      if (!(await saveLessons(stored))) {
-        res.status(500).json({ error: "Couldn't cancel that lesson. Refresh and try again." });
+      const cancelled = await mutateLessons((stored) => {
+        if (row.source === "stripe") {
+          voidStripeLesson(stored, {
+            email: row.email,
+            date: row.date,
+            time: row.time,
+            sourceId: row.sourceId,
+          });
+          removeLesson(stored, row.id, row.email);
+          return { ok: true };
+        }
+        if (!removeLesson(stored, row.id, row.email)) {
+          return { ok: false, error: "That lesson isn't on file anymore.", status: 404 };
+        }
+        return { ok: true };
+      });
+      if (!cancelled.ok) {
+        res.status(cancelled.status || 503).json({
+          error: cancelled.error || "Couldn't cancel that lesson. Refresh and try again.",
+          code: cancelled.code,
+        });
         return;
       }
       if (row.source === "stripe") await clearStripeSlot(key, row.sourceId, row.id);
@@ -427,7 +527,7 @@ export default async function handler(req, res) {
         lesson: row,
         cancelledBy: "coach",
         extraLine: [
-          row.type === "membership" ? "That lesson credit has been returned to the membership." : "",
+          isMembershipType(row.type) ? "That lesson credit has been returned to the membership." : "",
           req.body.message || "",
         ]
           .filter(Boolean)
@@ -450,14 +550,15 @@ export default async function handler(req, res) {
         return;
       }
       const focus = normalizeFocus(req.body.focus || "Fielding", type);
-      if (isExclusiveFocus(focus) && player2) {
+      if (type === "private" && player2) {
         res.status(400).json({
-          error: "Hitting & Fielding is a one-athlete session. Remove the second athlete or pick Hitting/Fielding.",
+          error: "Private lessons are one athlete only. Remove the second athlete or pick a regular lesson.",
         });
         return;
       }
-      const athletes = !isExclusiveFocus(focus) && canPair(type) && player2 ? 2 : 1;
-      const exclusive = isExclusiveBooking({ type, focus });
+      const athletes = canPair(type) && player2 ? 2 : 1;
+      const privacy = privacyForPurchaseType(type);
+      const exclusive = isExclusiveBooking({ type, focus, privacy });
       const seats = exclusive ? SLOT_CAPACITY : seatsFor(type, athletes);
       const availability = await getAvailability();
       if (!allowedTimes(date, availability, durationFor(type)).includes(time) && !req.body.force) {
@@ -466,7 +567,7 @@ export default async function handler(req, res) {
       }
       if (key) {
         const taken = await bookedTimes(key, date);
-        if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive })) {
+        if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive, privacy })) {
           res.status(409).json({ error: "That slot is already taken." });
           return;
         }
@@ -485,6 +586,7 @@ export default async function handler(req, res) {
         phone: req.body.phone || "",
         email,
         focus,
+        privacy,
         date,
         time,
         availability,
@@ -496,40 +598,50 @@ export default async function handler(req, res) {
         note: req.body.note || "",
         createdBy: "coach",
       });
-      let saved = false;
-      for (let attempt = 0; attempt < 3 && !saved; attempt++) {
-        const store = await loadManualBookings();
+      const saved = await mutateManualBookings(async (store) => {
         if (store.bookings.some((existing) => existing.id === booking.id)) {
-          saved = true;
-          break;
+          return { ok: true, skipSave: true };
         }
-        if (attempt > 0 && key) {
-          const taken = await bookedTimes(key, date);
-          if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive })) {
-            res.status(409).json({
-              error: "That time was just taken, became full, or has a different training focus.",
-              code: "slot_taken",
-            });
-            return;
+        if (key) {
+          try {
+            const taken = await bookedTimes(key, date);
+            if (slotBlocked(taken, time, durationFor(type), focus, { seats, exclusive, privacy })) {
+              return {
+                ok: false,
+                error: "That time was just taken, became full, or has a different training focus.",
+                status: 409,
+                code: "slot_taken",
+              };
+            }
+          } catch {
+            return {
+              ok: false,
+              error: "Couldn't confirm that time is still available. Try again shortly.",
+              status: 503,
+              code: "schedule_unavailable",
+            };
           }
         }
         store.bookings.push(booking);
-        saved = Boolean(await saveManualBookings(store));
-      }
-      if (!saved) {
-        res.status(503).json({
-          error: "Couldn't safely reserve that lesson. Refresh and try again.",
-          code: "schedule_unavailable",
+        return { ok: true };
+      });
+      if (!saved.ok) {
+        res.status(saved.status || 503).json({
+          error: saved.error || "Couldn't safely reserve that lesson. Refresh and try again.",
+          code: saved.code || "schedule_unavailable",
         });
         return;
       }
-      if (type === "membership" && email) {
+      if (isMembershipType(type) && email) {
         const members = await loadMembersState();
         const start = Math.floor(Date.now() / 1000);
         upsertMember(members, email, {
           cashMembership: true,
           cashMembershipStart: start,
           cashMembershipEnd: start + MEMBER_PERIOD_DAYS * 86400,
+          membershipType: type,
+          type,
+          privacy,
           player,
           amountDueCents: due,
           amountPaidCents: paid,

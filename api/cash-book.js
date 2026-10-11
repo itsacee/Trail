@@ -8,16 +8,15 @@ import {
   slotBlocked,
   seatsFor,
   isExclusiveType,
-  isExclusiveFocus,
   isExclusiveBooking,
+  privacyForPurchaseType,
   canPair,
   SLOT_CAPACITY,
   LOCATIONS,
 } from "../lib/schedule.js";
-import { bookWindowBlocked, MEMBER_PERIOD_DAYS } from "../lib/members.js";
+import { bookWindowBlocked, MEMBER_PERIOD_DAYS, isMembershipType } from "../lib/members.js";
 import {
-  loadManualBookings,
-  saveManualBookings,
+  mutateManualBookings,
   makeManualBooking,
 } from "../lib/manualBookings.js";
 import { loadSettings, unitPriceFor } from "../lib/settings.js";
@@ -80,7 +79,9 @@ export default async function handler(req, res) {
     return;
   }
   const body = req.body || {};
-  const type = ["single", "thirty", "private", "membership"].includes(body.type) ? body.type : "";
+  const type = ["single", "thirty", "private", "membership", "membership_private"].includes(body.type)
+    ? body.type
+    : "";
   const player = String(body.player || "").trim();
   const player2 = String(body.player2 || "").trim();
   const parent = String(body.parent || "").trim();
@@ -102,15 +103,15 @@ export default async function handler(req, res) {
     res.status(400).json({ error: "Choose Hitting, Fielding, or Hitting & Fielding." });
     return;
   }
-  if (isExclusiveFocus(focusRaw) && player2) {
+  if (type === "private" && player2) {
     res.status(400).json({
-      error: "Hitting & Fielding is a one-athlete session. Pick Hitting or Fielding to book two athletes together.",
+      error: "Private lessons are one athlete only. Book a regular lesson to train two athletes together.",
     });
     return;
   }
-  const athletes = !isExclusiveFocus(focusRaw) && canPair(type) && player2 ? 2 : 1;
+  const athletes = canPair(type) && player2 ? 2 : 1;
 
-  if (type === "membership") {
+  if (isMembershipType(type)) {
     const paused = membershipBlockedMessage();
     if (paused) {
       res.status(503).json({ error: paused, code: "membership_paused" });
@@ -141,7 +142,8 @@ export default async function handler(req, res) {
     return;
   }
   const focus = normalizeFocus(focusRaw, type);
-  const exclusive = isExclusiveBooking({ type, focus });
+  const privacy = privacyForPurchaseType(type);
+  const exclusive = isExclusiveBooking({ type, focus, privacy });
   const seats = exclusive ? SLOT_CAPACITY : seatsFor(type, athletes);
 
   const windowBlock = bookWindowBlocked(date);
@@ -160,12 +162,10 @@ export default async function handler(req, res) {
   if (key) {
     try {
       const taken = await bookedTimes(key, date);
-      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive })) {
+      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive, privacy })) {
         res.status(409).json({
           error: isExclusiveType(type)
             ? "Sorry — that hour already has a lesson on it, so it can't be private. Pick another."
-            : isExclusiveFocus(focus)
-            ? "Sorry — that hour is already taken. Hitting & Fielding needs an open hour. Pick another."
             : athletes > 1
             ? "Sorry — that hour doesn't have room for two athletes. Pick another."
             : "Sorry — that time is full or has a different focus. Pick another.",
@@ -182,7 +182,7 @@ export default async function handler(req, res) {
   }
 
   const price = unitPriceFor(type, athletes, settings.prices) * athletes;
-  const isMember = type === "membership";
+  const isMember = isMembershipType(type);
   const booking = makeManualBooking({
     type,
     player,
@@ -192,6 +192,7 @@ export default async function handler(req, res) {
     phone,
     email,
     focus,
+    privacy,
     date,
     time,
     availability,
@@ -204,30 +205,37 @@ export default async function handler(req, res) {
     createdBy: "parent",
   });
 
-  let saved = false;
-  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
-    const store = await loadManualBookings();
+  const saved = await mutateManualBookings(async (store) => {
     if (store.bookings.some((existing) => existing.id === booking.id)) {
-      saved = true;
-      break;
+      return { ok: true, skipSave: true };
     }
-    if (attempt > 0) {
-      const taken = await bookedTimes(key, date);
-      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive })) {
-        res.status(409).json({
-          error: "That time was just taken, became full, or has a different training focus. Pick another.",
-          code: "slot_taken",
-        });
-        return;
+    if (key) {
+      try {
+        const taken = await bookedTimes(key, date);
+        if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive, privacy })) {
+          return {
+            ok: false,
+            error: "That time was just taken, became full, or has a different training focus. Pick another.",
+            status: 409,
+            code: "slot_taken",
+          };
+        }
+      } catch {
+        return {
+          ok: false,
+          error: "Couldn't confirm that time is still available. Please try again shortly.",
+          status: 503,
+          code: "schedule_unavailable",
+        };
       }
     }
     store.bookings.push(booking);
-    saved = Boolean(await saveManualBookings(store));
-  }
-  if (!saved) {
-    res.status(503).json({
-      error: "Couldn't safely reserve that time. Please try again.",
-      code: "schedule_unavailable",
+    return { ok: true };
+  });
+  if (!saved.ok) {
+    res.status(saved.status || 503).json({
+      error: saved.error || "Couldn't safely reserve that time. Please try again.",
+      code: saved.code || "schedule_unavailable",
     });
     return;
   }
@@ -239,6 +247,9 @@ export default async function handler(req, res) {
       cashMembership: true,
       cashMembershipStart: start,
       cashMembershipEnd: start + MEMBER_PERIOD_DAYS * 86400,
+      membershipType: type,
+      type,
+      privacy,
       player,
       parent,
       phone,

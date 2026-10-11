@@ -4,13 +4,13 @@
  * the slot math and the calendar without declaring the same names twice.
  *
  * The seat rules mirror lib/schedule.js:
- *   Hitting/Fielding share up to two seats · Hitting & Fielding is solo and
- *   locks the hour · two athletes or a private lesson also fill the hour.
+ *   Standard lessons (any focus) share up to two seats · private lessons lock
+ *   the hour for one athlete · privacy comes from purchase type, not focus.
  */
 (function () {
   const SLOT_CAPACITY = 2;
   const STEP_MINUTES = 60;
-  const DURATIONS = { single: 60, thirty: 30, private: 60, membership: 60 };
+  const DURATIONS = { single: 60, thirty: 30, private: 60, membership: 60, membership_private: 60 };
 
   const DEFAULT_AVAILABILITY = {
     slotMinutes: 60,
@@ -39,14 +39,14 @@
   }
 
   function seatsFor(type, athletes) {
-    if (type === "private") return SLOT_CAPACITY;
+    if (type === "private" || type === "membership_private") return SLOT_CAPACITY;
     const n = Math.round(Number(athletes) || 1);
     return Math.min(SLOT_CAPACITY, Math.max(1, n));
   }
 
   // Mirrors lib/schedule.js — change both together.
   function canPair(type) {
-    return type === "single" || type === "thirty" || type === "private";
+    return type === "single" || type === "thirty";
   }
 
   function isExclusiveFocus(focus) {
@@ -54,16 +54,41 @@
   }
 
   function isExclusiveType(type) {
-    return type === "private";
+    return type === "private" || type === "membership_private";
   }
 
-  function isExclusiveBooking(type, focus) {
-    return isExclusiveType(type) || isExclusiveFocus(focus);
+  function isMembershipType(type) {
+    return type === "membership" || type === "membership_private";
   }
 
-  // Mirrors lib/settings.js — change both together. The private price is the
-  // premium for holding the hour alone; two athletes already fill the hour, so
-  // a pair pays the regular per-athlete rate.
+  function membershipTierFromType(type) {
+    return type === "membership_private" ? "private" : "standard";
+  }
+
+  function normalizePrivacy(privacy) {
+    const value = String(privacy || "").trim().toLowerCase();
+    if (value === "private" || value === "standard") return value;
+    return "";
+  }
+
+  function resolvePrivacy(type, focus, privacy) {
+    const explicit = normalizePrivacy(privacy);
+    if (explicit) return explicit;
+    if (isExclusiveType(type)) return "private";
+    if (isExclusiveFocus(focus)) return "private";
+    return "standard";
+  }
+
+  function privacyForPurchaseType(type) {
+    return isExclusiveType(type) ? "private" : "standard";
+  }
+
+  function isExclusiveBooking(type, focus, privacy) {
+    return resolvePrivacy(type, focus, privacy) === "private";
+  }
+
+  // Mirrors lib/settings.js — private drop-ins are always one athlete at the
+  // private price. Legacy pair pricing is unused for new bookings.
   function unitPriceFor(type, athletes, prices) {
     const table = prices || {};
     if (type === "private" && Number(athletes) > 1) return table.single || 0;
@@ -135,7 +160,10 @@
 
   function rowExclusive(row) {
     if (row && row.exclusive) return true;
-    return (row.focuses || []).some(isExclusiveFocus);
+    const privacy = normalizePrivacy(row && row.privacy);
+    if (privacy === "private") return true;
+    if (privacy === "standard") return false;
+    return (row.focuses || []).some(isExclusiveFocus) || isExclusiveFocus(row && row.focus);
   }
 
   function seatsTaken(row) {
@@ -145,15 +173,25 @@
     return count > 0 ? count : 1;
   }
 
+  function requestIsExclusive(focus, need) {
+    const seats = Math.max(1, Number(need.seats) || 1);
+    const wantExclusive = Boolean(need.exclusive) || seats >= SLOT_CAPACITY;
+    const privacy = normalizePrivacy(need.privacy);
+    if (privacy === "private") return true;
+    if (privacy === "standard") return wantExclusive;
+    return wantExclusive || resolvePrivacy("", focus, "") === "private";
+  }
+
   // Why a chip is unavailable — used for the greyed-out label under the time.
   // Exact focus match only: Hitting cannot join Fielding or Hitting & Fielding.
   function slotBlockReason(booked, label, dur, focus, want) {
     const need = typeof want === "object" && want ? want : { seats: Number(want) || 1, exclusive: false };
     const seats = Math.max(1, Number(need.seats) || 1);
-    const exclusive = Boolean(need.exclusive) || seats >= SLOT_CAPACITY || isExclusiveFocus(focus);
+    const exclusive = requestIsExclusive(focus, need);
     const start = labelToMin(label);
     if (start === null) return "Unavailable";
     const end = start + dur;
+    let taken = 0;
     for (const b of booked || []) {
       const bs = labelToMin(b.time);
       if (bs === null) continue;
@@ -161,25 +199,28 @@
       if (!(start < be && bs < end)) continue;
       if (b.time !== label || (b.mins || 60) !== dur) return "Booked";
       if (rowExclusive(b) || exclusive) return "Full";
+      if (!(b.focuses || []).filter(Boolean).length && !normalizePrivacy(b.privacy)) return "Booked";
       if (!focusMatches(b, focus)) return "Different focus";
-      if (seatsTaken(b) + seats > SLOT_CAPACITY) return "Full";
+      taken += seatsTaken(b);
     }
+    if (taken + seats > SLOT_CAPACITY) return "Full";
     return "";
   }
 
-  // `want` is how many athlete seats are needed, or { seats, exclusive } for a
-  // private / Hitting & Fielding session that takes the whole hour.
+  // `want` is how many athlete seats are needed, or { seats, exclusive, privacy }
+  // for a private session that takes the whole hour.
   //
   // Pass `ignoreFocus: true` for calendar day cells so a day stays open when
   // another focus still has a seat — focus only filters the time chips.
   function slotIsBlocked(booked, label, dur, focus, want, opts) {
     const need = typeof want === "object" && want ? want : { seats: Number(want) || 1, exclusive: false };
     const seats = Math.max(1, Number(need.seats) || 1);
-    const exclusive = Boolean(need.exclusive) || seats >= SLOT_CAPACITY || isExclusiveFocus(focus);
+    const exclusive = requestIsExclusive(focus, need);
     const ignoreFocus = Boolean(opts && opts.ignoreFocus);
     const start = labelToMin(label);
     if (start === null) return true;
     const end = start + dur;
+    let taken = 0;
     for (const b of booked || []) {
       const bs = labelToMin(b.time);
       if (bs === null) continue;
@@ -187,24 +228,26 @@
       if (!(start < be && bs < end)) continue;
       if (b.time !== label || (b.mins || 60) !== dur) return true;
       if (rowExclusive(b) || exclusive) return true;
+      if (!ignoreFocus && !(b.focuses || []).filter(Boolean).length && !normalizePrivacy(b.privacy)) return true;
       if (!ignoreFocus && !focusMatches(b, focus)) return true;
-      if (seatsTaken(b) + seats > SLOT_CAPACITY) return true;
+      taken += seatsTaken(b);
     }
-    return false;
+    return taken + seats > SLOT_CAPACITY;
   }
 
-  function seatsLeft(booked, label, dur, focus) {
+  function seatsLeft(booked, label, dur, focus, privacy) {
     const start = labelToMin(label);
     if (start === null) return 0;
     const end = start + dur;
-    let left = isExclusiveFocus(focus) ? 1 : SLOT_CAPACITY;
+    const requestPrivate = resolvePrivacy("", focus, privacy || "standard") === "private";
+    let left = requestPrivate ? 1 : SLOT_CAPACITY;
     for (const b of booked || []) {
       const bs = labelToMin(b.time);
       if (bs === null) continue;
       const be = bs + (b.mins || 60);
       if (!(start < be && bs < end)) continue;
       if (b.time !== label || (b.mins || 60) !== dur) return 0;
-      if (rowExclusive(b)) return 0;
+      if (rowExclusive(b) || requestPrivate) return 0;
       if (!focusMatches(b, focus)) return 0;
       left -= seatsTaken(b);
     }
@@ -371,6 +414,11 @@
     isExclusiveFocus,
     isExclusiveType,
     isExclusiveBooking,
+    isMembershipType,
+    membershipTierFromType,
+    normalizePrivacy,
+    resolvePrivacy,
+    privacyForPurchaseType,
     unitPriceFor,
     toMinutes,
     labelToMin,
