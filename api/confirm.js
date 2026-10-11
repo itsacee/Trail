@@ -607,7 +607,9 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
 
     // Stripe Search can lag after a payment. Mirror the paid lesson before any
     // email work so slots and Coach Desk see it immediately and idempotently.
-    // Payment remains authoritative in Stripe even if Blob mirroring fails.
+    // Payment remains authoritative in Stripe. During capacity-write pause (or
+    // any failed mirror), do NOT silently treat the booking as recorded and do
+    // NOT set confirmation_sent — callers/webhooks must retry safely.
     if (sessions.length) {
       const sourceId = target?.id || session.payment_intent || session.subscription || session.id;
       try {
@@ -618,9 +620,34 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
         });
         if (!mirrored.ok) {
           console.error("Could not save paid booking mirror:", sourceId, mirrored.error || mirrored.code);
+          return {
+            status: 503,
+            body: {
+              sent: false,
+              recorded: false,
+              bookingMirrorFailed: true,
+              capacityWritesPaused: Boolean(mirrored.paused),
+              code: "schedule_unavailable",
+              error:
+                "Payment is confirmed in Stripe, but the lesson schedule could not be updated yet. No confirmation was finalized — retry shortly.",
+              ...summary,
+            },
+          };
         }
       } catch (error) {
         console.error("Could not mirror paid booking:", error);
+        return {
+          status: 503,
+          body: {
+            sent: false,
+            recorded: false,
+            bookingMirrorFailed: true,
+            code: "schedule_unavailable",
+            error:
+              "Payment is confirmed in Stripe, but the lesson schedule could not be updated yet. No confirmation was finalized — retry shortly.",
+            ...summary,
+          },
+        };
       }
     }
 

@@ -117,10 +117,37 @@ export default async function handler(req, res) {
     origin: `https://${req.headers.host || "www.apacademybsb.com"}`,
   });
 
-  const { sent, alreadySent, error } = result.body || {};
-  console.log("Webhook confirmation:", object.id, { sent, alreadySent, error });
+  const { sent, alreadySent, error, bookingMirrorFailed, recorded, capacityWritesPaused } =
+    result.body || {};
+  console.log("Webhook confirmation:", object.id, {
+    sent,
+    alreadySent,
+    error,
+    bookingMirrorFailed,
+    recorded,
+    capacityWritesPaused,
+  });
 
-  // Always 200 — a non-2xx makes Stripe retry, and a failed email is not
-  // something a retry will fix.
-  res.status(200).json({ received: true, sent: Boolean(sent), alreadySent: Boolean(alreadySent) });
+  // Schedule mirror failures must not be acknowledged as recorded. Returning
+  // non-2xx asks Stripe to retry until capacity writes recover. Email-only
+  // failures stay 200 (retry will not fix Resend outages).
+  if (bookingMirrorFailed || result.status === 503) {
+    res.status(503).json({
+      received: true,
+      recorded: false,
+      bookingMirrorFailed: true,
+      capacityWritesPaused: Boolean(capacityWritesPaused),
+      sent: Boolean(sent),
+      alreadySent: Boolean(alreadySent),
+      error: error || "Schedule mirror unavailable",
+    });
+    return;
+  }
+
+  res.status(200).json({
+    received: true,
+    recorded: recorded !== false,
+    sent: Boolean(sent),
+    alreadySent: Boolean(alreadySent),
+  });
 }
