@@ -234,28 +234,20 @@ test("saveLessons refuses to write when the store was unreachable", async () => 
   assert.equal(await saveLessons(empty), false);
 });
 
-test("saveLessons allows writing an empty-but-reachable store", async () => {
-  const prevToken = process.env.BLOB_READ_WRITE_TOKEN;
-  const prevFetch = globalThis.fetch;
-  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_test";
-  let wrote = null;
-  globalThis.fetch = async (url, opts = {}) => {
-    if ((opts.method || "GET").toUpperCase() === "PUT") {
-      wrote = opts.body;
-      return { ok: true, json: async () => ({}) };
-    }
-    return { ok: false, status: 404, text: async () => "" };
-  };
+test("saveLessons allows first create of a missing lessons.json", async () => {
+  const { useMemoryBlobStore, clearMemoryBlobStore } = await import("../lib/store.js");
+  useMemoryBlobStore(true);
   try {
-    // SDK put will fail in tests; REST fallback with allow-overwrite should land.
     const empty = { lessons: [{ id: "lsn_1", date: "2026-10-15", time: "6:00 PM" }], voids: [] };
     Object.defineProperty(empty, "_readFailed", { value: false, enumerable: false });
+    Object.defineProperty(empty, "_allowUnconditionalCreate", { value: true, enumerable: false });
     assert.equal(await saveLessons(empty), true);
-    assert.match(String(wrote), /lsn_1/);
+    const { loadLessons } = await import("../lib/lessons.js");
+    const loaded = await loadLessons();
+    assert.equal(loaded.lessons[0].id, "lsn_1");
   } finally {
-    globalThis.fetch = prevFetch;
-    if (prevToken === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
-    else process.env.BLOB_READ_WRITE_TOKEN = prevToken;
+    clearMemoryBlobStore();
+    useMemoryBlobStore(false);
   }
 });
 

@@ -17,6 +17,7 @@ import {
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
+import { storeConfigured } from "../lib/store.js";
 import { bookWindowBlocked } from "../lib/members.js";
 import {
   getMembershipCapacity,
@@ -443,7 +444,21 @@ export default async function handler(req, res) {
   // nothing else marks it as taken, so without this a second parent could pay
   // for the same time while this one is still entering their card.
   if (data.id && sessions.length) {
-    await placeHold(data.id, sessions, lessonMins, focus, { seats, type, privacy });
+    const held = await placeHold(data.id, sessions, lessonMins, focus, { seats, type, privacy });
+    // When Blob is configured, a failed hold must not leave an open Checkout
+    // that another parent can race. Without a store (local/dev), open Stripe
+    // sessions still reserve via bookedTimes.
+    if (!held && storeConfigured()) {
+      await fetch(`https://api.stripe.com/v1/checkout/sessions/${data.id}/expire`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+      }).catch(() => {});
+      res.status(503).json({
+        error: "I couldn't safely hold that time. No payment was taken — please try again.",
+        code: "schedule_unavailable",
+      });
+      return;
+    }
   }
 
   // The browser keeps this so it can ignore — and later release — its own hold.

@@ -10,7 +10,7 @@ import {
 } from "../lib/schedule.js";
 import {
   loadLessons,
-  saveLessons,
+  mutateLessons,
   makeMemberLesson,
   removeLesson,
   scheduledFor,
@@ -27,7 +27,7 @@ import {
 import { loadMembersState } from "../lib/membersStore.js";
 import {
   loadManualBookings,
-  saveManualBookings,
+  mutateManualBookings,
   findBooking,
 } from "../lib/manualBookings.js";
 import { tokenFromRequest } from "../lib/memberAuth.js";
@@ -220,16 +220,45 @@ export default async function handler(req, res) {
       res.status(400).json({ error: "Cancellations need 12 hours notice. Call or text (405) 819-4401." });
       return;
     }
-    if (!(await releaseLesson(key, acct, lesson, email))) {
-      res.status(404).json({ error: "Lesson not found." });
-      return;
+
+    if (lesson.source === "manual") {
+      const cancelled = await mutateManualBookings((manual) => {
+        const b = findBooking(manual, lesson.id);
+        if (!b || String(b.email || "").toLowerCase() !== email) {
+          return { ok: false, error: "Lesson not found.", status: 404 };
+        }
+        if (b.status === "cancelled") return { ok: true, skipSave: true };
+        b.status = "cancelled";
+        b.cancelledAt = Date.now();
+        return { ok: true };
+      });
+      if (!cancelled.ok) {
+        res.status(cancelled.status || 503).json({
+          error: cancelled.error || "Couldn't update that lesson. Call or text (405) 819-4401.",
+          code: cancelled.code,
+        });
+        return;
+      }
+    } else {
+      const cancelled = await mutateLessons(async (stored) => {
+        acct.stored = stored;
+        if (!(await releaseLesson(key, acct, lesson, email))) {
+          return { ok: false, error: "Lesson not found.", status: 404 };
+        }
+        return { ok: true };
+      });
+      if (!cancelled.ok) {
+        res.status(cancelled.status || 503).json({
+          error: cancelled.error || "Couldn't update that lesson. Call or text (405) 819-4401.",
+          code: cancelled.code,
+        });
+        return;
+      }
+      acct.stored = cancelled.data;
     }
-    const savedLessons = await saveLessons(acct.stored);
-    const savedManual = lesson.source === "manual" ? await saveManualBookings(acct.manual) : true;
-    if (!savedLessons || !savedManual) {
-      res.status(500).json({ error: "Couldn't update that lesson. Call or text (405) 819-4401." });
-      return;
-    }
+
+    acct.manual = await loadManualBookings();
+    acct.stored = lesson.source === "manual" ? await loadLessons() : acct.stored;
     await refreshScheduled(acct);
     const notified = await sendLessonCancelledEmail({
       to: email,
@@ -288,11 +317,11 @@ export default async function handler(req, res) {
       return;
     }
 
+    const movePrivacy = lesson.privacy || privacyForPurchaseType("membership");
     try {
       const ignoreSourceId = newDate === lesson.date ? lesson.sourceId || lesson.id : "";
       const taken = await bookedTimes(key, newDate, { ignoreSourceId });
       const dur = durationFor("membership");
-      const movePrivacy = lesson.privacy || privacyForPurchaseType("membership");
       if (
         slotBlocked(taken, newTime, dur, newFocus, {
           seats: 1,
@@ -313,20 +342,95 @@ export default async function handler(req, res) {
       return;
     }
 
-    if (!(await releaseLesson(key, acct, lesson, email))) {
-      res.status(404).json({ error: "Lesson not found." });
-      return;
+    if (lesson.source === "manual") {
+      const cancelled = await mutateManualBookings((manual) => {
+        const b = findBooking(manual, lesson.id);
+        if (!b || String(b.email || "").toLowerCase() !== email) {
+          return { ok: false, error: "Lesson not found.", status: 404 };
+        }
+        if (b.status !== "cancelled") {
+          b.status = "cancelled";
+          b.cancelledAt = Date.now();
+        }
+        return { ok: true };
+      });
+      if (!cancelled.ok) {
+        res.status(cancelled.status || 503).json({
+          error: cancelled.error || "Couldn't move that lesson. Call or text (405) 819-4401.",
+          code: cancelled.code,
+        });
+        return;
+      }
     }
-    const moved = makeMemberLesson({ sub: acct.sub, date: newDate, time: newTime, focus: newFocus, availability });
+
+    const moved = makeMemberLesson({
+      sub: acct.sub,
+      date: newDate,
+      time: newTime,
+      focus: newFocus,
+      availability,
+    });
     moved.email = email;
-    acct.stored.lessons.push(moved);
-    const savedLessons = await saveLessons(acct.stored);
-    const savedManual = lesson.source === "manual" ? await saveManualBookings(acct.manual) : true;
-    if (!savedLessons || !savedManual) {
-      res.status(500).json({ error: "Couldn't move that lesson. Call or text (405) 819-4401." });
+
+    const movedSave = await mutateLessons(async (stored) => {
+      acct.stored = stored;
+      acct.manual = await loadManualBookings();
+      const scheduled = scheduledFor(acct.sub, stored, acct.manual).filter((l) => l.id !== id);
+      const summaryWithout = summarize(acct, scheduled);
+      const retryBlocked = bookingBlocked(summaryWithout, newDate, scheduled);
+      if (retryBlocked) {
+        return { ok: false, error: retryBlocked, status: 400, code: "slot_taken" };
+      }
+
+      try {
+        const ignoreSourceId = newDate === lesson.date ? lesson.sourceId || lesson.id : "";
+        const taken = await bookedTimes(key, newDate, { ignoreSourceId });
+        if (
+          slotBlocked(taken, newTime, durationFor("membership"), newFocus, {
+            seats: 1,
+            exclusive: isExclusiveBooking({ type: "membership", focus: newFocus, privacy: movePrivacy }),
+            privacy: movePrivacy,
+          })
+        ) {
+          return {
+            ok: false,
+            error: "Sorry — that time is full or has a different training focus. Pick another.",
+            status: 409,
+            code: "slot_taken",
+          };
+        }
+      } catch {
+        return {
+          ok: false,
+          error: "Couldn't confirm that time is still available. Please try again shortly.",
+          status: 503,
+          code: "schedule_unavailable",
+        };
+      }
+
+      if (lesson.source !== "manual") {
+        if (!(await releaseLesson(key, acct, lesson, email))) {
+          return { ok: false, error: "Lesson not found.", status: 404 };
+        }
+      }
+
+      if (stored.lessons.some((existing) => existing.id === moved.id)) {
+        return { ok: true, skipSave: true, moved };
+      }
+      stored.lessons.push(moved);
+      return { ok: true, moved };
+    });
+
+    if (!movedSave.ok) {
+      res.status(movedSave.status || 503).json({
+        error: movedSave.error || "Couldn't move that lesson. Call or text (405) 819-4401.",
+        code: movedSave.code,
+      });
       return;
     }
 
+    acct.stored = movedSave.data || (await loadLessons());
+    acct.manual = await loadManualBookings();
     await refreshScheduled(acct);
     const notified = await sendLessonMovedEmail({
       to: email,
@@ -399,46 +503,58 @@ export default async function handler(req, res) {
     availability,
   });
   lesson.email = email;
-  let saved = false;
-  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
-    if (attempt > 0) {
-      acct.stored = await loadLessons();
-      await refreshScheduled(acct);
-      const retryBlocked = bookingBlocked(acct.summary, date, acct.scheduled);
+
+  const booked = await mutateLessons(async (stored) => {
+    acct.stored = stored;
+    acct.manual = await loadManualBookings();
+    await refreshScheduled(acct);
+
+    const retryBlocked = bookingBlocked(acct.summary, date, acct.scheduled);
+    if (retryBlocked) {
+      return { ok: false, error: retryBlocked, status: 400, code: "slot_taken" };
+    }
+
+    try {
       const taken = await bookedTimes(key, date);
       if (
-        retryBlocked ||
         slotBlocked(taken, time, durationFor("membership"), focus, {
           seats: 1,
           exclusive: isExclusiveBooking({ type: "membership", focus, privacy }),
           privacy,
         })
       ) {
-        res.status(409).json({
-          error: retryBlocked || "That time was just taken, became full, or has a different training focus.",
+        return {
+          ok: false,
+          error: "That time was just taken, became full, or has a different training focus.",
+          status: 409,
           code: "slot_taken",
-        });
-        return;
+        };
       }
+    } catch {
+      return {
+        ok: false,
+        error: "Couldn't confirm that time is still available. Please try again shortly.",
+        status: 503,
+        code: "schedule_unavailable",
+      };
     }
-    if (acct.stored.lessons.some((existing) => existing.id === lesson.id)) {
-      saved = true;
-      break;
+
+    if (stored.lessons.some((existing) => existing.id === lesson.id)) {
+      return { ok: true, skipSave: true };
     }
-    acct.stored.lessons.push(lesson);
-    saved = Boolean(await saveLessons(acct.stored));
-    if (!saved) {
-      acct.stored.lessons = acct.stored.lessons.filter((existing) => existing.id !== lesson.id);
-    }
-  }
-  if (!saved) {
-    res.status(503).json({
-      error: "Couldn't safely reserve that lesson. Please try again.",
-      code: "schedule_unavailable",
+    stored.lessons.push(lesson);
+    return { ok: true };
+  });
+
+  if (!booked.ok) {
+    res.status(booked.status || 503).json({
+      error: booked.error || "Couldn't safely reserve that lesson. Please try again.",
+      code: booked.code || "schedule_unavailable",
     });
     return;
   }
 
+  acct.stored = booked.data || acct.stored;
   await refreshScheduled(acct);
   emailMemberBooking(email, lesson, acct.summary);
   res.status(200).json({ ok: true, lesson, ...publicAccount(acct) });

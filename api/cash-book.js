@@ -16,8 +16,7 @@ import {
 } from "../lib/schedule.js";
 import { bookWindowBlocked, MEMBER_PERIOD_DAYS } from "../lib/members.js";
 import {
-  loadManualBookings,
-  saveManualBookings,
+  mutateManualBookings,
   makeManualBooking,
 } from "../lib/manualBookings.js";
 import { loadSettings, unitPriceFor } from "../lib/settings.js";
@@ -204,30 +203,37 @@ export default async function handler(req, res) {
     createdBy: "parent",
   });
 
-  let saved = false;
-  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
-    const store = await loadManualBookings();
+  const saved = await mutateManualBookings(async (store) => {
     if (store.bookings.some((existing) => existing.id === booking.id)) {
-      saved = true;
-      break;
+      return { ok: true, skipSave: true };
     }
-    if (attempt > 0) {
-      const taken = await bookedTimes(key, date);
-      if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive, privacy })) {
-        res.status(409).json({
-          error: "That time was just taken, became full, or has a different training focus. Pick another.",
-          code: "slot_taken",
-        });
-        return;
+    if (key) {
+      try {
+        const taken = await bookedTimes(key, date);
+        if (slotBlocked(taken, time, lessonMins, focus, { seats, exclusive, privacy })) {
+          return {
+            ok: false,
+            error: "That time was just taken, became full, or has a different training focus. Pick another.",
+            status: 409,
+            code: "slot_taken",
+          };
+        }
+      } catch {
+        return {
+          ok: false,
+          error: "Couldn't confirm that time is still available. Please try again shortly.",
+          status: 503,
+          code: "schedule_unavailable",
+        };
       }
     }
     store.bookings.push(booking);
-    saved = Boolean(await saveManualBookings(store));
-  }
-  if (!saved) {
-    res.status(503).json({
-      error: "Couldn't safely reserve that time. Please try again.",
-      code: "schedule_unavailable",
+    return { ok: true };
+  });
+  if (!saved.ok) {
+    res.status(saved.status || 503).json({
+      error: saved.error || "Couldn't safely reserve that time. Please try again.",
+      code: saved.code || "schedule_unavailable",
     });
     return;
   }

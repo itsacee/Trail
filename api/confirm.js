@@ -18,11 +18,7 @@ import {
   memberEffectivePeriodEnd,
 } from "../lib/members.js";
 import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
-import {
-  loadLessons,
-  saveLessons,
-  upsertStripeLessons,
-} from "../lib/lessons.js";
+import { mutateLessons, upsertStripeLessons } from "../lib/lessons.js";
 import { loadFinance, saveFinance, addFinanceEntry } from "../lib/finance.js";
 import { loadMembersState, saveMembersState, upsertMember } from "../lib/membersStore.js";
 
@@ -601,22 +597,21 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
 
     // Stripe Search can lag after a payment. Mirror the paid lesson before any
     // email work so slots and Coach Desk see it immediately and idempotently.
+    // Payment remains authoritative in Stripe even if Blob mirroring fails.
     if (sessions.length) {
       const sourceId = target?.id || session.payment_intent || session.subscription || session.id;
-      let mirrored = false;
-      for (let attempt = 0; attempt < 3 && !mirrored; attempt++) {
-        try {
-          const stored = await loadLessons();
-          if (!upsertStripeLessons(stored, sourceId, meta)) {
-            mirrored = true;
-            break;
-          }
-          mirrored = Boolean(await saveLessons(stored));
-        } catch (error) {
-          console.error("Could not mirror paid booking:", error);
+      try {
+        const mirrored = await mutateLessons((stored) => {
+          const changed = upsertStripeLessons(stored, sourceId, meta);
+          if (!changed) return { ok: true, skipSave: true };
+          return { ok: true };
+        });
+        if (!mirrored.ok) {
+          console.error("Could not save paid booking mirror:", sourceId, mirrored.error || mirrored.code);
         }
+      } catch (error) {
+        console.error("Could not mirror paid booking:", error);
       }
-      if (!mirrored) console.error("Could not save paid booking mirror:", sourceId);
     }
 
     if (alreadySent) {
