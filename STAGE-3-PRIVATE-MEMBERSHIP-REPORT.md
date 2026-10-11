@@ -143,9 +143,10 @@ Do not start Stage 4 until approved.
 
 ## N. Git branch, commit, and working-tree status
 
-**Commit:** `a7dec38` (`a7dec383d9e3bdf2adb2a81724d442dccd5f58e7`)
-
-Branch: `cursor/stage2-booking-rules-f621` (pushed). Working tree clean aside from untracked `STAGE-1-INVESTIGATION-REPORT.md`.
+**Stage 3 implementation commit:** `a7dec38`  
+**Branch tip:** `892edb6` (report hash fix)  
+**Branch:** `cursor/stage2-booking-rules-f621` (pushed; PR #61)  
+Working tree clean aside from untracked `STAGE-1-INVESTIGATION-REPORT.md`.
 
 ---
 
