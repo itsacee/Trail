@@ -78,8 +78,31 @@ test("Payment Intent and Checkout Session copies appear only once", async () => 
 });
 
 test("a local cancellation hides stale Stripe and Checkout Session metadata", async () => {
-  const oldUrl = process.env.AVAILABILITY_URL;
-  process.env.AVAILABILITY_URL = "https://example.test/availability.json";
+  const { useMemoryBlobStore, clearMemoryBlobStore, blobCompareAndSet } = await import("../lib/store.js");
+  useMemoryBlobStore(true);
+  clearMemoryBlobStore();
+  assert.equal(
+    (
+      await blobCompareAndSet(
+        "lessons.json",
+        {
+          lessons: [],
+          voids: [
+            {
+              sourceId: "pi_cancelled",
+              email: "parent@example.com",
+              date: "2026-10-07",
+              time: "5:00 PM",
+            },
+          ],
+        },
+        ""
+      )
+    ).ok,
+    true
+  );
+  assert.equal((await blobCompareAndSet("manual-bookings.json", { bookings: [] }, "")).ok, true);
+
   const metadata = {
     player: "Sam",
     email: "parent@example.com",
@@ -104,26 +127,6 @@ test("a local cancellation hides stale Stripe and Checkout Session metadata", as
         },
       ]);
     }
-    if (path.includes("/lessons.json?")) {
-      return {
-        ok: true,
-        text: async () =>
-          JSON.stringify({
-            lessons: [],
-            voids: [
-              {
-                sourceId: "pi_cancelled",
-                email: "parent@example.com",
-                date: "2026-10-07",
-                time: "5:00 PM",
-              },
-            ],
-          }),
-      };
-    }
-    if (path.includes("/manual-bookings.json?")) {
-      return { ok: true, text: async () => JSON.stringify({ bookings: [] }) };
-    }
     throw new Error(`Unexpected request: ${path}`);
   });
 
@@ -131,7 +134,7 @@ test("a local cancellation hides stale Stripe and Checkout Session metadata", as
     assert.deepEqual(await fetchBookings("sk_test"), []);
   } finally {
     mock.restoreAll();
-    if (oldUrl === undefined) delete process.env.AVAILABILITY_URL;
-    else process.env.AVAILABILITY_URL = oldUrl;
+    clearMemoryBlobStore();
+    useMemoryBlobStore(false);
   }
 });
