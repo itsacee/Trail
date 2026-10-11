@@ -74,10 +74,11 @@ const PHONE_TEL = "+14058194401";
 const REPLY_TO = "Apacademybsb@gmail.com";
 
 const TYPE_NAMES = {
-  single: "Lesson (1 hour)",
-  thirty: "30-Minute Lesson",
-  membership: "Standard Membership — 4 lessons per month",
-  membership_private: "Private Membership — 4 private lessons per month",
+  single: "Standard Drop-In",
+  thirty: "30-Minute Lesson (legacy)",
+  private: "Private One-on-One Drop-In",
+  membership: "Standard Membership — 4 lessons / 30 days",
+  membership_private: "Private One-on-One Membership — 4 lessons / 30 days",
 };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

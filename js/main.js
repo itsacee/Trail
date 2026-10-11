@@ -154,12 +154,13 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   // `pair` = you can put a second athlete on a standard booking. Private
   // drop-ins are always one athlete and reserve the whole hour.
+  // Customer-facing purchase types only. Historical "thirty" stays in schedule
+  // parsers and Coach Desk, but is not offered for new public purchases.
   const SESSIONS = {
-    single: { name: "Regular Lesson", picks: 1, focus: "full", pair: true },
-    private: { name: "Private 1-on-1", picks: 1, focus: "full", pair: false },
+    single: { name: "Standard Drop-In", picks: 1, focus: "full", pair: true },
+    private: { name: "Private One-on-One Drop-In", picks: 1, focus: "full", pair: false },
     membership: { name: "Standard Membership", picks: 1, focus: "full", pair: false },
-    membership_private: { name: "Private Membership", picks: 1, focus: "full", pair: false },
-    thirty: { name: "30-Minute Lesson", picks: 1, focus: "one", pair: true },
+    membership_private: { name: "Private One-on-One Membership", picks: 1, focus: "full", pair: false },
   };
 
   let AVAIL = AP.DEFAULT_AVAILABILITY;
@@ -206,14 +207,14 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   // Functions, not strings, because the private note quotes live prices.
   const TYPE_NOTE = {
-    single: () => "One hour. A second athlete can share the hour with you unless you add one yourself.",
+    single: () =>
+      "Standard Drop-In: one 60-minute lesson. Up to two athletes may share the hour when both choose the same training focus. Shows 1 Spot Left when one place remains.",
     private: () =>
-      `One hour, just you — nobody else can book it. ${AP.dollars(PRICING.prices.private)} for one athlete.`,
+      `Private One-on-One: one 60-minute lesson for exactly one athlete. The entire hour is reserved — no sibling option. ${AP.dollars(PRICING.prices.private)}.`,
     membership: () =>
-      `Four one-hour lessons in 30 days (${AP.dollars(PRICING.prices.membership)}). Shareable hours. You pick lesson 1 today.`,
+      `Standard Membership: 4 lessons / 30 days (${AP.dollars(PRICING.prices.membership)}, about $70 each). Shareable hours with matching focus. One-time purchase — does not auto-renew. You pick lesson 1 today.`,
     membership_private: () =>
-      `Four private one-hour lessons in 30 days (${AP.dollars(PRICING.prices.membership_private)}). Each lesson reserves the full hour. You pick lesson 1 today.`,
-    thirty: () => "A focused 30 minutes on one skill.",
+      `Private One-on-One Membership: 4 lessons / 30 days (${AP.dollars(PRICING.prices.membership_private)}, about $90 each). Each credit reserves the full hour for one athlete. One-time purchase — does not auto-renew. You pick lesson 1 today.`,
   };
 
   // Starting checkout reserves the slot so nobody else can pay for it. That
@@ -439,12 +440,25 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       if (cents) el.textContent = AP.dollars(cents);
     });
     const memPrice = document.getElementById("memberNotePrice");
-    const priceKey = selectedType === "membership_private" ? "membership_private" : "membership";
     if (memPrice) {
       memPrice.textContent =
         selectedType === "membership_private"
-          ? `${AP.dollars(PRICING.prices.membership_private)} for one month · private hours`
-          : `${AP.dollars(PRICING.prices.membership)} for one month · shareable hours`;
+          ? `${AP.dollars(PRICING.prices.membership_private)} for 30 days · 4 private lessons`
+          : `${AP.dollars(PRICING.prices.membership)} for 30 days · 4 shareable lessons`;
+    }
+    const memPrivacy = document.getElementById("memberNotePrivacy");
+    if (memPrivacy) {
+      memPrivacy.textContent =
+        selectedType === "membership_private"
+          ? "Private hours are exclusive — exactly one athlete; the full hour is reserved."
+          : "Standard hours can be shared (up to 2 athletes, same focus).";
+    }
+    const memHeading = document.getElementById("memberNoteHeading");
+    if (memHeading) {
+      memHeading.textContent =
+        selectedType === "membership_private"
+          ? "How Private Membership works"
+          : "How Standard Membership works";
     }
     const memDeposit = document.getElementById("memberNoteDeposit");
     if (memDeposit) {
@@ -478,25 +492,28 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       title.textContent = isMem
         ? selectedType === "membership_private"
           ? "Private Membership. Pick Your First Day."
-          : "Join. Pick Your First Day."
-        : "Pick a Day. Grab Your Spot.";
+          : "Standard Membership. Pick Your First Day."
+        : selectedType === "private"
+        ? "Book a Private One-on-One."
+        : "Book a Standard Drop-In.";
     }
     if (lead) {
       lead.textContent = isMem
         ? selectedType === "membership_private"
-          ? "Pay today and lock in private lesson 1 of 4. Each credit reserves the full hour. Book the other 3 from the Members page. It does not auto-renew."
-          : "Pay today and lock in lesson 1 of 4. Book the other 3 one at a time from the Members page. It does not auto-renew."
-        : "Choose your lesson, pick a time, and we'll email the training address after you book.";
+          ? "Pay today and lock in private lesson 1 of 4. Each credit reserves the full hour. Book the other 3 from the Members page. One-time purchase — does not auto-renew."
+          : "Pay today and lock in lesson 1 of 4. Shareable hours with matching focus. Book the other 3 from the Members page. One-time purchase — does not auto-renew."
+        : selectedType === "private"
+        ? "Exclusive coaching for one athlete. Choose your focus, pick a time, and checkout reserves the full hour."
+        : "Up to two athletes can share the hour with the same focus. Choose a time and checkout.";
     }
     renderPrices();
   }
 
-  // Show the Hitting/Fielding focus picker per session type:
-  //   "full" → Hitting, Fielding, or Both (1-hour lessons)
-  //   "one"  → Hitting or Fielding only (30-minute lessons)
+  // Show the Hitting/Fielding focus picker. All current public types use "full"
+  // (Hitting, Fielding, or Both). Historical 30-minute lessons used "one".
   function updateFocusField() {
     if (!els.focusField) return;
-    const mode = SESSIONS[selectedType].focus;
+    const mode = (SESSIONS[selectedType] || SESSIONS.single).focus;
     els.focusField.hidden = false;
     const select = els.focusSelect;
     if (!select) return;
@@ -821,8 +838,19 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   loadPricing();
   loadMembershipCapacity();
   loadAvailability().then(() => {
-    const typeFromUrl = params.get("type");
-    if (SESSIONS[typeFromUrl] && !(typeFromUrl === "membership" && membershipsPaused())) {
+    let typeFromUrl = params.get("type");
+    // Retired public type — send old links to Standard Drop-In.
+    if (typeFromUrl === "thirty") {
+      typeFromUrl = "single";
+      const url = new URL(window.location.href);
+      url.searchParams.set("type", "single");
+      history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+      if (els.status) {
+        els.status.textContent =
+          "30-minute lessons aren't offered for new bookings. Showing Standard Drop-In instead.";
+      }
+    }
+    if (SESSIONS[typeFromUrl] && !(isMemberType(typeFromUrl) && membershipsPaused())) {
       selectedType = typeFromUrl;
       if (!pairType()) athletes = 1;
       syncTypeTabs();
