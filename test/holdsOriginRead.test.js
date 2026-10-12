@@ -1,6 +1,4 @@
-// Emergency hotfix: capacity files stay on the EXISTING public Blob store.
-// Private access / public→private migration is removed. CAS writes stay
-// fail-closed (and paused unless CAPACITY_WRITES_ENABLED=1).
+// Holds / CAS against the private capacity store (dual-store architecture).
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -10,6 +8,7 @@ import {
   clearMemoryBlobStore,
   blobAccessFor,
   blobCompareAndSet,
+  capacityStoreConfigured,
   capacityWritesEnabled,
   storeConfigured,
 } from "../lib/store.js";
@@ -24,10 +23,10 @@ test("installed @vercel/blob only applies useCache:false for private access", as
   );
 });
 
-test("capacity-critical blobs stay public on the existing store (hotfix)", () => {
-  assert.equal(blobAccessFor("holds.json"), "public");
-  assert.equal(blobAccessFor("lessons.json"), "public");
-  assert.equal(blobAccessFor("manual-bookings.json"), "public");
+test("capacity-critical blobs select private access; public schedule files stay public", () => {
+  assert.equal(blobAccessFor("holds.json"), "private");
+  assert.equal(blobAccessFor("lessons.json"), "private");
+  assert.equal(blobAccessFor("manual-bookings.json"), "private");
   assert.equal(blobAccessFor("availability.json"), "public");
   assert.equal(blobAccessFor("settings.json"), "public");
 });
@@ -42,12 +41,24 @@ after(() => {
 
 beforeEach(() => {
   clearMemoryBlobStore();
+  process.env.CAPACITY_BLOB_CUTOVER = "1";
   process.env.CAPACITY_WRITES_ENABLED = "1";
+  delete process.env.CAPACITY_MIGRATION_PAUSE;
+  process.env.BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_mempublic_test";
+  process.env.PRIVATE_BLOB_READ_WRITE_TOKEN = "vercel_blob_rw_memprivate_test";
+  process.env.AVAILABILITY_URL = "https://public.example/availability.json";
+});
+
+test("pre-cutover capacity access stays public until CAPACITY_BLOB_CUTOVER", () => {
+  delete process.env.CAPACITY_BLOB_CUTOVER;
+  assert.equal(blobAccessFor("holds.json"), "public");
+  assert.equal(blobAccessFor("lessons.json"), "public");
+  process.env.CAPACITY_BLOB_CUTOVER = "1";
+  assert.equal(blobAccessFor("holds.json"), "private");
 });
 
 test("placeHold creates a hold and releaseHold removes it", async () => {
-  assert.equal(storeConfigured(), true);
-  assert.equal(capacityWritesEnabled(), true);
+  assert.equal(capacityStoreConfigured(), true);
   const ok = await placeHold("cs_test_1", [{ date: "2026-11-12", time: "5:00 PM" }], 60, "Hitting", {
     seats: 1,
     type: "single",
@@ -100,11 +111,10 @@ test("saveHolds create-only path conflicts when holds.json already exists", asyn
   const loaded = await loadHolds();
   assert.equal(loaded._conditional, true);
 
-  // Empty ifMatch must not clobber the existing file.
-  const createAgain = await saveHolds({ holds: [{ sessionId: "cs_clobber", date: "2026-11-12", time: "5:00 PM", expiresAt: Date.now() + 60000 }] }, {
-    etag: "",
-    conditional: false,
-  });
+  const createAgain = await saveHolds(
+    { holds: [{ sessionId: "cs_clobber", date: "2026-11-12", time: "5:00 PM", expiresAt: Date.now() + 60000 }] },
+    { etag: "", conditional: false }
+  );
   assert.equal(createAgain.ok, false);
   assert.equal(createAgain.conflict, true);
 
@@ -123,7 +133,6 @@ test("placeHold retries through a conflicting concurrent writer", async () => {
   );
 
   const first = await loadHolds();
-  // Simulate another checkout winning a CAS update with the same etag snapshot.
   assert.equal(
     (
       await blobCompareAndSet(
@@ -148,7 +157,6 @@ test("placeHold retries through a conflicting concurrent writer", async () => {
     true
   );
 
-  // placeHold reloads on conflict and still lands its own hold.
   assert.equal(
     await placeHold("cs_b", [{ date: "2026-11-15", time: "7:00 PM" }], 60, "Fielding", {
       seats: 1,
@@ -197,28 +205,37 @@ test("capacity writes pause blocks placeHold without inventing empty holds", asy
   assert.equal(cas.paused, true);
 });
 
-test("missing Blob credentials fail CAS closed (no overwrite)", async () => {
+test("missing private Blob credentials fail CAS closed (no overwrite)", async () => {
   useMemoryBlobStore(false);
-  const prevToken = process.env.BLOB_READ_WRITE_TOKEN;
+  const prevPublic = process.env.BLOB_READ_WRITE_TOKEN;
+  const prevPrivate = process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
   const prevUrl = process.env.AVAILABILITY_URL;
   const prevWrites = process.env.CAPACITY_WRITES_ENABLED;
-  delete process.env.BLOB_READ_WRITE_TOKEN;
-  delete process.env.AVAILABILITY_URL;
+  const prevCutover = process.env.CAPACITY_BLOB_CUTOVER;
   delete process.env.BLOB_MEMORY_STORE;
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+  delete process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
+  delete process.env.AVAILABILITY_URL;
   process.env.CAPACITY_WRITES_ENABLED = "1";
+  process.env.CAPACITY_BLOB_CUTOVER = "1";
 
   try {
     assert.equal(storeConfigured(), false);
+    assert.equal(capacityStoreConfigured(), false);
     const result = await blobCompareAndSet("holds.json", { holds: [{ sessionId: "cs_x" }] }, "");
     assert.equal(result.ok, false);
     assert.equal(result.conflict, false);
   } finally {
-    if (prevToken === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
-    else process.env.BLOB_READ_WRITE_TOKEN = prevToken;
+    if (prevPublic === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
+    else process.env.BLOB_READ_WRITE_TOKEN = prevPublic;
+    if (prevPrivate === undefined) delete process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
+    else process.env.PRIVATE_BLOB_READ_WRITE_TOKEN = prevPrivate;
     if (prevUrl === undefined) delete process.env.AVAILABILITY_URL;
     else process.env.AVAILABILITY_URL = prevUrl;
     if (prevWrites === undefined) delete process.env.CAPACITY_WRITES_ENABLED;
     else process.env.CAPACITY_WRITES_ENABLED = prevWrites;
+    if (prevCutover === undefined) delete process.env.CAPACITY_BLOB_CUTOVER;
+    else process.env.CAPACITY_BLOB_CUTOVER = prevCutover;
     useMemoryBlobStore(true);
   }
 });

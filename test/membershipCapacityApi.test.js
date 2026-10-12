@@ -1,8 +1,14 @@
-import { test, mock } from "node:test";
+import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 import capacityHandler from "../api/membership-capacity.js";
 import checkoutHandler from "../api/checkout.js";
+import {
+  useMemoryBlobStore,
+  clearMemoryBlobStore,
+  blobCompareAndSet,
+  blobWrite,
+} from "../lib/store.js";
 
 function activePayments(count) {
   const created = Math.floor(Date.now() / 1000);
@@ -37,7 +43,22 @@ function responseRecorder() {
   };
 }
 
-function mockFullStripe(storedLessons = null, { stripeCount = 15, membersState = null } = {}) {
+afterEach(() => {
+  if (process.env.BLOB_MEMORY_STORE === "1") {
+    clearMemoryBlobStore();
+    useMemoryBlobStore(false);
+  }
+});
+
+async function mockFullStripe(storedLessons = null, { stripeCount = 15, membersState = null } = {}) {
+  useMemoryBlobStore(true);
+  clearMemoryBlobStore();
+  if (storedLessons) {
+    assert.equal((await blobCompareAndSet("lessons.json", storedLessons, "")).ok, true);
+  }
+  if (membersState) {
+    assert.equal(await blobWrite("members.json", membersState), true);
+  }
   mock.method(globalThis, "fetch", async (url) => {
     const value = String(url);
     if (value.includes("/payment_intents?")) {
@@ -46,18 +67,12 @@ function mockFullStripe(storedLessons = null, { stripeCount = 15, membersState =
     if (value.includes("/checkout/sessions?")) {
       return stripeResponse({ data: [], has_more: false });
     }
-    if (value.includes("lessons.json") && storedLessons) {
-      return { ok: true, text: async () => JSON.stringify(storedLessons) };
-    }
-    if (value.includes("members.json") && membersState) {
-      return { ok: true, text: async () => JSON.stringify(membersState) };
-    }
     throw new Error(`Unexpected Stripe request: ${value}`);
   });
 }
 
 test("public capacity endpoint reports zero spots at 15 active memberships", async () => {
-  mockFullStripe();
+  await mockFullStripe();
   const previous = process.env.STRIPE_SECRET_KEY;
   const previousNormal = process.env.AP_SITE_NORMAL;
   process.env.STRIPE_SECRET_KEY = "sk_test_capacity";
@@ -87,7 +102,7 @@ test("public capacity endpoint reports zero spots at 15 active memberships", asy
 });
 
 test("checkout API refuses membership number 16 before creating a payment", async () => {
-  mockFullStripe();
+  await mockFullStripe();
   const previous = process.env.STRIPE_SECRET_KEY;
   const previousNormal = process.env.AP_SITE_NORMAL;
   process.env.STRIPE_SECRET_KEY = "sk_test_capacity";
@@ -124,7 +139,7 @@ test("checkout API refuses membership number 16 before creating a payment", asyn
 
 test("cash memberships count toward the same 15-member limit", async () => {
   const now = Math.floor(Date.now() / 1000);
-  mockFullStripe(null, {
+  await mockFullStripe(null, {
     stripeCount: 14,
     membersState: {
       freezeAll: false,
@@ -139,9 +154,9 @@ test("cash memberships count toward the same 15-member limit", async () => {
     },
   });
   const previousKey = process.env.STRIPE_SECRET_KEY;
-  const previousUrl = process.env.AVAILABILITY_URL;
+  const previousNormal = process.env.AP_SITE_NORMAL;
   process.env.STRIPE_SECRET_KEY = "sk_test_capacity";
-  process.env.AVAILABILITY_URL = "https://blob.example/availability.json";
+  process.env.AP_SITE_NORMAL = "1";
   try {
     const res = responseRecorder();
     await capacityHandler({ method: "GET" }, res);
@@ -153,16 +168,16 @@ test("cash memberships count toward the same 15-member limit", async () => {
     previousKey === undefined
       ? delete process.env.STRIPE_SECRET_KEY
       : (process.env.STRIPE_SECRET_KEY = previousKey);
-    previousUrl === undefined
-      ? delete process.env.AVAILABILITY_URL
-      : (process.env.AVAILABILITY_URL = previousUrl);
+    previousNormal === undefined
+      ? delete process.env.AP_SITE_NORMAL
+      : (process.env.AP_SITE_NORMAL = previousNormal);
     mock.restoreAll();
   }
 });
 
 test("a zero-credit membership disappears from the count and opens a spot", async () => {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
-  mockFullStripe({
+  await mockFullStripe({
     voids: [],
     lessons: Array.from({ length: 4 }, (_, i) => ({
       id: `used_${i}`,
@@ -173,10 +188,8 @@ test("a zero-credit membership disappears from the count and opens a spot", asyn
     })),
   });
   const previousKey = process.env.STRIPE_SECRET_KEY;
-  const previousUrl = process.env.AVAILABILITY_URL;
   const previousNormal = process.env.AP_SITE_NORMAL;
   process.env.STRIPE_SECRET_KEY = "sk_test_capacity";
-  process.env.AVAILABILITY_URL = "https://blob.example/availability.json";
   process.env.AP_SITE_NORMAL = "1";
   try {
     const res = responseRecorder();
@@ -189,9 +202,6 @@ test("a zero-credit membership disappears from the count and opens a spot", asyn
     previousKey === undefined
       ? delete process.env.STRIPE_SECRET_KEY
       : (process.env.STRIPE_SECRET_KEY = previousKey);
-    previousUrl === undefined
-      ? delete process.env.AVAILABILITY_URL
-      : (process.env.AVAILABILITY_URL = previousUrl);
     previousNormal === undefined
       ? delete process.env.AP_SITE_NORMAL
       : (process.env.AP_SITE_NORMAL = previousNormal);

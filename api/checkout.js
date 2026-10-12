@@ -17,7 +17,12 @@ import {
   SLOT_CAPACITY,
 } from "../lib/schedule.js";
 import { placeHold, releaseHold } from "../lib/holds.js";
-import { storeConfigured, capacityWritesEnabled } from "../lib/store.js";
+import {
+  capacityStoreConfigured,
+  capacityWritesEnabled,
+  storeConfigured,
+} from "../lib/store.js";
+import { capacityBookingBlockedMessage } from "../lib/capacityMigration.js";
 import { bookWindowBlocked, isMembershipType, membershipTierOf } from "../lib/members.js";
 import {
   getMembershipCapacity,
@@ -136,12 +141,20 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Emergency hotfix: keep availability checks, but pause new holds/writes on
-  // the public store until a backup-verified safe write path is enabled.
+  // Keep CAPACITY_WRITES_ENABLED default-off (PR #64) and honor migration pause.
   if (storeConfigured() && !capacityWritesEnabled()) {
     res.status(503).json({
       error:
         "Online booking is temporarily paused while we restore the calendar. No payment was taken — please try again shortly or call (405) 819-4401.",
+      code: "schedule_unavailable",
+      capacityWritesPaused: true,
+    });
+    return;
+  }
+  const migrationBlock = capacityBookingBlockedMessage();
+  if (migrationBlock && (capacityStoreConfigured() || storeConfigured())) {
+    res.status(503).json({
+      error: migrationBlock,
       code: "schedule_unavailable",
       capacityWritesPaused: true,
     });
@@ -490,11 +503,12 @@ export default async function handler(req, res) {
   // nothing else marks it as taken, so without this a second parent could pay
   // for the same time while this one is still entering their card.
   if (data.id && sessions.length) {
+    const capacityRequired = capacityStoreConfigured() || storeConfigured();
     const held = await placeHold(data.id, sessions, lessonMins, focus, { seats, type, privacy });
     // When Blob is configured, a failed hold must not leave an open Checkout
     // that another parent can race. Without a store (local/dev), open Stripe
     // sessions still reserve via bookedTimes.
-    if (!held && storeConfigured()) {
+    if (!held && capacityRequired) {
       await fetch(`https://api.stripe.com/v1/checkout/sessions/${data.id}/expire`, {
         method: "POST",
         headers: { Authorization: `Bearer ${key}` },
