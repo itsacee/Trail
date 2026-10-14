@@ -233,7 +233,20 @@ export default async function handler(req, res) {
         const members = await loadMembersState();
         const row = memberRecord(members, email) || { email };
         const due = Math.max(0, Number(row.amountDueCents) || 0);
-        const take = Math.min(amount, due || amount);
+        // Already settled — idempotent no-op (no finance write).
+        if (due <= 0) {
+          res.status(200).json({
+            ok: true,
+            collected: { id, take: 0, idempotent: true },
+            ...(await dashboard()),
+          });
+          return;
+        }
+        const take = Math.min(amount, due);
+        if (!take) {
+          res.status(400).json({ error: "Enter an amount." });
+          return;
+        }
         row.amountPaidCents = (Number(row.amountPaidCents) || 0) + take;
         row.amountDueCents = Math.max(0, due - take);
         upsertMember(members, email, row);
@@ -245,12 +258,17 @@ export default async function handler(req, res) {
           type: "membership",
           player: row.player || "",
           email,
-          // Stable id so retries do not double-count membership cash collections.
-          bookingId: `membal_${email}`,
+          // Unique per progressive paid total so partial collections each ledger,
+          // while a retry after the same payment hits due<=0 above.
+          bookingId: `membal_${email}_${row.amountPaidCents}`,
           note: "Membership balance collected",
         });
         await saveFinance(fin);
-        res.status(200).json({ ok: true, ...(await dashboard()) });
+        res.status(200).json({
+          ok: true,
+          collected: { id, take, idempotent: false },
+          ...(await dashboard()),
+        });
         return;
       }
 
