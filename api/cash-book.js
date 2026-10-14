@@ -36,6 +36,8 @@ import {
   MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
 import { storeConfigured, capacityWritesEnabled } from "../lib/store.js";
+import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
+import { dbManualBook } from "../lib/bookingStore.js";
 
 const REPLY_TO = "Apacademybsb@gmail.com";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -227,6 +229,58 @@ export default async function handler(req, res) {
     note: isMember ? "Cash membership — collect at field" : "Pay cash at the lesson",
     createdBy: "parent",
   });
+
+  if (bookingWritesEnabled()) {
+    const saved = await dbManualBook({
+      id: booking.id,
+      date,
+      time,
+      focus,
+      type,
+      privacy,
+      seats,
+      athletes,
+      email,
+      player,
+      player2,
+      parent,
+      phone,
+      payload: {
+        paymentMethod: "cash",
+        paymentStatus: "unpaid",
+        amountCents: price,
+        amountPaidCents: 0,
+        amountDueCents: price,
+        note: booking.note || "",
+        createdBy: "parent",
+      },
+    });
+    if (!saved.ok) {
+      res.status(saved.code === "slot_unavailable" ? 409 : 503).json({
+        error: saved.error || "Couldn't safely reserve that lesson. Please try again.",
+        code: saved.code || "schedule_unavailable",
+      });
+      return;
+    }
+    // Members/finance cards stay on existing stores.
+    if (isMember && email) {
+      const members = await loadMembersState();
+      const start = Math.floor(Date.now() / 1000);
+      upsertMember(members, email, {
+        cashMembership: true,
+        membershipType: type,
+        privacy,
+        player,
+        parent,
+        phone,
+        periodStart: start,
+        amountDueCents: price,
+      });
+      await saveMembersState(members);
+    }
+    res.status(200).json({ ok: true, booking, origin: "postgres" });
+    return;
+  }
 
   const saved = await mutateManualBookings(async (store) => {
     if (store.bookings.some((existing) => existing.id === booking.id)) {

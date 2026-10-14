@@ -8,7 +8,8 @@
 import { recordMemberLessons } from "../lib/recordAttendance.js";
 import { requireCoach } from "../lib/coachAuth.js";
 import { findMembership } from "../lib/members.js";
-import { loadLessons, scheduledFor } from "../lib/lessons.js";
+import { scheduledFor } from "../lib/lessons.js";
+import { loadAuthoritativeLessons } from "../lib/bookingReads.js";
 import { membershipSummary } from "../lib/members.js";
 
 export default async function handler(req, res) {
@@ -34,7 +35,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const stored = await loadLessons();
+    const stored = await loadAuthoritativeLessons();
     const summaries = [];
     for (const row of out.results || []) {
       if (!row.ok) continue;

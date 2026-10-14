@@ -9,7 +9,6 @@ import {
   LOCATIONS,
 } from "../lib/schedule.js";
 import {
-  loadLessons,
   mutateLessons,
   makeMemberLesson,
   removeLesson,
@@ -32,7 +31,6 @@ import {
 } from "../lib/members.js";
 import { loadMembersState } from "../lib/membersStore.js";
 import {
-  loadManualBookings,
   mutateManualBookings,
   findBooking,
 } from "../lib/manualBookings.js";
@@ -43,7 +41,12 @@ import { bookingEvent } from "./calendar.js";
 import { sendLessonCancelledEmail, sendLessonMovedEmail } from "../lib/lessonMail.js";
 import { getSiteStatus, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
 import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
-import { dbMemberBook, dbReschedule } from "../lib/bookingStore.js";
+import { dbMemberBook, dbReschedule, dbCancelBooking } from "../lib/bookingStore.js";
+import {
+  loadAuthoritativeLessons,
+  loadAuthoritativeManual,
+  loadAuthoritativeBookingState,
+} from "../lib/bookingReads.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -216,9 +219,8 @@ async function emailMemberBooking(to, lesson, summary) {
 async function loadAccount(key, email) {
   const subs = await listMembershipsForEmail(key || "", email);
   if (!subs.length) return null;
-  const [stored, manual, membersState] = await Promise.all([
-    loadLessons(),
-    loadManualBookings(),
+  const [{ lessons: stored, manual }, membersState] = await Promise.all([
+    loadAuthoritativeBookingState(),
     loadMembersState(),
   ]);
   const memberOpts = membershipOptsFromState(membersState, email);
@@ -237,6 +239,13 @@ async function loadAccount(key, email) {
   };
   rebuildMembershipViews(acct);
   return acct;
+}
+
+async function refreshAccountBookings(acct) {
+  const state = await loadAuthoritativeBookingState();
+  acct.stored = state.lessons;
+  acct.manual = state.manual;
+  rebuildMembershipViews(acct);
 }
 
 // Drop a lesson the member currently holds. Portal-booked lessons live in the
@@ -294,7 +303,21 @@ export default async function handler(req, res) {
     return;
   }
 
-  const acct = await loadAccount(key, email);
+  let acct;
+  try {
+    acct = await loadAccount(key, email);
+  } catch (error) {
+    const unavailable =
+      error?.name === "StorageUnavailableError" || error?.code === "schedule_unavailable";
+    if (unavailable) {
+      res.status(503).json({
+        error: "Couldn't read bookings from the database. Please try again shortly.",
+        code: "schedule_unavailable",
+      });
+      return;
+    }
+    throw error;
+  }
   if (!acct) {
     res.status(404).json({ error: "No active membership on that email. Call or text (405) 819-4401." });
     return;
@@ -330,7 +353,22 @@ export default async function handler(req, res) {
       scheduledFor(owner, acct.stored, acct.manual, acct.subs)
     );
 
-    if (lesson.source === "manual") {
+    if (bookingWritesEnabled()) {
+      const restoreCredit =
+        lesson.source === "member" || String(lesson.type || "").includes("membership");
+      const cancelled = await dbCancelBooking(lesson.id, { restoreCredit });
+      if (!cancelled.ok) {
+        res.status(cancelled.code === "not_found" ? 404 : 503).json({
+          error: cancelled.error || "Couldn't update that lesson. Call or text (405) 819-4401.",
+          code: cancelled.code,
+        });
+        return;
+      }
+      if (lesson.source === "stripe") {
+        const sourceId = lesson.sourceId || "";
+        if (sourceId) await clearStripeSlot(key, sourceId, lesson.id);
+      }
+    } else if (lesson.source === "manual") {
       const cancelled = await mutateManualBookings((manual) => {
         const b = findBooking(manual, lesson.id);
         if (!b || String(b.email || "").toLowerCase() !== email) {
@@ -366,8 +404,7 @@ export default async function handler(req, res) {
       acct.stored = cancelled.data;
     }
 
-    acct.manual = await loadManualBookings();
-    acct.stored = lesson.source === "manual" ? await loadLessons() : acct.stored;
+    await refreshAccountBookings(acct);
     await refreshScheduled(acct);
     const notified = await sendLessonCancelledEmail({
       to: email,
@@ -560,6 +597,7 @@ export default async function handler(req, res) {
       if (clearStripe) {
         await clearStripeSlot(key, clearStripe.sourceId, clearStripe.lessonId);
       }
+      await refreshAccountBookings(acct);
       await refreshScheduled(acct);
       const ownerAfter = summarizePurchase(
         acct,
@@ -581,7 +619,7 @@ export default async function handler(req, res) {
 
     if (row.source === "manual") {
       const movedSave = await mutateManualBookings(async (manual) => {
-        const stored = await loadLessons();
+        const stored = await loadAuthoritativeLessons();
         const gate = await revalidateMove(stored, manual);
         if (!gate.ok) return gate;
         const result = moveLesson({
@@ -607,7 +645,7 @@ export default async function handler(req, res) {
     } else {
       const movedSave = await mutateLessons(async (stored) => {
         acct.stored = stored;
-        const manual = await loadManualBookings();
+        const manual = await loadAuthoritativeManual();
         acct.manual = manual;
         const gate = await revalidateMove(stored, manual);
         if (!gate.ok) return gate;
@@ -638,8 +676,7 @@ export default async function handler(req, res) {
       await clearStripeSlot(key, clearStripe.sourceId, clearStripe.lessonId);
     }
 
-    acct.stored = await loadLessons();
-    acct.manual = await loadManualBookings();
+    await refreshAccountBookings(acct);
     await refreshScheduled(acct);
     const ownerAfter = summarizePurchase(
       acct,
@@ -757,6 +794,7 @@ export default async function handler(req, res) {
       return;
     }
     lesson.id = booked.bookingId;
+    await refreshAccountBookings(acct);
     await refreshScheduled(acct);
     const bookedSummary = summarizePurchase(
       acct,
@@ -770,7 +808,7 @@ export default async function handler(req, res) {
 
   const booked = await mutateLessons(async (stored) => {
     acct.stored = stored;
-    acct.manual = await loadManualBookings();
+    acct.manual = await loadAuthoritativeManual();
     await refreshScheduled(acct);
 
     const liveScheduled = scheduledFor(selected, stored, acct.manual, acct.subs);
@@ -821,7 +859,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  acct.stored = booked.data || acct.stored;
+  await refreshAccountBookings(acct);
   await refreshScheduled(acct);
   const bookedSummary = summarizePurchase(
     acct,

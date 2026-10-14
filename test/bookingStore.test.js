@@ -460,3 +460,166 @@ test("standard Hitting+Fielding shares of 2 with matching focus only", async () 
   assert.equal(b.ok, true);
   assert.equal(c.ok, false);
 });
+
+test("manualBook enforces capacity and is idempotent on retry", async () => {
+  await clearBookings();
+  const date = "2026-11-13";
+  const time = "6:00 PM";
+  const first = await store.manualBook({
+    id: "cash_m1",
+    date,
+    time,
+    focus: "Hitting",
+    type: "single",
+    privacy: "standard",
+    seats: 1,
+    email: "m1@example.com",
+    player: "M1",
+    payload: { amountDueCents: 4000, paymentMethod: "cash" },
+  });
+  const again = await store.manualBook({
+    id: "cash_m1",
+    date,
+    time,
+    focus: "Hitting",
+    type: "single",
+    privacy: "standard",
+    seats: 1,
+    email: "m1@example.com",
+    player: "M1",
+  });
+  const second = await store.manualBook({
+    id: "cash_m2",
+    date,
+    time,
+    focus: "Hitting",
+    type: "single",
+    privacy: "standard",
+    seats: 1,
+    email: "m2@example.com",
+    player: "M2",
+  });
+  const third = await store.manualBook({
+    id: "cash_m3",
+    date,
+    time,
+    focus: "Hitting",
+    type: "single",
+    privacy: "standard",
+    seats: 1,
+    email: "m3@example.com",
+    player: "M3",
+  });
+  assert.equal(first.ok, true);
+  assert.equal(again.ok, true);
+  assert.equal(again.idempotent, true);
+  assert.equal(second.ok, true);
+  assert.equal(third.ok, false);
+  assert.equal(third.code, "slot_unavailable");
+});
+
+test("simultaneous standard bookings admit exactly two matching-focus seats", async () => {
+  await clearBookings();
+  const date = "2026-11-14";
+  const time = "6:00 PM";
+  const attempts = await Promise.all(
+    [1, 2, 3, 4].map((n) =>
+      store.confirmPaid({
+        idempotencyKey: `mirror:pi_race_${n}`,
+        sourceId: `pi_race_${n}`,
+        metadata: {
+          date,
+          time,
+          focus: "Hitting",
+          type: "single",
+          privacy: "standard",
+          email: `r${n}@example.com`,
+          player: `R${n}`,
+        },
+      })
+    )
+  );
+  const ok = attempts.filter((r) => r.ok);
+  const denied = attempts.filter((r) => !r.ok);
+  assert.equal(ok.length, 2);
+  assert.equal(denied.length, 2);
+  const { rows } = await store.query(
+    `SELECT count(*)::int AS n FROM bookings
+     WHERE slot_date = $1::date AND time_label = $2 AND status = 'active'`,
+    [date, time]
+  );
+  assert.equal(rows[0].n, 2);
+});
+
+test("simultaneous reschedules into one hour keep original appointments on failure", async () => {
+  await clearBookings();
+  const a = await store.memberBook({
+    membershipId: "sub_race_a",
+    email: "ra@example.com",
+    date: "2026-11-15",
+    time: "5:00 PM",
+    focus: "Hitting",
+    type: "membership",
+    privacy: "standard",
+    creditsTotal: 4,
+  });
+  const b = await store.memberBook({
+    membershipId: "sub_race_b",
+    email: "rb@example.com",
+    date: "2026-11-15",
+    time: "7:00 PM",
+    focus: "Hitting",
+    type: "membership",
+    privacy: "standard",
+    creditsTotal: 4,
+  });
+  assert.equal(a.ok, true);
+  assert.equal(b.ok, true);
+
+  // Private blocker leaves only one standard seat free at 6:00 — actually private
+  // fills the hour, so both moves must fail and originals stay put.
+  await store.confirmPaid({
+    idempotencyKey: "mirror:pi_race_block",
+    sourceId: "pi_race_block",
+    metadata: {
+      date: "2026-11-16",
+      time: "6:00 PM",
+      focus: "Hitting",
+      type: "private",
+      privacy: "private",
+      email: "block@example.com",
+      player: "Block",
+    },
+  });
+
+  const [moveA, moveB] = await Promise.all([
+    store.reschedule({
+      bookingId: a.bookingId,
+      newDate: "2026-11-16",
+      newTime: "6:00 PM",
+      newFocus: "Hitting",
+    }),
+    store.reschedule({
+      bookingId: b.bookingId,
+      newDate: "2026-11-16",
+      newTime: "6:00 PM",
+      newFocus: "Hitting",
+    }),
+  ]);
+  assert.equal(moveA.ok, false);
+  assert.equal(moveB.ok, false);
+
+  const origA = await store.getBooking(a.bookingId);
+  const origB = await store.getBooking(b.bookingId);
+  assert.equal(origA.status, "active");
+  assert.equal(origB.status, "active");
+  assert.equal(String(origA.slot_date).slice(0, 10), "2026-11-15");
+  assert.equal(String(origB.slot_date).slice(0, 10), "2026-11-15");
+  assert.equal(origA.time_label, "5:00 PM");
+  assert.equal(origB.time_label, "7:00 PM");
+
+  const creditsA = await store.getMembershipCredits("sub_race_a");
+  const creditsB = await store.getMembershipCredits("sub_race_b");
+  assert.equal(creditsA.credits_used, 1);
+  assert.equal(creditsB.credits_used, 1);
+});

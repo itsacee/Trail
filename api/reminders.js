@@ -18,7 +18,8 @@ import {
   membershipSummary,
   todayChicago,
 } from "../lib/members.js";
-import { loadLessons, scheduledFor } from "../lib/lessons.js";
+import { scheduledFor } from "../lib/lessons.js";
+import { loadAuthoritativeLessons } from "../lib/bookingReads.js";
 import { isCoachPass } from "../lib/coachAuth.js";
 import { signMemberToken } from "../lib/memberAuth.js";
 import { LOCATIONS, LOCATION_KEY } from "../lib/schedule.js";
@@ -213,7 +214,16 @@ export default async function handler(req, res) {
     .filter((p) => String(p.metadata?.type || "") === "membership")
     .sort((a, b) => b.created - a.created);
 
-  const stored = await loadLessons();
+  let stored;
+  try {
+    stored = await loadAuthoritativeLessons();
+  } catch {
+    res.status(503).json({
+      error: "Couldn't read bookings from the database. Reminders were not sent.",
+      code: "schedule_unavailable",
+    });
+    return;
+  }
 
   // Newest payment per email is their current membership; older ones are past.
   const seen = new Set();

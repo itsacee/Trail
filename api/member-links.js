@@ -14,7 +14,8 @@ import {
   membershipsWithCredits,
   MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
-import { loadLessons, scheduledFor } from "../lib/lessons.js";
+import { scheduledFor } from "../lib/lessons.js";
+import { loadAuthoritativeLessons } from "../lib/bookingReads.js";
 import { signMemberToken } from "../lib/memberAuth.js";
 
 function esc(v) {
@@ -45,7 +46,13 @@ export default async function handler(req, res) {
     return;
   }
 
-  const stored = await loadLessons();
+  let stored;
+  try {
+    stored = await loadAuthoritativeLessons();
+  } catch {
+    res.status(503).send("Couldn't read bookings from the database.");
+    return;
+  }
   const members = membershipsWithCredits(memberships, stored)
     .map((sub) => {
       const summary = membershipSummary(sub, scheduledFor(sub, stored));

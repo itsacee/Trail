@@ -3,13 +3,12 @@
 
 import { fetchBookings } from "../lib/bookings.js";
 import {
-  loadManualBookings,
   mutateManualBookings,
   makeManualBooking,
   findBooking,
   activeBookings,
 } from "../lib/manualBookings.js";
-import { loadLessons, mutateLessons, removeLesson, voidStripeLesson } from "../lib/lessons.js";
+import { mutateLessons, removeLesson, voidStripeLesson } from "../lib/lessons.js";
 import { moveLesson, clearStripeSlot, seatsOnLesson } from "../lib/reschedule.js";
 import { sendLessonCancelledEmail, sendLessonMovedEmail } from "../lib/lessonMail.js";
 import { requireCoach } from "../lib/coachAuth.js";
@@ -47,13 +46,19 @@ import {
   membershipTierOf,
   membershipLabel,
 } from "../lib/members.js";
+import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
+import { dbManualBook, dbCancelBooking, dbReschedule } from "../lib/bookingStore.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
 const BOOKING_TYPES = ["single", "thirty", "private", "membership", "membership_private"];
 
 async function listOutstanding() {
-  const manual = await loadManualBookings();
+  // Unpaid cash balances: prefer authoritative booking rows when reads are on
+  // (payload carries amountDue). Member package balances stay on membersStore.
+  // Fail closed: never substitute Blob-only when Postgres reads are required.
+  const { loadAuthoritativeManual } = await import("../lib/bookingReads.js");
+  const manual = await loadAuthoritativeManual();
   const members = await loadMembersState();
   const out = [];
   activeBookings(manual).forEach((b) => {
@@ -353,9 +358,47 @@ export default async function handler(req, res) {
       }
 
       let result = null;
+      if (bookingWritesEnabled()) {
+        const movedSave = await dbReschedule({
+          bookingId: row.id,
+          newDate: date,
+          newTime: time,
+          newFocus: focus,
+        });
+        if (!movedSave.ok) {
+          res.status(movedSave.code === "slot_unavailable" ? 409 : 503).json({
+            error: movedSave.error || "Couldn't save the move. Refresh and try again in a moment.",
+            code: movedSave.code,
+          });
+          return;
+        }
+        result = {
+          ok: true,
+          moved: { date, time, focus, movedAt: Date.now() },
+          clearStripe:
+            row.source === "stripe" ? { sourceId: row.sourceId || "", lessonId: row.id } : null,
+        };
+        if (result.clearStripe) {
+          await clearStripeSlot(key, result.clearStripe.sourceId, result.clearStripe.lessonId);
+        }
+        let notified = false;
+        if (row.email) {
+          notified = await sendLessonMovedEmail({
+            to: row.email,
+            oldLesson: row,
+            newLesson: { ...row, ...result.moved },
+            movedBy: "coach",
+            extraLine: req.body.message || "",
+          });
+        }
+        res.status(200).json({ ok: true, moved: result.moved, notified, ...(await dashboard()) });
+        return;
+      }
       if (row.source === "manual") {
         const movedSave = await mutateManualBookings(async (manual) => {
-          const stored = await loadLessons();
+          // Peer occupancy from authoritative reads (Postgres + dual-period bridge).
+          const { loadAuthoritativeLessons } = await import("../lib/bookingReads.js");
+          const stored = await loadAuthoritativeLessons();
           result = moveLesson({ row, stored, manual, date, time, focus, availability });
           if (!result.ok) return { ok: false, error: result.error, status: 404 };
           return { ok: true, moved: result.moved };
@@ -370,7 +413,8 @@ export default async function handler(req, res) {
         result = { ok: true, moved: movedSave.moved, changed: ["manual"] };
       } else {
         const movedSave = await mutateLessons(async (stored) => {
-          const manual = await loadManualBookings();
+          const { loadAuthoritativeManual } = await import("../lib/bookingReads.js");
+          const manual = await loadAuthoritativeManual();
           if (key) {
             try {
               const taken = await bookedTimes(key, date, {
@@ -440,6 +484,46 @@ export default async function handler(req, res) {
     // lessons are removed, and checkout slots are voided so the time reopens.
     if (action === "cancel_booking") {
       const id = String(req.body?.id || "");
+      if (bookingWritesEnabled()) {
+        const sessions = await fetchBookings(key);
+        const row = sessions.find((s) => s.id === id);
+        if (!row) {
+          res.status(404).json({ error: "That lesson isn't on the schedule anymore." });
+          return;
+        }
+        if (lessonHasEnded(row)) {
+          res.status(400).json({
+            error: "That lesson has already ended, so it cannot be cancelled or returned as a credit.",
+            code: "lesson_ended",
+          });
+          return;
+        }
+        const cancelled = await dbCancelBooking(id, {
+          restoreCredit:
+            row.source === "member" || isMembershipType(row.type),
+        });
+        if (!cancelled.ok) {
+          res.status(cancelled.code === "not_found" ? 404 : 503).json({
+            error: cancelled.error || "Couldn't cancel that lesson. Refresh and try again.",
+            code: cancelled.code,
+          });
+          return;
+        }
+        if (row.source === "stripe") await clearStripeSlot(key, row.sourceId, row.id);
+        const notified = await sendLessonCancelledEmail({
+          to: row.email,
+          lesson: row,
+          cancelledBy: "coach",
+          extraLine: [
+            isMembershipType(row.type) ? "That lesson credit has been returned to the membership." : "",
+            req.body.message || "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        });
+        res.status(200).json({ ok: true, notified, ...(await dashboard()) });
+        return;
+      }
       const manualCancel = await mutateManualBookings((store) => {
         const b = findBooking(store, id);
         if (!b) return { ok: true, skipSave: true, missing: true };
@@ -598,6 +682,56 @@ export default async function handler(req, res) {
         note: req.body.note || "",
         createdBy: "coach",
       });
+      if (bookingWritesEnabled()) {
+        const saved = await dbManualBook({
+          id: booking.id,
+          date,
+          time,
+          focus,
+          type,
+          privacy,
+          seats,
+          athletes,
+          email,
+          player,
+          player2,
+          parent: booking.parent || "",
+          phone: booking.phone || "",
+          payload: {
+            paymentMethod: payMethod,
+            paymentStatus: booking.paymentStatus,
+            amountCents: total,
+            amountPaidCents: paid,
+            amountDueCents: due,
+            note: booking.note || "",
+            createdBy: "coach",
+          },
+        });
+        if (!saved.ok) {
+          res.status(saved.code === "slot_unavailable" ? 409 : 503).json({
+            error: saved.error || "Couldn't safely reserve that lesson. Refresh and try again.",
+            code: saved.code || "schedule_unavailable",
+          });
+          return;
+        }
+        if (isMembershipType(type) && email) {
+          const members = await loadMembersState();
+          const start = Math.floor(Date.now() / 1000);
+          upsertMember(members, email, {
+            cashMembership: true,
+            membershipType: type,
+            privacy,
+            player,
+            parent: req.body.parent || "",
+            phone: req.body.phone || "",
+            periodStart: start,
+            amountDueCents: due,
+          });
+          await saveMembersState(members);
+        }
+        res.status(200).json({ ok: true, booking, ...(await dashboard()) });
+        return;
+      }
       const saved = await mutateManualBookings(async (store) => {
         if (store.bookings.some((existing) => existing.id === booking.id)) {
           return { ok: true, skipSave: true };
@@ -820,6 +954,10 @@ export default async function handler(req, res) {
 
     res.status(400).json({ error: "Unknown action." });
   } catch (e) {
-    res.status(500).json({ error: e?.message || "Coach action failed." });
+    const code = e?.code || (e?.name === "StorageUnavailableError" ? "schedule_unavailable" : "");
+    res.status(code === "schedule_unavailable" ? 503 : 500).json({
+      error: e?.message || "Coach action failed.",
+      ...(code ? { code } : {}),
+    });
   }
 }
