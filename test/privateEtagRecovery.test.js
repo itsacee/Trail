@@ -1,5 +1,5 @@
-// Private capacity ETag safety: conditional writes only when get() and head()
-// ETags agree exactly. Never pair a disagreeing get() body with a head() ETag.
+// Private capacity ETag safety: head-bookended CAS.
+// put(ifMatch) uses Blob-API head() ETags; get() download ETags are ignored for CAS.
 import { test, before, after, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 
@@ -13,6 +13,7 @@ import {
   setPrivateGetForTests,
   setPrivatePutForTests,
   etagFromGetResult,
+  PRIVATE_CAPACITY_BOOKEND_ATTEMPTS,
 } from "../lib/store.js";
 import { loadLessons, mutateLessons, commitLessons, upsertStripeLessons } from "../lib/lessons.js";
 import { placeHold, releaseHold, loadHolds } from "../lib/holds.js";
@@ -83,7 +84,7 @@ test("etagFromGetResult only accepts etag from the same get() result", () => {
   );
 });
 
-test("matching get/head ETags allow successful conditional lesson write", async () => {
+test("stable head bookend allows successful conditional lesson write", async () => {
   const body = JSON.stringify(KEPT_LESSONS);
   seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"v-agree"' });
 
@@ -118,52 +119,68 @@ test("matching get/head ETags allow successful conditional lesson write", async 
   assert.ok(after.lessons.some((l) => l.id === "pi_new-1"));
 });
 
-test("different get/head ETags refuse conditional writes (fail closed)", async () => {
+test("download get ETag differing from head API ETag still allows CAS when bookend is stable", async () => {
+  // Live Preview symptom: get() download ETag != head()/put() API ETag.
   const body = JSON.stringify(KEPT_LESSONS);
-  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"origin-v2"' });
+  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"api-v2"' });
 
   setPrivateGetForTests(async () => ({ text: body, etag: '"download-v1"' }));
-  setPrivateHeadForTests(async () => ({ etag: '"origin-v2"' }));
+  setPrivateHeadForTests(async () => ({ etag: '"api-v2"' }));
 
   const read = await blobReadVersioned("lessons.json");
-  assert.equal(read.conditional, false);
-  assert.equal(read.etag, "");
+  assert.equal(read.conditional, true);
+  assert.equal(read.etag, '"api-v2"');
   assert.match(read.text, /"kept"/);
 
-  const refused = await mutateLessons((data) => {
-    data.lessons.push({ id: "should-not-persist", date: DATE, time: TIME });
+  const mirrored = await mutateLessons((stored) => {
+    upsertStripeLessons(stored, "pi_channel", {
+      type: "single",
+      focus: "Hitting",
+      privacy: "standard",
+      seats: "1",
+      player: "Chan",
+      email: "chan@example.com",
+      date1: DATE,
+      time1: TIME,
+    });
     return { ok: true };
   });
-  assert.equal(refused.ok, false);
-  assert.equal(refused.unsafe, true);
+  assert.equal(mirrored.ok, true);
 
   setPrivateGetForTests(null);
   setPrivateHeadForTests(null);
-  const again = await blobReadVersioned("lessons.json");
-  assert.match(again.text, /"kept"/);
-  assert.equal(again.text.includes("should-not-persist"), false);
+  const after = await loadLessons();
+  assert.ok(after.lessons.some((l) => l.id === "kept"));
+  assert.ok(after.lessons.some((l) => l.id === "pi_channel-1"));
 });
 
-test("missing get ETag fails closed even when head has an ETag", async () => {
-  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: "" });
-  setPrivateGetForTests(async (filename, entry) => ({
-    text: entry?.body || JSON.stringify(KEPT_LESSONS),
-    etag: "",
-  }));
+test("missing get download ETag does not block CAS when head bookend is stable", async () => {
+  const body = JSON.stringify(KEPT_LESSONS);
+  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"head-only"' });
+  setPrivateGetForTests(async () => ({ text: body, etag: "" }));
   setPrivateHeadForTests(async () => ({ etag: '"head-only"' }));
 
   const read = await blobReadVersioned("lessons.json");
-  assert.equal(read.conditional, false);
-  assert.equal(read.etag, "");
+  assert.equal(read.conditional, true);
+  assert.equal(read.etag, '"head-only"');
 
-  const loaded = await loadLessons();
-  assert.equal(loaded._conditional, false);
-  const refused = await commitLessons(loaded);
-  assert.equal(refused.ok, false);
-  assert.equal(refused.unsafe, true);
+  const mirrored = await mutateLessons((stored) => {
+    upsertStripeLessons(stored, "pi_no_get_etag", {
+      type: "single",
+      focus: "Fielding",
+      privacy: "standard",
+      seats: "1",
+      date1: DATE,
+      time1: TIME,
+      email: "n@example.com",
+      player: "NoGet",
+    });
+    return { ok: true };
+  });
+  assert.equal(mirrored.ok, true);
 });
 
-test("missing head ETag fails closed when get has an ETag", async () => {
+test("missing head ETag fails closed even when get has a download ETag", async () => {
   const body = JSON.stringify(KEPT_LESSONS);
   seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"get-only"' });
   setPrivateGetForTests(async () => ({ text: body, etag: '"get-only"' }));
@@ -179,6 +196,59 @@ test("missing head ETag fails closed when get has an ETag", async () => {
   });
   assert.equal(refused.ok, false);
   assert.equal(refused.unsafe, true);
+});
+
+test("head bookend mismatch fails closed and never clobbers existing lessons", async () => {
+  const body = JSON.stringify(KEPT_LESSONS);
+  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"v-final"' });
+
+  let heads = 0;
+  setPrivateGetForTests(async () => ({ text: body, etag: '"ignored-download"' }));
+  setPrivateHeadForTests(async () => {
+    heads += 1;
+    // Alternate so every bookend attempt sees H1 !== H2.
+    return { etag: heads % 2 === 1 ? '"v-before"' : '"v-after"' };
+  });
+
+  const read = await blobReadVersioned("lessons.json");
+  assert.equal(read.conditional, false);
+  assert.equal(read.etag, "");
+  assert.equal(read.text, body);
+  assert.ok(heads >= PRIVATE_CAPACITY_BOOKEND_ATTEMPTS * 2);
+
+  const refused = await mutateLessons((data) => {
+    data.lessons.push({ id: "bookend-write" });
+    return { ok: true };
+  });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.unsafe, true);
+
+  setPrivateGetForTests(null);
+  setPrivateHeadForTests(null);
+  const again = await blobReadVersioned("lessons.json");
+  assert.match(again.text, /"kept"/);
+  assert.equal(again.text.includes("bookend-write"), false);
+});
+
+test("transient head bookend mismatch recovers on a later stable attempt", async () => {
+  const body = JSON.stringify(KEPT_LESSONS);
+  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"stable"' });
+
+  let heads = 0;
+  setPrivateGetForTests(async () => ({ text: body, etag: '"download"' }));
+  setPrivateHeadForTests(async () => {
+    heads += 1;
+    // First bookend unstable (H1!=H2), second bookend stable.
+    if (heads <= 2) {
+      return { etag: heads === 1 ? '"t1"' : '"t2"' };
+    }
+    return { etag: '"stable"' };
+  });
+
+  const read = await blobReadVersioned("lessons.json");
+  assert.equal(read.conditional, true);
+  assert.equal(read.etag, '"stable"');
+  assert.ok(heads >= 4);
 });
 
 test("concurrent modification between agreed read and put surfaces conflict without clobber", async () => {
@@ -251,72 +321,6 @@ test("repeated cas_precondition_failed preserves existing lessons across mutate 
   assert.equal(after.lessons.some((l) => String(l.id).startsWith("pi_blocked")), false);
 });
 
-test("ABA get/head disagreement never authorizes pairing restored bytes with a newer ETag", async () => {
-  // A → B → A: get still reports old download etag; head reports post-ABA version.
-  const bodyA = JSON.stringify(KEPT_LESSONS);
-  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"etag-after-aba"' });
-
-  setPrivateGetForTests(async () => ({ text: bodyA, etag: '"etag-before-aba"' }));
-  setPrivateHeadForTests(async () => ({ etag: '"etag-after-aba"' }));
-
-  const read = await blobReadVersioned("lessons.json");
-  assert.equal(read.etag, "");
-  assert.equal(read.conditional, false);
-  // Body may be readable, but must not become a conditional CAS base.
-  assert.equal(read.text, bodyA);
-
-  const refused = await mutateLessons((data) => {
-    data.lessons.push({ id: "aba-write" });
-    return { ok: true };
-  });
-  assert.equal(refused.ok, false);
-  assert.equal(refused.unsafe, true);
-
-  setPrivateGetForTests(null);
-  setPrivateHeadForTests(null);
-  const again = await blobReadVersioned("lessons.json");
-  assert.match(again.text, /"kept"/);
-  assert.equal(again.text.includes("aba-write"), false);
-});
-
-test("retry get recovers only when the retried get ETag also matches head", async () => {
-  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: "" });
-
-  let gets = 0;
-  setPrivateGetForTests(async (filename, entry) => {
-    gets += 1;
-    if (gets === 1) return { text: entry.body, etag: "" };
-    seedMemoryPrivateCapacity(filename, KEPT_LESSONS, { etag: '"retry-ok"' });
-    return { text: entry.body, etag: '"retry-ok"' };
-  });
-  setPrivateHeadForTests(async () => ({ etag: '"retry-ok"' }));
-
-  const read = await blobReadVersioned("lessons.json");
-  assert.equal(gets, 2);
-  assert.equal(read.conditional, true);
-  assert.equal(read.etag, '"retry-ok"');
-
-  setPrivateGetForTests(null);
-  setPrivateHeadForTests(null);
-  const mirrored = await mutateLessons((stored) => {
-    upsertStripeLessons(stored, "pi_both", {
-      type: "single",
-      focus: "Both",
-      privacy: "standard",
-      seats: "1",
-      date1: DATE,
-      time1: TIME,
-      email: "a@example.com",
-      player: "Alex",
-    });
-    return { ok: true };
-  });
-  assert.equal(mirrored.ok, true);
-  const after = await loadLessons();
-  assert.ok(after.lessons.some((l) => l.id === "kept"));
-  assert.ok(after.lessons.some((l) => l.id === "pi_both-1"));
-});
-
 test("holds and manual-booking updates preserve existing rows under CAS", async () => {
   assert.equal(
     await placeHold("cs_hold", [{ date: DATE, time: TIME }], 60, "Both", {
@@ -368,10 +372,14 @@ test("holds and manual-booking updates preserve existing rows under CAS", async 
   );
 });
 
-test("holds fail closed when get/head ETags disagree", async () => {
+test("holds fail closed when head bookend is unstable", async () => {
   seedMemoryPrivateCapacity("holds.json", { holds: [] }, { etag: '"hold-origin"' });
+  let heads = 0;
   setPrivateGetForTests(async () => ({ text: JSON.stringify({ holds: [] }), etag: '"hold-download"' }));
-  setPrivateHeadForTests(async () => ({ etag: '"hold-origin"' }));
+  setPrivateHeadForTests(async () => {
+    heads += 1;
+    return { etag: heads % 2 === 1 ? '"h1"' : '"h2"' };
+  });
 
   assert.equal(
     await placeHold("cs_recover", [{ date: DATE, time: TIME }], 60, "Hitting", {
@@ -388,13 +396,17 @@ test("holds fail closed when get/head ETags disagree", async () => {
   assert.equal(holds.holds.length, 0);
 });
 
-test("manual bookings fail closed when get/head ETags disagree", async () => {
+test("manual bookings fail closed when head bookend is unstable", async () => {
   seedMemoryPrivateCapacity("manual-bookings.json", { bookings: [{ id: "mb_old" }] }, { etag: '"mb-origin"' });
+  let heads = 0;
   setPrivateGetForTests(async () => ({
     text: JSON.stringify({ bookings: [{ id: "mb_old" }] }),
     etag: '"mb-download"',
   }));
-  setPrivateHeadForTests(async () => ({ etag: '"mb-origin"' }));
+  setPrivateHeadForTests(async () => {
+    heads += 1;
+    return { etag: heads % 2 === 1 ? '"m1"' : '"m2"' };
+  });
 
   const saved = await mutateManualBookings((data) => {
     data.bookings.push({
@@ -504,7 +516,73 @@ test("successful lesson mirroring and hold release preserve prior lessons", asyn
   assert.ok(lessons.lessons.some((l) => l.id === "pi_pay-1" && l.focus === "Both" && l.privacy === "standard"));
 });
 
-test("memory store without hooks still allows CAS when get/head agree by construction", async () => {
+test("channel-mismatch bookend still mirrors paid Stripe lesson via confirm path", async () => {
+  // Simulate live Preview: get download ETag differs from head API ETag, bookend stable.
+  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"api-stable"' });
+  setPrivateGetForTests(async (_filename, entry) => ({
+    text: entry?.body || JSON.stringify(KEPT_LESSONS),
+    etag: '"download-other"',
+  }));
+  setPrivateHeadForTests(async () => ({ etag: '"api-stable"' }));
+
+  mock.method(globalThis, "fetch", async (url) => {
+    const path = String(url);
+    if (path.includes("/checkout/sessions/cs_channel")) {
+      return {
+        ok: true,
+        json: async () => ({
+          id: "cs_channel",
+          payment_status: "paid",
+          payment_intent: "pi_channel_pay",
+          amount_total: 8000,
+          created: Math.floor(Date.now() / 1000),
+          customer_details: { email: "c@example.com" },
+          metadata: {
+            type: "single",
+            focus: "Hitting",
+            privacy: "standard",
+            seats: "1",
+            player: "Cy",
+            email: "c@example.com",
+            date1: DATE,
+            time1: TIME,
+            loc1: "mustang",
+          },
+        }),
+      };
+    }
+    if (path.includes("/payment_intents/pi_channel_pay")) {
+      return {
+        ok: true,
+        json: async () => ({
+          id: "pi_channel_pay",
+          created: Math.floor(Date.now() / 1000),
+          metadata: {},
+        }),
+      };
+    }
+    if (path.includes("/checkout/sessions?") || path.includes("/search?")) {
+      return { ok: true, json: async () => ({ data: [] }) };
+    }
+    throw new Error(`Unexpected fetch: ${path}`);
+  });
+
+  const result = await deliverConfirmation({
+    key: "sk_test",
+    sessionId: "cs_channel",
+    origin: "https://preview.example",
+  });
+  assert.equal(result.status, 200);
+  assert.notEqual(result.body.bookingMirrorFailed, true);
+
+  setPrivateGetForTests(null);
+  setPrivateHeadForTests(null);
+  const lessons = await loadLessons();
+  assert.ok(lessons.lessons.some((l) => l.id === "kept"));
+  assert.ok(lessons.lessons.some((l) => l.id === "pi_channel_pay-1"));
+});
+
+test("memory store without hooks still allows CAS when head bookend agrees by construction", async () => {
   const seeded = await mutateLessons((data) => {
     data.lessons = [
       {
@@ -545,4 +623,20 @@ test("memory store without hooks still allows CAS when get/head agree by constru
   const after = await loadLessons();
   assert.ok(after.lessons.some((l) => l.id === "seed-1"));
   assert.ok(after.lessons.some((l) => l.id === "pi_mem-1"));
+});
+
+test("commitLessons refuses unconditional overwrite when bookend cannot authorize", async () => {
+  seedMemoryPrivateCapacity("lessons.json", KEPT_LESSONS, { etag: '"v1"' });
+  setPrivateGetForTests(async () => ({ text: JSON.stringify(KEPT_LESSONS), etag: '"d"' }));
+  let heads = 0;
+  setPrivateHeadForTests(async () => {
+    heads += 1;
+    return { etag: heads % 2 === 1 ? '"a"' : '"b"' };
+  });
+
+  const loaded = await loadLessons();
+  assert.equal(loaded._conditional, false);
+  const refused = await commitLessons(loaded);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.unsafe, true);
 });
