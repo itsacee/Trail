@@ -143,6 +143,13 @@ test("fetchBookings with reads on lists Postgres rows without Blob fallback", as
   assert.ok(focuses.has("Both"));
 });
 
+test("fetchBookings daysBack window is measured in days not seconds", async () => {
+  // Seeded lessons are on 2026-11-15/16. A correct 90-day window from "now"
+  // must include them; the ms/seconds mix-up would collapse the window to hours.
+  const rows = await fetchBookings("sk_test", 90);
+  assert.ok(rows.length >= 3, `expected >=3 rows in 90-day window, got ${rows.length}`);
+});
+
 test("bookedTimes fail-closed when Postgres store cannot be opened", async () => {
   await resetBookingStoreCache();
   process.env.BOOKING_STORE = "postgres";
