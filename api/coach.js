@@ -47,7 +47,12 @@ import {
   membershipLabel,
 } from "../lib/members.js";
 import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
-import { dbManualBook, dbCancelBooking, dbReschedule } from "../lib/bookingStore.js";
+import {
+  dbManualBook,
+  dbCancelBooking,
+  dbReschedule,
+  dbCollectManualPayment,
+} from "../lib/bookingStore.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -239,31 +244,45 @@ export default async function handler(req, res) {
       }
 
       let collectedBooking = null;
-      const collected = await mutateManualBookings((store) => {
-        const b = findBooking(store, id);
-        if (!b) {
-          return {
-            ok: false,
-            error: "Booking not found (only cash/manual bookings can be collected here).",
-            status: 404,
-          };
+      let take = 0;
+      if (bookingWritesEnabled()) {
+        const collected = await dbCollectManualPayment({ id, amountCents: amount });
+        if (!collected.ok) {
+          res.status(collected.status || 503).json({
+            error: collected.error || "Couldn't save that payment. Refresh and try again.",
+            code: collected.code,
+          });
+          return;
         }
-        const take = Math.min(amount, b.amountDueCents || amount);
-        b.amountPaidCents = (b.amountPaidCents || 0) + take;
-        b.amountDueCents = Math.max(0, (b.amountDueCents || 0) - take);
-        b.paymentStatus = b.amountDueCents > 0 ? "deposit_paid" : "paid";
-        collectedBooking = b;
-        return { ok: true, take };
-      });
-      if (!collected.ok) {
-        res.status(collected.status || 503).json({
-          error: collected.error || "Couldn't save that payment. Refresh and try again.",
-          code: collected.code,
+        collectedBooking = collected.booking;
+        take = collected.take;
+      } else {
+        const collected = await mutateManualBookings((store) => {
+          const b = findBooking(store, id);
+          if (!b) {
+            return {
+              ok: false,
+              error: "Booking not found (only cash/manual bookings can be collected here).",
+              status: 404,
+            };
+          }
+          const paidTake = Math.min(amount, b.amountDueCents || amount);
+          b.amountPaidCents = (b.amountPaidCents || 0) + paidTake;
+          b.amountDueCents = Math.max(0, (b.amountDueCents || 0) - paidTake);
+          b.paymentStatus = b.amountDueCents > 0 ? "deposit_paid" : "paid";
+          collectedBooking = b;
+          return { ok: true, take: paidTake };
         });
-        return;
+        if (!collected.ok) {
+          res.status(collected.status || 503).json({
+            error: collected.error || "Couldn't save that payment. Refresh and try again.",
+            code: collected.code,
+          });
+          return;
+        }
+        take = collected.take;
       }
       const b = collectedBooking;
-      const take = collected.take;
       if (b.email && isMembershipType(b.type)) {
         const members = await loadMembersState();
         const row = memberRecord(members, b.email);
@@ -697,6 +716,7 @@ export default async function handler(req, res) {
           player2,
           parent: booking.parent || "",
           phone: booking.phone || "",
+          membershipId: isMembershipType(type) && email ? `cash_${email}` : null,
           payload: {
             paymentMethod: payMethod,
             paymentStatus: booking.paymentStatus,
@@ -732,6 +752,20 @@ export default async function handler(req, res) {
             paymentMethod: payMethod,
           });
           await saveMembersState(members);
+        }
+        if (paid > 0) {
+          const fin = await loadFinance();
+          addFinanceEntry(fin, {
+            amountCents: paid,
+            method: payMethod === "card" ? "card" : "cash",
+            type,
+            player,
+            email,
+            bookingId: booking.id,
+            date,
+            note: "Coach booked lesson",
+          });
+          await saveFinance(fin);
         }
         res.status(200).json({ ok: true, booking, ...(await dashboard()) });
         return;

@@ -623,3 +623,113 @@ test("simultaneous reschedules into one hour keep original appointments on failu
   assert.equal(creditsA.credits_used, 1);
   assert.equal(creditsB.credits_used, 1);
 });
+
+test("collectManualPayment updates payload balances inside a transaction", async () => {
+  await clearBookings();
+  const booked = await store.manualBook({
+    id: "cash_collect_1",
+    date: "2026-11-17",
+    time: "6:00 PM",
+    focus: "Hitting",
+    type: "single",
+    privacy: "standard",
+    seats: 1,
+    email: "collect@example.com",
+    player: "Collect Kid",
+    payload: {
+      paymentMethod: "cash",
+      paymentStatus: "unpaid",
+      amountCents: 8000,
+      amountPaidCents: 0,
+      amountDueCents: 8000,
+    },
+  });
+  assert.equal(booked.ok, true);
+
+  const partial = await store.collectManualPayment({ id: "cash_collect_1", amountCents: 3000 });
+  assert.equal(partial.ok, true);
+  assert.equal(partial.take, 3000);
+  assert.equal(partial.booking.amountDueCents, 5000);
+  assert.equal(partial.booking.paymentStatus, "deposit_paid");
+
+  const rest = await store.collectManualPayment({ id: "cash_collect_1", amountCents: 5000 });
+  assert.equal(rest.ok, true);
+  assert.equal(rest.take, 5000);
+  assert.equal(rest.booking.amountDueCents, 0);
+  assert.equal(rest.booking.paymentStatus, "paid");
+
+  const row = await store.getBooking("cash_collect_1");
+  assert.equal(row.payload.amountPaidCents, 8000);
+  assert.equal(row.payload.amountDueCents, 0);
+  assert.equal(row.payload.paymentStatus, "paid");
+
+  const missing = await store.collectManualPayment({ id: "nope", amountCents: 100 });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.status, 404);
+});
+
+test("memberBook seeds credits_used from existing membership lessons", async () => {
+  await clearBookings();
+  const membershipId = "cash_seed@example.com";
+  await store.manualBook({
+    id: "cash_seed_lesson",
+    date: "2026-11-18",
+    time: "6:00 PM",
+    focus: "Hitting",
+    type: "membership",
+    privacy: "standard",
+    seats: 1,
+    email: "seed@example.com",
+    player: "Seed",
+    membershipId,
+  });
+  // Simulate a lagging ledger (0 used) while one lesson already exists.
+  await store.query(
+    `INSERT INTO membership_credits (membership_id, email, tier, credits_total, credits_used, status)
+     VALUES ($1, $2, 'standard', 4, 0, 'active')`,
+    [membershipId, "seed@example.com"]
+  );
+
+  const next = await store.memberBook({
+    membershipId,
+    email: "seed@example.com",
+    date: "2026-11-19",
+    time: "6:00 PM",
+    focus: "Hitting",
+    type: "membership",
+    privacy: "standard",
+    creditsTotal: 4,
+  });
+  assert.equal(next.ok, true);
+  const credits = await store.getMembershipCredits(membershipId);
+  // Prior manual lesson (1) + new member book (1).
+  assert.equal(credits.credits_used, 2);
+});
+
+test("confirmPaid concurrent retries stay idempotent via ON CONFLICT", async () => {
+  await clearBookings();
+  const key = "mirror:pi_idem_race";
+  const meta = {
+    date: "2026-11-20",
+    time: "6:00 PM",
+    focus: "Hitting",
+    type: "single",
+    privacy: "standard",
+    email: "idem@example.com",
+    player: "Idem",
+  };
+  const [a, b] = await Promise.all([
+    store.confirmPaid({ idempotencyKey: key, sourceId: "pi_idem_race", metadata: meta }),
+    store.confirmPaid({ idempotencyKey: key, sourceId: "pi_idem_race", metadata: meta }),
+  ]);
+  assert.equal(a.ok, true);
+  assert.equal(b.ok, true);
+  const idempotentCount = [a, b].filter((r) => r.idempotent).length;
+  const freshCount = [a, b].filter((r) => r.idempotent === false).length;
+  assert.equal(freshCount, 1);
+  assert.equal(idempotentCount, 1);
+  const { rows } = await store.query(
+    `SELECT count(*)::int AS n FROM bookings WHERE source_ref = 'pi_idem_race' AND status = 'active'`
+  );
+  assert.equal(rows[0].n, 1);
+});

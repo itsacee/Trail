@@ -86,7 +86,8 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (storeConfigured() && !capacityWritesEnabled()) {
+  // Blob capacity pause must not block Postgres-authoritative cash books.
+  if (storeConfigured() && !capacityWritesEnabled() && !bookingWritesEnabled()) {
     res.status(503).json({
       error:
         "Online booking is temporarily paused while we restore the calendar. Please try again shortly or call (405) 819-4401.",
@@ -245,6 +246,7 @@ export default async function handler(req, res) {
       player2,
       parent,
       phone,
+      membershipId: isMember && email ? `cash_${email}` : null,
       payload: {
         paymentMethod: "cash",
         paymentStatus: "unpaid",
@@ -282,7 +284,53 @@ export default async function handler(req, res) {
       });
       await saveMembersState(members);
     }
-    res.status(200).json({ ok: true, booking, origin: "postgres" });
+    const locPg = LOCATIONS.mustang || {};
+    const dollarsPg = (price / 100).toFixed(2);
+    const whoPg = player2 ? `${player} & ${player2}` : player;
+    const sentPg = await sendMail({
+      to: email,
+      subject: isMember
+        ? `Membership reserved — first lesson ${date} at ${time}`
+        : `Lesson reserved — ${date} at ${time} (pay cash)`,
+      text:
+        `${whoPg}'s ${isMember ? "membership first lesson" : "lesson"} is reserved for ${date} at ${time}.\n\n` +
+        `Pay $${dollarsPg} cash at the field` +
+        (isMember ? " (covers all 4 lessons)." : athletes > 1 ? ` (covers both athletes).` : ".") +
+        `\n\n` +
+        (type === "private"
+          ? athletes > 1
+            ? `This is a private hour for both athletes — nobody else will be added to it.\n\n`
+            : `This is a private 1-on-1 hour — nobody else will be added to it.\n\n`
+          : athletes > 1
+          ? `Both athletes are on this hour, so the time is now full.\n\n`
+          : "") +
+        (locPg.address ? `Where: ${locPg.address}\n${locPg.note || ""}\n\n` : "") +
+        (isMember
+          ? `Sign in at apacademybsb.com/account.html with ${email} to book the other lessons.\n\n`
+          : "") +
+        `Questions? (405) 819-4401`,
+    });
+    res.status(200).json({
+      ok: true,
+      sent: sentPg,
+      booking,
+      player,
+      email,
+      sessions: [{ date, time }],
+      places: locPg.address
+        ? [
+            {
+              name: locPg.name,
+              address: locPg.address,
+              mapUrl: `https://maps.google.com/?q=${encodeURIComponent(locPg.address)}`,
+            },
+          ]
+        : [],
+      payMode: "cash",
+      amountDue: price,
+      member: isMember,
+      origin: "postgres",
+    });
     return;
   }
 
