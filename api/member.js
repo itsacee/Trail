@@ -42,6 +42,8 @@ import { buildCalendar, stamp } from "../lib/ics.js";
 import { bookingEvent } from "./calendar.js";
 import { sendLessonCancelledEmail, sendLessonMovedEmail } from "../lib/lessonMail.js";
 import { getSiteStatus, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
+import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
+import { dbMemberBook, dbReschedule } from "../lib/bookingStore.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
@@ -531,6 +533,52 @@ export default async function handler(req, res) {
     let moved = null;
     let clearStripe = null;
 
+    if (bookingWritesEnabled()) {
+      const movedSave = await dbReschedule({
+        bookingId: lesson.id,
+        newDate,
+        newTime,
+        newFocus,
+      });
+      if (!movedSave.ok) {
+        res.status(movedSave.code === "slot_unavailable" ? 409 : 503).json({
+          error: movedSave.error || "Couldn't move that lesson. Call or text (405) 819-4401.",
+          code: movedSave.code,
+        });
+        return;
+      }
+      moved = {
+        ...lesson,
+        date: newDate,
+        time: newTime,
+        focus: newFocus,
+        movedAt: Date.now(),
+      };
+      if (row.source === "stripe") {
+        clearStripe = { sourceId: row.sourceId || "", lessonId: row.id };
+      }
+      if (clearStripe) {
+        await clearStripeSlot(key, clearStripe.sourceId, clearStripe.lessonId);
+      }
+      await refreshScheduled(acct);
+      const ownerAfter = summarizePurchase(
+        acct,
+        owner,
+        scheduledFor(owner, acct.stored, acct.manual, acct.subs)
+      );
+      const notified = await sendLessonMovedEmail({
+        to: email,
+        oldLesson: lesson,
+        newLesson: moved,
+        movedBy: "parent",
+        extraLine: `You still have ${ownerAfter.remaining || 0} lesson${
+          ownerAfter.remaining === 1 ? "" : "s"
+        } left on that membership, good through ${ownerAfter.lastDayPretty}.`,
+      });
+      res.status(200).json({ ok: true, notified, lesson: moved, ...publicAccount(acct) });
+      return;
+    }
+
     if (row.source === "manual") {
       const movedSave = await mutateManualBookings(async (manual) => {
         const stored = await loadLessons();
@@ -686,6 +734,39 @@ export default async function handler(req, res) {
     availability,
   });
   lesson.email = email;
+
+  if (bookingWritesEnabled()) {
+    const booked = await dbMemberBook({
+      membershipId: selected.id,
+      email,
+      date,
+      time,
+      focus,
+      type: memberType,
+      privacy,
+      player: lesson.player || "",
+      parent: lesson.parent || "",
+      phone: lesson.phone || "",
+      creditsTotal: Number(selectedSummary?.credits) || 4,
+    });
+    if (!booked.ok) {
+      res.status(booked.code === "slot_unavailable" ? 409 : booked.code === "no_credits" ? 400 : 503).json({
+        error: booked.error || "Couldn't safely reserve that lesson. Please try again.",
+        code: booked.code || "schedule_unavailable",
+      });
+      return;
+    }
+    lesson.id = booked.bookingId;
+    await refreshScheduled(acct);
+    const bookedSummary = summarizePurchase(
+      acct,
+      selected,
+      scheduledFor(selected, acct.stored, acct.manual, acct.subs)
+    );
+    emailMemberBooking(email, lesson, bookedSummary);
+    res.status(200).json({ ok: true, lesson, ...publicAccount(acct) });
+    return;
+  }
 
   const booked = await mutateLessons(async (stored) => {
     acct.stored = stored;

@@ -28,6 +28,8 @@ import { HOLD_MINUTES, loadHolds, holdsOnDate } from "../lib/holds.js";
 import { loadManualBookings, bookingsOnDate } from "../lib/manualBookings.js";
 import { isCoachPass } from "../lib/coachAuth.js";
 import { storeConfigured, StorageUnavailableError } from "../lib/store.js";
+import { bookingReadsEnabled, bookingWritesEnabled } from "../lib/bookingDb/flags.js";
+import { loadDbOccupancy } from "../lib/bookingStore.js";
 
 function assertCapacityReadable(data, label) {
   if (!storeConfigured()) return;
@@ -65,8 +67,9 @@ export async function bookedTimes(
   { ignoreHold = "", ignoreSourceId = "", holdBefore = null } = {}
 ) {
   const byTime = new Map(); // time label -> { mins, sources }
-  const stored = await loadLessons();
-  assertCapacityReadable(stored, "lessons.json");
+  const dbAuthoritative = bookingWritesEnabled();
+  const stored = dbAuthoritative ? { lessons: [], voids: [] } : await loadLessons();
+  if (!dbAuthoritative) assertCapacityReadable(stored, "lessons.json");
 
   const add = (time, mins, source) => {
     if (!time) return;
@@ -220,52 +223,88 @@ export async function bookedTimes(
 
   // Slots someone is part-way through paying for. Read straight from storage,
   // so these are visible immediately — unlike Stripe Search, which lags.
-  const holds = await loadHolds();
-  assertCapacityReadable(holds, "holds.json");
-  holdsOnDate(holds, date)
-    .filter((h) => !ignoreHold || h.sessionId !== ignoreHold)
-    .filter((h) => holdIsEarlier(h.createdAt || 0, h.sessionId))
-    .forEach((h) =>
-      add(h.time, h.mins || 60, {
-        kind: "hold",
-        id: h.sessionId,
-        type: h.type || "",
-        focus: h.focus || "",
-        privacy:
-          normalizePrivacy(h.privacy) ||
-          resolvePrivacy({ type: h.type, focus: h.focus, privacy: h.privacy }),
-        seats: seatsOn({ type: h.type, seats: h.seats, athletes: h.athletes, focus: h.focus, privacy: h.privacy }),
-        expiresAt: h.expiresAt,
-        expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
-      })
-    );
+  if (!dbAuthoritative) {
+    const holds = await loadHolds();
+    assertCapacityReadable(holds, "holds.json");
+    holdsOnDate(holds, date)
+      .filter((h) => !ignoreHold || h.sessionId !== ignoreHold)
+      .filter((h) => holdIsEarlier(h.createdAt || 0, h.sessionId))
+      .forEach((h) =>
+        add(h.time, h.mins || 60, {
+          kind: "hold",
+          id: h.sessionId,
+          type: h.type || "",
+          focus: h.focus || "",
+          privacy:
+            normalizePrivacy(h.privacy) ||
+            resolvePrivacy({ type: h.type, focus: h.focus, privacy: h.privacy }),
+          seats: seatsOn({ type: h.type, seats: h.seats, athletes: h.athletes, focus: h.focus, privacy: h.privacy }),
+          expiresAt: h.expiresAt,
+          expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
+        })
+      );
 
-  const manual = await loadManualBookings();
-  assertCapacityReadable(manual, "manual-bookings.json");
-  bookingsOnDate(manual, date)
-    .filter((b) => !ignoreSourceId || b.id !== ignoreSourceId)
-    .forEach((b) =>
-      add(b.time, durationFor(b.type || "single"), {
-        kind: "cash",
-        id: b.id,
-        player: b.player || "",
-        player2: b.player2 || "",
-        email: b.email || "",
-        type: b.type || "single",
-        focus: b.focus || "",
-        privacy:
-          normalizePrivacy(b.privacy) ||
-          resolvePrivacy({ type: b.type || "single", focus: b.focus, privacy: b.privacy }),
-        seats: seatsOn({
+    const manual = await loadManualBookings();
+    assertCapacityReadable(manual, "manual-bookings.json");
+    bookingsOnDate(manual, date)
+      .filter((b) => !ignoreSourceId || b.id !== ignoreSourceId)
+      .forEach((b) =>
+        add(b.time, durationFor(b.type || "single"), {
+          kind: "cash",
+          id: b.id,
+          player: b.player || "",
+          player2: b.player2 || "",
+          email: b.email || "",
           type: b.type || "single",
-          seats: b.seats,
-          athletes: b.athletes,
-          focus: b.focus,
-          privacy: b.privacy,
-        }),
-        createdAt: b.createdAt || 0,
-      })
-    );
+          focus: b.focus || "",
+          privacy:
+            normalizePrivacy(b.privacy) ||
+            resolvePrivacy({ type: b.type || "single", focus: b.focus, privacy: b.privacy }),
+          seats: seatsOn({
+            type: b.type || "single",
+            seats: b.seats,
+            athletes: b.athletes,
+            focus: b.focus,
+            privacy: b.privacy,
+          }),
+          createdAt: b.createdAt || 0,
+        })
+      );
+  }
+
+  // Authoritative Postgres occupancy (Preview) when reads are enabled.
+  if (bookingReadsEnabled()) {
+    try {
+      const dbRows = await loadDbOccupancy(date, { ignoreHold });
+      for (const row of dbRows || []) {
+        if (ignoreSourceId && row.id === ignoreSourceId) continue;
+        const kind =
+          row.source === "hold"
+            ? "hold"
+            : row.source === "manual"
+              ? "cash"
+              : row.source === "stripe"
+                ? "paid"
+                : "member";
+        add(row.time, row.mins || 60, {
+          kind,
+          id: row.id,
+          type: "",
+          focus: row.focus || (row.focuses && row.focuses[0]) || "",
+          privacy: row.privacy || "",
+          seats: Number(row.seats) || 1,
+          exclusive: Boolean(row.exclusive),
+        });
+      }
+    } catch {
+      // Fail closed for public open times when DB is configured as authoritative.
+      if (dbAuthoritative) {
+        throw new StorageUnavailableError(
+          "Couldn't read bookings from the database. Open times were not replaced with an empty schedule."
+        );
+      }
+    }
+  }
 
   return [...byTime.entries()].map(([time, v]) => {
     const seats = v.sources.reduce((n, source) => n + (Number(source.seats) || 1), 0);

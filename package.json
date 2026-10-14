@@ -8,6 +8,8 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@vercel/blob": "^2.8.1"
+    "@vercel/blob": "^2.8.1",
+    "pg": "^8.23.1",
+    "pg-mem": "^3.0.14"
   }
 }

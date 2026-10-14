@@ -23,6 +23,8 @@ import {
 import { buildCalendar, eventLines, stamp } from "../lib/ics.js";
 import { mutateLessons, upsertStripeLessons } from "../lib/lessons.js";
 import { releaseHold } from "../lib/holds.js";
+import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
+import { dbConfirmPaid } from "../lib/bookingStore.js";
 import { loadFinance, saveFinance, addFinanceEntry } from "../lib/finance.js";
 import { loadMembersState, saveMembersState, upsertMember } from "../lib/membersStore.js";
 
@@ -614,40 +616,74 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
     if (sessions.length) {
       const sourceId = target?.id || session.payment_intent || session.subscription || session.id;
       try {
-        const mirrored = await mutateLessons((stored) => {
-          const changed = upsertStripeLessons(stored, sourceId, meta);
-          if (!changed) return { ok: true, skipSave: true };
-          return { ok: true };
-        });
-        if (!mirrored.ok) {
-          console.error("Could not save paid booking mirror:", sourceId, mirrored.error || mirrored.code);
-          // Keep the checkout hold so capacity still reserves the seat until
-          // the lesson mirror can be verified on a later confirm/webhook retry.
-          return {
-            status: 503,
-            body: {
-              sent: false,
-              recorded: false,
-              bookingMirrorFailed: true,
-              capacityWritesPaused: Boolean(mirrored.paused),
-              code: "schedule_unavailable",
-              error:
-                "Payment is confirmed in Stripe, but the lesson schedule could not be updated yet. No confirmation was finalized — retry shortly.",
-              ...summary,
-            },
-          };
-        }
-        // Paid lesson is on the Blob schedule — release the checkout hold so
-        // slots count the seat once (not hold + paid). Safe to retry: missing
-        // holds are a no-op. Confirmation page and Stripe webhook both use
-        // this path via deliverConfirmation.
-        try {
-          const released = await releaseHold(session.id);
-          if (!released) {
-            console.error("Could not release checkout hold after mirror:", session.id);
+        // Preview Postgres path: idempotent confirm + hold release in BookingStore.
+        // Blob capacity is not written when BOOKING_WRITES_ENABLED=1.
+        if (bookingWritesEnabled()) {
+          const mirrored = await dbConfirmPaid({
+            idempotencyKey: `mirror:${sourceId}`,
+            sourceId,
+            sessionId: session.id,
+            metadata: meta,
+          });
+          if (!mirrored.ok) {
+            console.error("Could not save paid booking mirror (db):", sourceId, mirrored.code || "");
+            return {
+              status: 503,
+              body: {
+                sent: false,
+                recorded: false,
+                bookingMirrorFailed: true,
+                code: mirrored.code || "schedule_unavailable",
+                error:
+                  "Payment is confirmed in Stripe, but the lesson schedule could not be updated yet. No confirmation was finalized — retry shortly.",
+                ...summary,
+              },
+            };
           }
-        } catch (error) {
-          console.error("Could not release checkout hold after mirror:", session.id, error);
+          try {
+            const released = await releaseHold(session.id);
+            if (!released) {
+              console.error("Could not release checkout hold after mirror:", session.id);
+            }
+          } catch (error) {
+            console.error("Could not release checkout hold after mirror:", session.id, error);
+          }
+        } else {
+          const mirrored = await mutateLessons((stored) => {
+            const changed = upsertStripeLessons(stored, sourceId, meta);
+            if (!changed) return { ok: true, skipSave: true };
+            return { ok: true };
+          });
+          if (!mirrored.ok) {
+            console.error("Could not save paid booking mirror:", sourceId, mirrored.error || mirrored.code);
+            // Keep the checkout hold so capacity still reserves the seat until
+            // the lesson mirror can be verified on a later confirm/webhook retry.
+            return {
+              status: 503,
+              body: {
+                sent: false,
+                recorded: false,
+                bookingMirrorFailed: true,
+                capacityWritesPaused: Boolean(mirrored.paused),
+                code: "schedule_unavailable",
+                error:
+                  "Payment is confirmed in Stripe, but the lesson schedule could not be updated yet. No confirmation was finalized — retry shortly.",
+                ...summary,
+              },
+            };
+          }
+          // Paid lesson is on the Blob schedule — release the checkout hold so
+          // slots count the seat once (not hold + paid). Safe to retry: missing
+          // holds are a no-op. Confirmation page and Stripe webhook both use
+          // this path via deliverConfirmation.
+          try {
+            const released = await releaseHold(session.id);
+            if (!released) {
+              console.error("Could not release checkout hold after mirror:", session.id);
+            }
+          } catch (error) {
+            console.error("Could not release checkout hold after mirror:", session.id, error);
+          }
         }
       } catch (error) {
         console.error("Could not mirror paid booking:", error);
