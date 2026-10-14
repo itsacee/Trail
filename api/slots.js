@@ -22,6 +22,7 @@ import { loadManualBookings, bookingsOnDate } from "../lib/manualBookings.js";
 import { isCoachPass } from "../lib/coachAuth.js";
 import { storeConfigured, StorageUnavailableError } from "../lib/store.js";
 import { bookingReadsEnabled, bookingWritesEnabled } from "../lib/bookingDb/flags.js";
+import { occupancyHasStripeSource } from "../lib/bookingDb/stripePaidReconcile.js";
 import { loadDbOccupancy } from "../lib/bookingStore.js";
 
 function assertCapacityReadable(data, label) {
@@ -63,11 +64,13 @@ export async function bookedTimes(
   const readsDb = bookingReadsEnabled();
   const writesDb = bookingWritesEnabled();
   // Reads-on: Postgres owns lesson/manual occupancy. Do not merge Blob lessons
-  // or Stripe paid search — those would hide missing Postgres rows.
+  // (those would hide missing Postgres rows). Stripe *paid* search stays on as
+  // a safety net so paid-but-unmirrored seats cannot disappear after hold TTL;
+  // duplicates against Postgres source_ref / `${pi}-N` ids are skipped.
   // Writes-off: checkout still writes holds to Blob + Stripe open sessions, so
   // keep those hold sources until BOOKING_WRITES_ENABLED=1.
   const skipBlobCapacity = readsDb || writesDb;
-  const skipStripePaidSearch = readsDb;
+  const skipStripePaidSearch = false;
   const keepBlobHolds = !writesDb;
   const dbFailClosed = readsDb || writesDb;
 
@@ -115,9 +118,13 @@ export async function bookedTimes(
       if (ignoreSourceId && item.id === ignoreSourceId) return;
       // Member moved/cancelled this Stripe signup slot — don't keep it blocked.
       if (isVoided(stored, { sourceId: item.id, date, time })) return;
+      const existing = (byTime.get(time) || { sources: [] }).sources;
+      // Already mirrored into Postgres (or previously added) — do not double-seat.
+      if (occupancyHasStripeSource(existing, item.id)) return;
       add(time, mins, {
         kind: "paid",
         id: item.id,
+        sourceRef: item.id,
         player: m.player || "",
         player2: m.player2 || "",
         type: m.type || "",
@@ -125,24 +132,32 @@ export async function bookedTimes(
         privacy: normalizePrivacy(m.privacy) || resolvePrivacy({ type: m.type, focus: m.focus, privacy: m.privacy }),
         seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes, focus: m.focus, privacy: m.privacy }),
         created: item.created || 0,
+        unmirroredSafetyNet: readsDb || writesDb,
       });
     });
   };
 
   const dur = (m) => durationFor(m.type);
-  const queries = [];
-  if (!skipStripePaidSearch) {
+  // When Postgres owns occupancy, load PG first then apply Stripe paid search
+  // so unmirrored payments can be deduped against `${pi}-N` / source_ref.
+  const deferStripePaidForDb = readsDb || writesDb;
+  const stripePaidQueries = () => {
+    const out = [];
     for (let i = 1; i <= 4; i++) {
-      queries.push(
+      out.push(
         search("payment_intents", `status:'succeeded' AND metadata['date${i}']:'${date}'`, (m) => ({ time: m[`time${i}`], mins: dur(m) })),
         search("subscriptions", `metadata['date${i}']:'${date}'`, (m) => ({ time: m[`time${i}`], mins: dur(m) }))
       );
     }
-    // Older bookings (before multi-slot support) stored a single date/time pair
-    queries.push(
+    out.push(
       search("payment_intents", `status:'succeeded' AND metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) })),
       search("subscriptions", `metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) }))
     );
+    return out;
+  };
+  const queries = [];
+  if (!skipStripePaidSearch && !deferStripePaidForDb) {
+    queries.push(...stripePaidQueries());
   }
 
   // Open Stripe Checkout Sessions — keep while Blob/Stripe still own holds.
@@ -298,6 +313,7 @@ export async function bookedTimes(
         add(row.time, row.mins || 60, {
           kind,
           id: row.id,
+          sourceRef: row.sourceRef || "",
           type: row.booking_type || "",
           focus: row.focus || (row.focuses && row.focuses[0]) || "",
           privacy: row.privacy || "",
@@ -313,6 +329,11 @@ export async function bookedTimes(
         );
       }
     }
+  }
+
+  // Paid-but-unmirrored safety net (after Postgres rows are present for dedupe).
+  if (!skipStripePaidSearch && deferStripePaidForDb) {
+    await Promise.all(stripePaidQueries());
   }
 
   return [...byTime.entries()].map(([time, v]) => {

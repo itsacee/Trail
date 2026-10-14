@@ -7,6 +7,8 @@ import { assertPreviewDbAllowed, bookingStoreMode, bookingReadsEnabled, bookingW
 import { createBookingStore, closeBookingStore } from "../lib/bookingDb/createStore.js";
 import { importBlobSnapshots } from "../lib/bookingDb/importFromBlob.js";
 import { reconcileBlobToDb } from "../lib/bookingDb/reconcile.js";
+import { reconcileRecentPaidSessions } from "../lib/bookingDb/stripePaidReconcile.js";
+import { authorityMatrix } from "../lib/bookingDb/authority.js";
 import { loadLessons } from "../lib/lessons.js";
 import { loadHolds } from "../lib/holds.js";
 import { loadManualBookings } from "../lib/manualBookings.js";
@@ -65,6 +67,76 @@ export default async function handler(req, res) {
       vercel_env: process.env.VERCEL_ENV || "",
       dual_write_blob: process.env.BOOKING_DUAL_WRITE_BLOB === "1",
     });
+    return;
+  }
+
+  if (action === "authority") {
+    res.status(200).json({ ok: true, ...authorityMatrix() });
+    return;
+  }
+
+  if (action === "credit_audit" || action === "reconcile_alerts" || action === "reconcile_stripe_paid") {
+    let handle;
+    try {
+      handle = await createBookingStore({
+        env: process.env,
+        mode: mode === "postgres" ? "postgres" : "memory",
+        useMem: mode === "memory",
+      });
+      if (action === "credit_audit") {
+        const rows = await handle.store.auditMembershipCredits({});
+        const mismatches = rows.filter((r) => r.mismatch);
+        res.status(200).json({
+          ok: mismatches.length === 0,
+          total: rows.length,
+          mismatches,
+          note: "Portal credits count scheduled lessons; PG ledger is synced on memberBook. Mismatch means ledger lag, not Blob deletion.",
+        });
+        return;
+      }
+      if (action === "reconcile_alerts") {
+        const openAlerts = await handle.store.listOpenReconcileAlerts({ limit: 100 });
+        res.status(200).json({
+          ok: true,
+          open: openAlerts.length,
+          alerts: openAlerts,
+        });
+        return;
+      }
+      // reconcile_stripe_paid
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, reason: "POST_required" });
+        return;
+      }
+      const stripeKey = process.env.STRIPE_SECRET_KEY;
+      if (!stripeKey) {
+        res.status(503).json({ ok: false, reason: "missing_stripe_key" });
+        return;
+      }
+      const lookbackHours = Math.min(168, Math.max(1, Number(req.body?.lookbackHours) || 48));
+      const report = await reconcileRecentPaidSessions(handle.store, stripeKey, {
+        lookbackHours,
+        limit: Math.min(100, Math.max(1, Number(req.body?.limit) || 40)),
+        env: process.env,
+      });
+      res.status(report.summary?.alerts ? 200 : 200).json({
+        ok: report.ok,
+        writesEnabled: bookingWritesEnabled(),
+        summary: report.summary,
+        openAlerts: report.openAlerts,
+        results: (report.results || []).slice(0, 100),
+        note:
+          "Never auto-evicts seated customers. Conflicts open reconcile_alerts for operator recovery.",
+      });
+    } catch (error) {
+      res.status(503).json({
+        ok: false,
+        reason: error?.code || "booking_db_error",
+        error: "Booking database unavailable.",
+      });
+    } finally {
+      if (handle) await closeBookingStore(handle);
+    }
     return;
   }
 

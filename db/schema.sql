@@ -78,5 +78,29 @@ CREATE TABLE IF NOT EXISTS membership_credits (
   CHECK (credits_used <= credits_total)
 );
 
+-- Operator alerts when a paid Stripe session cannot be mirrored without
+-- violating capacity (never auto-evict another customer's booking).
+CREATE TABLE IF NOT EXISTS reconcile_alerts (
+  id text PRIMARY KEY,
+  kind text NOT NULL DEFAULT 'paid_mirror_conflict',
+  source_ref text,
+  session_id text,
+  slot_date date,
+  time_label text,
+  email text,
+  player text,
+  detail jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'ignored')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS reconcile_alerts_open_idx
+  ON reconcile_alerts (status, created_at DESC)
+  WHERE status = 'open';
+
 INSERT INTO schema_migrations (id) VALUES ('001_booking_core')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO schema_migrations (id) VALUES ('002_reconcile_alerts')
 ON CONFLICT (id) DO NOTHING;
