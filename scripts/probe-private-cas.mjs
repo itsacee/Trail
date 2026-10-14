@@ -15,6 +15,8 @@
  * - Does not delete artifacts.
  *
  * Live execution requires separate operator approval and Preview credentials.
+ * Preview-runtime entry (authorized HTTP) lives at api/probe-private-cas.js and
+ * reuses preflight/runProbe from this module — never auto-invoked on deploy.
  */
 
 import { put, get, head, BlobPreconditionFailedError } from "@vercel/blob";
@@ -159,6 +161,10 @@ async function streamToText(stream) {
 }
 
 async function readVersionLabel(blobApi, pathname, token) {
+  const pathCheck = assertPathnameSafe(pathname);
+  if (!pathCheck.ok) {
+    return { ok: false, label: null };
+  }
   const result = await blobApi.get(pathname, {
     access: "private",
     token,
@@ -174,6 +180,7 @@ async function readVersionLabel(blobApi, pathname, token) {
   } catch {
     return { ok: false, label: null };
   }
+  // Only the disposable probe version label ("A"/"B"/"C") is used; never return raw body.
   const label = parsed && typeof parsed.v === "string" ? parsed.v : null;
   return { ok: Boolean(label), label };
 }
@@ -220,8 +227,19 @@ export async function runProbe({
   const token = env.PRIVATE_BLOB_READ_WRITE_TOKEN;
   const PreconditionError = blobApi.BlobPreconditionFailedError;
 
-  const putPrivate = (body, extra = {}) =>
-    blobApi.put(pathname, JSON.stringify(body), {
+  // Hard guard: every storage op must target this disposable probe pathname only.
+  const guardPath = (target) => {
+    const check = assertPathnameSafe(target);
+    if (!check.ok || target !== pathname) {
+      const err = new Error("probe_pathname_guard");
+      err.name = "ProbePathnameGuardError";
+      throw err;
+    }
+  };
+
+  const putPrivate = (body, extra = {}) => {
+    guardPath(pathname);
+    return blobApi.put(pathname, JSON.stringify(body), {
       access: "private",
       token,
       addRandomSuffix: false,
@@ -229,9 +247,12 @@ export async function runProbe({
       contentType: "application/json",
       ...extra,
     });
+  };
 
   const headEtag = async () => {
+    guardPath(pathname);
     const meta = await blobApi.head(pathname, { token });
+    // Never return/log the ETag value outside this function's local use.
     return String(meta?.etag || "");
   };
 
