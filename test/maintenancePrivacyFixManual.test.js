@@ -314,6 +314,30 @@ test("authorizeManualRequest: disabled / unauthorized / confirm gates", () => {
   );
 });
 
+test("MAINTENANCE_DRYRUN_KEY authorizes dry_run only, never execute", () => {
+  const DRY = "dryrun-only-key-32-characters-xx";
+  const env = authEnv({ MAINTENANCE_DRYRUN_KEY: DRY });
+  assert.equal(
+    authorizeManualRequest({
+      env,
+      bearer: SECRET,
+      coachKey: DRY,
+      mode: "dry_run",
+    }).ok,
+    true
+  );
+  assert.equal(
+    authorizeManualRequest({
+      env,
+      bearer: SECRET,
+      coachKey: DRY,
+      mode: "execute",
+      confirm: CONFIRM_EXECUTE_MANUAL,
+    }).code,
+    "coach_unauthorized"
+  );
+});
+
 test("assertWriteFreeze refuses when capacity or booking writes enabled", () => {
   assert.equal(assertWriteFreeze(authEnv()).ok, true);
   assert.equal(assertWriteFreeze(authEnv({ CAPACITY_WRITES_ENABLED: "1" })).ok, false);
