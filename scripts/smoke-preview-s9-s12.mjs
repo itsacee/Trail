@@ -176,10 +176,10 @@ async function main() {
     record("S9", false, `portal auth failed: ${acct0.json.error}`);
     return finish();
   }
-  const lessons0 = acct0.json?.allLessons || acct0.json?.scheduled || [];
+  const lessons0 = acct0.json?.lessons || acct0.json?.allLessons || [];
   if (lessons0[0]?.id) lessonId = lessons0[0].id;
-  const used0 = Number(acct0.json?.used ?? acct0.json?.activeCards?.[0]?.used ?? lessons0.length);
-  const rem0 = Number(acct0.json?.remaining ?? acct0.json?.activeCards?.[0]?.remaining);
+  const used0 = Number(acct0.json?.used);
+  const rem0 = Number(acct0.json?.remaining);
   console.log(`credit_before used=${used0} remaining=${rem0} lessons=${lessons0.length}`);
 
   const moveOk = vercelCurl("/api/member", {
@@ -189,9 +189,8 @@ async function main() {
   const atOpen = await pgActiveOn(openDate, openTime);
   const atOld = await pgActiveOn(date, time);
   const acct1 = vercelCurl(`/api/member?k=${encodeURIComponent(token)}`);
-  const lessons1 = acct1.json?.allLessons || acct1.json?.scheduled || [];
-  const used1 = Number(acct1.json?.used ?? acct1.json?.activeCards?.[0]?.used ?? lessons1.length);
-  const rem1 = Number(acct1.json?.remaining ?? acct1.json?.activeCards?.[0]?.remaining);
+  const used1 = Number(acct1.json?.used);
+  const rem1 = Number(acct1.json?.remaining);
   const slOpen = slots(openDate);
   const slOld = slots(date);
 
@@ -243,8 +242,8 @@ async function main() {
   const stillOpen = await pgActiveOn(openDate, openTime);
   const blockRows = await pgActiveOn(blockDate, blockTime);
   const acct2 = vercelCurl(`/api/member?k=${encodeURIComponent(token)}`);
-  const used2 = Number(acct2.json?.used ?? acct2.json?.activeCards?.[0]?.used);
-  const rem2 = Number(acct2.json?.remaining ?? acct2.json?.activeCards?.[0]?.remaining);
+  const used2 = Number(acct2.json?.used);
+  const rem2 = Number(acct2.json?.remaining);
 
   const s10 =
     isDeniedMove(moveFail) &&

@@ -719,13 +719,17 @@ export default async function handler(req, res) {
           const start = Math.floor(Date.now() / 1000);
           upsertMember(members, email, {
             cashMembership: true,
+            cashMembershipStart: start,
+            cashMembershipEnd: start + MEMBER_PERIOD_DAYS * 86400,
             membershipType: type,
+            type,
             privacy,
             player,
             parent: req.body.parent || "",
             phone: req.body.phone || "",
-            periodStart: start,
             amountDueCents: due,
+            amountPaidCents: paid,
+            paymentMethod: payMethod,
           });
           await saveMembersState(members);
         }
