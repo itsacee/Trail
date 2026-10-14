@@ -1,20 +1,13 @@
 // Returns the times already booked (paid) for a given date, so the
-// booking widget can gray them out. Reads paid bookings from Stripe —
-// no separate database needed.
+// booking widget can gray them out.
 //
-// Bookings store their slots as metadata date1/time1 ... date4/time4
-// (memberships have four). Stripe Search doesn't support OR, so each
-// dateN key is queried separately, in parallel.
-//
-// Three things can occupy a slot: a paid booking in Stripe, a lesson a member
-// booked from the portal (blob storage), and a checkout someone is part-way
-// through (a hold). Coaches can see which by adding their passcode:
-//
-//   /api/slots?date=YYYY-MM-DD&key=COACH_PASS
-//
-// That adds a `sources` list to each entry explaining what is blocking the
-// slot. Without the passcode only times and durations are returned — names and
-// booking ids are never exposed publicly.
+// Occupancy sources depend on Preview BookingStore flags:
+// - Default (Blob): Stripe paid search + Blob lessons/holds/manual
+// - BOOKING_READS_ENABLED=1: Postgres owns lesson/manual/hold rows from the
+//   store (fail closed). Blob lessons/manual and Stripe paid search are not
+//   merged — those would hide missing Postgres rows.
+// - While BOOKING_WRITES_ENABLED=0, checkout still writes holds to Blob, so
+//   Blob holds + Stripe open Checkout sessions remain visible.
 
 import {
   durationFor,
@@ -67,9 +60,19 @@ export async function bookedTimes(
   { ignoreHold = "", ignoreSourceId = "", holdBefore = null } = {}
 ) {
   const byTime = new Map(); // time label -> { mins, sources }
-  const dbAuthoritative = bookingWritesEnabled();
-  const stored = dbAuthoritative ? { lessons: [], voids: [] } : await loadLessons();
-  if (!dbAuthoritative) assertCapacityReadable(stored, "lessons.json");
+  const readsDb = bookingReadsEnabled();
+  const writesDb = bookingWritesEnabled();
+  // Reads-on: Postgres owns lesson/manual occupancy. Do not merge Blob lessons
+  // or Stripe paid search — those would hide missing Postgres rows.
+  // Writes-off: checkout still writes holds to Blob + Stripe open sessions, so
+  // keep those hold sources until BOOKING_WRITES_ENABLED=1.
+  const skipBlobCapacity = readsDb || writesDb;
+  const skipStripePaidSearch = readsDb;
+  const keepBlobHolds = !writesDb;
+  const dbFailClosed = readsDb || writesDb;
+
+  const stored = skipBlobCapacity ? { lessons: [], voids: [] } : await loadLessons();
+  if (!skipBlobCapacity) assertCapacityReadable(stored, "lessons.json");
 
   const add = (time, mins, source) => {
     if (!time) return;
@@ -128,119 +131,99 @@ export async function bookedTimes(
 
   const dur = (m) => durationFor(m.type);
   const queries = [];
-  for (let i = 1; i <= 4; i++) {
+  if (!skipStripePaidSearch) {
+    for (let i = 1; i <= 4; i++) {
+      queries.push(
+        search("payment_intents", `status:'succeeded' AND metadata['date${i}']:'${date}'`, (m) => ({ time: m[`time${i}`], mins: dur(m) })),
+        search("subscriptions", `metadata['date${i}']:'${date}'`, (m) => ({ time: m[`time${i}`], mins: dur(m) }))
+      );
+    }
+    // Older bookings (before multi-slot support) stored a single date/time pair
     queries.push(
-      search("payment_intents", `status:'succeeded' AND metadata['date${i}']:'${date}'`, (m) => ({ time: m[`time${i}`], mins: dur(m) })),
-      search("subscriptions", `metadata['date${i}']:'${date}'`, (m) => ({ time: m[`time${i}`], mins: dur(m) }))
+      search("payment_intents", `status:'succeeded' AND metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) })),
+      search("subscriptions", `metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) }))
     );
   }
-  // Older bookings (before multi-slot support) stored a single date/time pair
-  queries.push(
-    search("payment_intents", `status:'succeeded' AND metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) })),
-    search("subscriptions", `metadata['date']:'${date}'`, (m) => ({ time: m.time, mins: dur(m) }))
-  );
 
-  // Open Stripe Checkout Sessions are strongly visible before payment and act
-  // as the authoritative hold. This closes the race where two parents start
-  // Checkout before either payment appears in Stripe Search.
-  queries.push(
-    (async () => {
-      const nowSeconds = Math.floor(Date.now() / 1000);
-      const since = nowSeconds - (HOLD_MINUTES + 1) * 60;
-      const url =
-        `https://api.stripe.com/v1/checkout/sessions?limit=100&status=open` +
-        `&created[gte]=${since}`;
-      let res;
-      try {
-        res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
-      } catch {
-        return;
-      }
-      if (!res.ok) return;
-      ((await res.json()).data || [])
-        .filter(
-          (session) =>
-            session.status === "open" &&
-            Number(session.expires_at || 0) > nowSeconds &&
-            (!ignoreHold || session.id !== ignoreHold) &&
-            holdIsEarlier(Number(session.created || 0) * 1000, session.id)
-        )
-        .forEach((session) => {
-          const m = session.metadata || {};
-          const source = {
-            kind: "hold",
-            id: session.id,
-            type: m.type || "",
-            focus: m.focus || "",
-            privacy: normalizePrivacy(m.privacy) || resolvePrivacy({ type: m.type, focus: m.focus, privacy: m.privacy }),
-            seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes, focus: m.focus, privacy: m.privacy }),
-            createdAt: Number(session.created || 0) * 1000,
-            expiresAt: Number(session.expires_at || 0) * 1000,
-          };
-          let found = false;
-          for (let i = 1; i <= 4; i++) {
-            if (m[`date${i}`] !== date || !m[`time${i}`]) continue;
-            found = true;
-            add(m[`time${i}`], durationFor(m.type), source);
-          }
-          if (!found && m.date === date && m.time) {
-            add(m.time, durationFor(m.type), source);
-          }
-        });
-    })()
-  );
+  // Open Stripe Checkout Sessions — keep while Blob/Stripe still own holds.
+  if (keepBlobHolds) {
+    queries.push(
+      (async () => {
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const since = nowSeconds - (HOLD_MINUTES + 1) * 60;
+        const url =
+          `https://api.stripe.com/v1/checkout/sessions?limit=100&status=open` +
+          `&created[gte]=${since}`;
+        let res;
+        try {
+          res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
+        } catch {
+          return;
+        }
+        if (!res.ok) return;
+        ((await res.json()).data || [])
+          .filter(
+            (session) =>
+              session.status === "open" &&
+              Number(session.expires_at || 0) > nowSeconds &&
+              (!ignoreHold || session.id !== ignoreHold) &&
+              holdIsEarlier(Number(session.created || 0) * 1000, session.id)
+          )
+          .forEach((session) => {
+            const m = session.metadata || {};
+            const source = {
+              kind: "hold",
+              id: session.id,
+              type: m.type || "",
+              focus: m.focus || "",
+              privacy: normalizePrivacy(m.privacy) || resolvePrivacy({ type: m.type, focus: m.focus, privacy: m.privacy }),
+              seats: seatsOn({ type: m.type, seats: m.seats, athletes: m.athletes, focus: m.focus, privacy: m.privacy }),
+              createdAt: Number(session.created || 0) * 1000,
+              expiresAt: Number(session.expires_at || 0) * 1000,
+            };
+            let found = false;
+            for (let i = 1; i <= 4; i++) {
+              if (m[`date${i}`] !== date || !m[`time${i}`]) continue;
+              found = true;
+              add(m[`time${i}`], durationFor(m.type), source);
+            }
+            if (!found && m.date === date && m.time) {
+              add(m.time, durationFor(m.type), source);
+            }
+          });
+      })()
+    );
+  }
 
   await Promise.all(queries);
 
-  lessonsOnDate(stored, date)
-    .filter((l) => !isVoided(stored, l))
-    .filter(
-      (l) =>
-        !ignoreSourceId ||
-        (l.id !== ignoreSourceId && l.sourceId !== ignoreSourceId)
-    )
-    .forEach((l) =>
-      add(l.time, durationFor(l.type || "membership"), {
-        kind: l.source === "stripe" ? "paid" : "member",
-        id: l.source === "stripe" ? l.sourceId || l.id : l.id,
-        player: l.player || "",
-        email: l.email || "",
-        type: l.type || "membership",
-        focus: l.focus || "",
-        privacy:
-          normalizePrivacy(l.privacy) ||
-          resolvePrivacy({ type: l.type || "membership", focus: l.focus, privacy: l.privacy }),
-        seats: seatsOn({
+  if (!skipBlobCapacity) {
+    lessonsOnDate(stored, date)
+      .filter((l) => !isVoided(stored, l))
+      .filter(
+        (l) =>
+          !ignoreSourceId ||
+          (l.id !== ignoreSourceId && l.sourceId !== ignoreSourceId)
+      )
+      .forEach((l) =>
+        add(l.time, durationFor(l.type || "membership"), {
+          kind: l.source === "stripe" ? "paid" : "member",
+          id: l.source === "stripe" ? l.sourceId || l.id : l.id,
+          player: l.player || "",
+          email: l.email || "",
           type: l.type || "membership",
-          seats: l.seats,
-          athletes: l.athletes,
-          focus: l.focus,
-          privacy: l.privacy,
-        }),
-        createdAt: l.createdAt || 0,
-      })
-    );
-
-  // Slots someone is part-way through paying for. Read straight from storage,
-  // so these are visible immediately — unlike Stripe Search, which lags.
-  if (!dbAuthoritative) {
-    const holds = await loadHolds();
-    assertCapacityReadable(holds, "holds.json");
-    holdsOnDate(holds, date)
-      .filter((h) => !ignoreHold || h.sessionId !== ignoreHold)
-      .filter((h) => holdIsEarlier(h.createdAt || 0, h.sessionId))
-      .forEach((h) =>
-        add(h.time, h.mins || 60, {
-          kind: "hold",
-          id: h.sessionId,
-          type: h.type || "",
-          focus: h.focus || "",
+          focus: l.focus || "",
           privacy:
-            normalizePrivacy(h.privacy) ||
-            resolvePrivacy({ type: h.type, focus: h.focus, privacy: h.privacy }),
-          seats: seatsOn({ type: h.type, seats: h.seats, athletes: h.athletes, focus: h.focus, privacy: h.privacy }),
-          expiresAt: h.expiresAt,
-          expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
+            normalizePrivacy(l.privacy) ||
+            resolvePrivacy({ type: l.type || "membership", focus: l.focus, privacy: l.privacy }),
+          seats: seatsOn({
+            type: l.type || "membership",
+            seats: l.seats,
+            athletes: l.athletes,
+            focus: l.focus,
+            privacy: l.privacy,
+          }),
+          createdAt: l.createdAt || 0,
         })
       );
 
@@ -272,11 +255,37 @@ export async function bookedTimes(
       );
   }
 
-  // Authoritative Postgres occupancy (Preview) when reads are enabled.
-  if (bookingReadsEnabled()) {
+  // Blob holds while checkout still writes holds to Blob (!writesDb).
+  if (keepBlobHolds) {
+    const holds = await loadHolds();
+    assertCapacityReadable(holds, "holds.json");
+    holdsOnDate(holds, date)
+      .filter((h) => !ignoreHold || h.sessionId !== ignoreHold)
+      .filter((h) => holdIsEarlier(h.createdAt || 0, h.sessionId))
+      .forEach((h) =>
+        add(h.time, h.mins || 60, {
+          kind: "hold",
+          id: h.sessionId,
+          type: h.type || "",
+          focus: h.focus || "",
+          privacy:
+            normalizePrivacy(h.privacy) ||
+            resolvePrivacy({ type: h.type, focus: h.focus, privacy: h.privacy }),
+          seats: seatsOn({ type: h.type, seats: h.seats, athletes: h.athletes, focus: h.focus, privacy: h.privacy }),
+          expiresAt: h.expiresAt,
+          expiresInMin: Math.max(0, Math.round((h.expiresAt - Date.now()) / 60000)),
+        })
+      );
+  }
+
+  // Postgres occupancy when reads (or writes) are enabled — fail closed.
+  if (readsDb || writesDb) {
     try {
       const dbRows = await loadDbOccupancy(date, { ignoreHold });
-      for (const row of dbRows || []) {
+      if (!Array.isArray(dbRows)) {
+        throw new Error("db_occupancy_invalid");
+      }
+      for (const row of dbRows) {
         if (ignoreSourceId && row.id === ignoreSourceId) continue;
         const kind =
           row.source === "hold"
@@ -289,16 +298,16 @@ export async function bookedTimes(
         add(row.time, row.mins || 60, {
           kind,
           id: row.id,
-          type: "",
+          type: row.booking_type || "",
           focus: row.focus || (row.focuses && row.focuses[0]) || "",
           privacy: row.privacy || "",
           seats: Number(row.seats) || 1,
           exclusive: Boolean(row.exclusive),
+          origin: "postgres",
         });
       }
     } catch {
-      // Fail closed for public open times when DB is configured as authoritative.
-      if (dbAuthoritative) {
+      if (dbFailClosed) {
         throw new StorageUnavailableError(
           "Couldn't read bookings from the database. Open times were not replaced with an empty schedule."
         );
@@ -325,6 +334,7 @@ export async function bookedTimes(
       privacy: exclusive && privacy !== "standard" ? privacy || "private" : privacy || (exclusive ? "" : "standard"),
       focuses,
       sources: v.sources,
+      occupancy_source: readsDb || writesDb ? "postgres" : "blob",
     };
   });
 }
@@ -342,8 +352,10 @@ export default async function handler(req, res) {
   const mine = /^cs_[A-Za-z0-9_]+$/.test(String(req.query?.mine || "")) ? String(req.query.mine) : "";
   try {
     const booked = await bookedTimes(key, date, { ignoreHold: mine });
+    const occupancySource = bookingReadsEnabled() || bookingWritesEnabled() ? "postgres" : "blob";
     res.status(200).json({
       date,
+      occupancy_source: occupancySource,
       // Names and ids stay private unless the coach asked.
       booked: isCoach
         ? booked
