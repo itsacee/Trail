@@ -8,9 +8,9 @@
 
 ---
 
-## Overall: **STOPPED — S9 FAIL** (S1–S8 PASS)
+## Overall: **S1–S8 PASS** (S9 resume completed separately)
 
-Per authorization, testing stopped at the first failure. No corrections applied after S9. Writes have been disabled again; reads remain on.
+This report covers the first write-enable window through S8. S9 originally **FAIL**ed on member-portal auth; authorized resume + harness fix completed **S9–S12 PASS** — see `BOOKING-POSTGRES-WRITE-SMOKE-S9-S12-REPORT.md`. Writes were disabled again after each window; reads remain on.
 
 | Step | Result |
 | --- | --- |
