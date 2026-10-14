@@ -36,6 +36,7 @@ import {
   mutateManualBookings,
   findBooking,
 } from "../lib/manualBookings.js";
+import { moveLesson, clearStripeSlot, seatsOnLesson } from "../lib/reschedule.js";
 import { tokenFromRequest } from "../lib/memberAuth.js";
 import { buildCalendar, stamp } from "../lib/ics.js";
 import { bookingEvent } from "./calendar.js";
@@ -436,11 +437,20 @@ export default async function handler(req, res) {
 
     const movePrivacy = purchasePrivacy(owner, lesson);
     const moveExclusive = isExclusiveBooking({ type: memberType, focus: newFocus, privacy: movePrivacy });
-    const moveSeats = moveExclusive ? 2 : 1;
+    const moveSeats = seatsOnLesson({
+      ...lesson,
+      type: memberType,
+      focus: newFocus,
+      privacy: movePrivacy,
+    });
+    const ignoreSourceId =
+      lesson.source === "stripe" ? lesson.sourceId || lesson.subId || lesson.id : lesson.id;
+    const dur = durationFor(memberType);
+
     try {
-      const ignoreSourceId = newDate === lesson.date ? lesson.sourceId || lesson.id : "";
-      const taken = await bookedTimes(key, newDate, { ignoreSourceId });
-      const dur = durationFor(memberType);
+      const taken = await bookedTimes(key, newDate, {
+        ignoreSourceId: newDate === lesson.date ? ignoreSourceId : "",
+      });
       if (
         slotBlocked(taken, newTime, dur, newFocus, {
           seats: moveSeats,
@@ -461,54 +471,40 @@ export default async function handler(req, res) {
       return;
     }
 
-    if (lesson.source === "manual") {
-      const cancelled = await mutateManualBookings((manual) => {
-        const b = findBooking(manual, lesson.id);
-        if (!b || String(b.email || "").toLowerCase() !== email) {
-          return { ok: false, error: "Lesson not found.", status: 404 };
-        }
-        if (b.status !== "cancelled") {
-          b.status = "cancelled";
-          b.cancelledAt = Date.now();
-        }
-        return { ok: true };
-      });
-      if (!cancelled.ok) {
-        res.status(cancelled.status || 503).json({
-          error: cancelled.error || "Couldn't move that lesson. Call or text (405) 819-4401.",
-          code: cancelled.code,
-        });
-        return;
-      }
-    }
+    // Atomic move: release the original hour only inside the same CAS commit as
+    // the replacement. Stripe metadata is cleared after Blob succeeds.
+    const row = {
+      id: lesson.id,
+      sourceId: lesson.sourceId || lesson.subId || "",
+      source: lesson.source || "member",
+      type: memberType,
+      player: lesson.player || "",
+      player2: lesson.player2 || "",
+      athletes: Number(lesson.athletes) || 1,
+      seats: lesson.seats,
+      parent: lesson.parent || "",
+      phone: lesson.phone || "",
+      email,
+      focus: lesson.focus || "",
+      privacy: movePrivacy,
+      date: lesson.date,
+      time: lesson.time,
+    };
 
-    const moved = makeMemberLesson({
-      sub: owner,
-      date: newDate,
-      time: newTime,
-      focus: newFocus,
-      availability,
-    });
-    moved.email = email;
-
-    const movedSave = await mutateLessons(async (stored) => {
-      acct.stored = stored;
-      acct.manual = await loadManualBookings();
-      const scheduled = scheduledFor(owner, stored, acct.manual, acct.subs).filter((l) => l.id !== id);
+    async function revalidateMove(stored, manual) {
+      const scheduled = scheduledFor(owner, stored, manual, acct.subs).filter((l) => l.id !== id);
       const summaryWithout = summarizePurchase(acct, owner, scheduled);
-      const dayOthers = scheduledAcrossMemberships(acct.subs, stored, acct.manual).filter(
-        (l) => l.id !== id
-      );
+      const dayOthers = scheduledAcrossMemberships(acct.subs, stored, manual).filter((l) => l.id !== id);
       const retryBlocked = bookingBlocked(summaryWithout, newDate, scheduled, dayOthers);
       if (retryBlocked) {
         return { ok: false, error: retryBlocked, status: 400, code: "slot_taken" };
       }
-
       try {
-        const ignoreSourceId = newDate === lesson.date ? lesson.sourceId || lesson.id : "";
-        const taken = await bookedTimes(key, newDate, { ignoreSourceId });
+        const taken = await bookedTimes(key, newDate, {
+          ignoreSourceId: newDate === lesson.date ? ignoreSourceId : "",
+        });
         if (
-          slotBlocked(taken, newTime, durationFor(memberType), newFocus, {
+          slotBlocked(taken, newTime, dur, newFocus, {
             seats: moveSeats,
             exclusive: moveExclusive,
             privacy: movePrivacy,
@@ -529,29 +525,72 @@ export default async function handler(req, res) {
           code: "schedule_unavailable",
         };
       }
-
-      if (lesson.source !== "manual") {
-        if (!(await releaseLesson(key, acct, lesson, email))) {
-          return { ok: false, error: "Lesson not found.", status: 404 };
-        }
-      }
-
-      if (stored.lessons.some((existing) => existing.id === moved.id)) {
-        return { ok: true, skipSave: true, moved };
-      }
-      stored.lessons.push(moved);
-      return { ok: true, moved };
-    });
-
-    if (!movedSave.ok) {
-      res.status(movedSave.status || 503).json({
-        error: movedSave.error || "Couldn't move that lesson. Call or text (405) 819-4401.",
-        code: movedSave.code,
-      });
-      return;
+      return { ok: true };
     }
 
-    acct.stored = movedSave.data || (await loadLessons());
+    let moved = null;
+    let clearStripe = null;
+
+    if (row.source === "manual") {
+      const movedSave = await mutateManualBookings(async (manual) => {
+        const stored = await loadLessons();
+        const gate = await revalidateMove(stored, manual);
+        if (!gate.ok) return gate;
+        const result = moveLesson({
+          row,
+          stored,
+          manual,
+          date: newDate,
+          time: newTime,
+          focus: newFocus,
+          availability,
+        });
+        if (!result.ok) return { ok: false, error: result.error, status: 404 };
+        return { ok: true, moved: result.moved };
+      });
+      if (!movedSave.ok) {
+        res.status(movedSave.status || 503).json({
+          error: movedSave.error || "Couldn't move that lesson. Call or text (405) 819-4401.",
+          code: movedSave.code,
+        });
+        return;
+      }
+      moved = movedSave.moved;
+    } else {
+      const movedSave = await mutateLessons(async (stored) => {
+        acct.stored = stored;
+        const manual = await loadManualBookings();
+        acct.manual = manual;
+        const gate = await revalidateMove(stored, manual);
+        if (!gate.ok) return gate;
+        const result = moveLesson({
+          row,
+          stored,
+          manual,
+          date: newDate,
+          time: newTime,
+          focus: newFocus,
+          availability,
+        });
+        if (!result.ok) return { ok: false, error: result.error, status: 404 };
+        return { ok: true, moved: result.moved, clearStripe: result.clearStripe };
+      });
+      if (!movedSave.ok) {
+        res.status(movedSave.status || 503).json({
+          error: movedSave.error || "Couldn't move that lesson. Call or text (405) 819-4401.",
+          code: movedSave.code,
+        });
+        return;
+      }
+      moved = movedSave.moved;
+      clearStripe = movedSave.clearStripe || null;
+    }
+
+    if (clearStripe) {
+      await clearStripeSlot(key, clearStripe.sourceId, clearStripe.lessonId);
+    }
+
+    acct.stored = await loadLessons();
     acct.manual = await loadManualBookings();
     await refreshScheduled(acct);
     const ownerAfter = summarizePurchase(
