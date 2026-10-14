@@ -15,6 +15,8 @@
  * - Does not delete artifacts.
  *
  * Live execution requires separate operator approval and Preview credentials.
+ * Preview-runtime entry (authorized HTTP) lives at api/probe-private-cas.js and
+ * reuses preflight/runProbe from this module — never auto-invoked on deploy.
  */
 
 import { put, get, head, BlobPreconditionFailedError } from "@vercel/blob";
