@@ -41,7 +41,12 @@ import { bookingEvent } from "./calendar.js";
 import { sendLessonCancelledEmail, sendLessonMovedEmail } from "../lib/lessonMail.js";
 import { getSiteStatus, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
 import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
-import { dbMemberBook, dbReschedule, dbCancelBooking } from "../lib/bookingStore.js";
+import {
+  dbMemberBook,
+  dbReschedule,
+  dbCancelBooking,
+  getBookingStore,
+} from "../lib/bookingStore.js";
 import {
   loadAuthoritativeLessons,
   loadAuthoritativeManual,
@@ -248,6 +253,70 @@ async function refreshAccountBookings(acct) {
   rebuildMembershipViews(acct);
 }
 
+/**
+ * After a Postgres write, ensure the just-mutated lesson is visible in the
+ * in-memory account snapshot (guards read-your-writes lag on pooled URLs)
+ * and align used/remaining with the membership_credits ledger when present.
+ */
+async function refreshAfterPgMutation(acct, { membershipId, ensureLesson = null, removeLessonId = null } = {}) {
+  await refreshAccountBookings(acct);
+
+  if (removeLessonId) {
+    if (acct.stored?.lessons) {
+      acct.stored.lessons = acct.stored.lessons.filter((l) => l.id !== removeLessonId);
+    }
+    if (acct.manual?.bookings) {
+      acct.manual.bookings = acct.manual.bookings.filter((b) => b.id !== removeLessonId);
+    }
+  }
+
+  if (ensureLesson?.id) {
+    const inLessons = (acct.stored?.lessons || []).some((l) => l.id === ensureLesson.id);
+    const inManual = (acct.manual?.bookings || []).some((b) => b.id === ensureLesson.id);
+    if (!inLessons && !inManual) {
+      if (ensureLesson.source === "manual") {
+        acct.manual = acct.manual || { bookings: [] };
+        acct.manual.bookings = [...(acct.manual.bookings || []), { ...ensureLesson, status: "active" }];
+      } else {
+        acct.stored = acct.stored || { lessons: [], voids: [] };
+        acct.stored.lessons = [...(acct.stored.lessons || []), ensureLesson];
+      }
+    }
+  }
+
+  rebuildMembershipViews(acct);
+
+  const mid = String(membershipId || acct.sub?.id || "").trim();
+  if (!mid || !bookingWritesEnabled()) return acct;
+
+  try {
+    const store = await getBookingStore(process.env);
+    const credit = store?.getMembershipCredits ? await store.getMembershipCredits(mid) : null;
+    if (!credit) return acct;
+    const used = Number(credit.credits_used) || 0;
+    const total = Number(credit.credits_total) || Number(acct.summary?.credits) || 4;
+    const remaining = Math.max(0, total - used);
+    // Align top-level summary + matching membership card with the ledger.
+    // Lesson arrays still come from booking rows (authoritative schedule).
+    if (acct.summary && (acct.summary.membershipId === mid || acct.summary.id === mid)) {
+      acct.summary = { ...acct.summary, credits: total, used, remaining };
+    }
+    acct.membershipCards = (acct.membershipCards || []).map((card) =>
+      card.membershipId === mid || card.id === mid
+        ? { ...card, credits: total, used, remaining }
+        : card
+    );
+    acct.activeCards = (acct.activeCards || []).map((card) =>
+      card.membershipId === mid || card.id === mid
+        ? { ...card, credits: total, used, remaining }
+        : card
+    );
+  } catch {
+    /* keep lesson-derived counts */
+  }
+  return acct;
+}
+
 // Drop a lesson the member currently holds. Portal-booked lessons live in the
 // blob; the first day they picked at checkout lives on the Stripe payment, so
 // those get voided (and we clear the Stripe metadata so the old slot opens up).
@@ -368,6 +437,18 @@ export default async function handler(req, res) {
         const sourceId = lesson.sourceId || "";
         if (sourceId) await clearStripeSlot(key, sourceId, lesson.id);
       }
+      await refreshAfterPgMutation(acct, {
+        membershipId: owner?.id || lesson.membershipId || lesson.subId,
+        removeLessonId: lesson.id,
+      });
+      const notified = await sendLessonCancelledEmail({
+        to: email,
+        lesson,
+        cancelledBy: "parent",
+        extraLine: `That lesson credit is available to book again through ${ownerSummary.lastDayPretty}.`,
+      });
+      res.status(200).json({ ok: true, notified, ...publicAccount(acct) });
+      return;
     } else if (lesson.source === "manual") {
       const cancelled = await mutateManualBookings((manual) => {
         const b = findBooking(manual, lesson.id);
@@ -597,8 +678,10 @@ export default async function handler(req, res) {
       if (clearStripe) {
         await clearStripeSlot(key, clearStripe.sourceId, clearStripe.lessonId);
       }
-      await refreshAccountBookings(acct);
-      await refreshScheduled(acct);
+      await refreshAfterPgMutation(acct, {
+        membershipId: owner?.id || lesson.membershipId || lesson.subId,
+        ensureLesson: moved,
+      });
       const ownerAfter = summarizePurchase(
         acct,
         owner,
@@ -794,13 +877,24 @@ export default async function handler(req, res) {
       return;
     }
     lesson.id = booked.bookingId;
-    await refreshAccountBookings(acct);
-    await refreshScheduled(acct);
+    lesson.source = "member";
+    lesson.subId = selected.id;
+    lesson.membershipId = selected.id;
+    await refreshAfterPgMutation(acct, {
+      membershipId: selected.id,
+      ensureLesson: lesson,
+    });
     const bookedSummary = summarizePurchase(
       acct,
       selected,
       scheduledFor(selected, acct.stored, acct.manual, acct.subs)
     );
+    // Prefer ledger-aligned counts on the response summary.
+    if (acct.summary && (acct.summary.membershipId === selected.id || acct.summary.id === selected.id)) {
+      bookedSummary.used = acct.summary.used;
+      bookedSummary.remaining = acct.summary.remaining;
+      bookedSummary.credits = acct.summary.credits;
+    }
     emailMemberBooking(email, lesson, bookedSummary);
     res.status(200).json({ ok: true, lesson, ...publicAccount(acct) });
     return;
