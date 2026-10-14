@@ -223,7 +223,7 @@ async function main() {
     return finish();
   }
 
-  const acct0 = vercelCurl(`/api/member?k=${encodeURIComponent(token)}`);
+  const acct0 = memberGet(token);
   if (acct0.json?.error) {
     record("S9", false, `portal auth failed: ${acct0.json.error}`);
     return finish();
@@ -234,13 +234,16 @@ async function main() {
   const rem0 = Number(acct0.json?.remaining);
   console.log(`credit_before used=${used0} remaining=${rem0} lessons=${lessons0.length}`);
 
-  const moveOk = vercelCurl("/api/member", {
-    method: "POST",
-    body: { k: token, action: "reschedule", id: lessonId, date: openDate, time: openTime, focus: "Hitting" },
+  const moveOk = memberPost(token, {
+    action: "reschedule",
+    id: lessonId,
+    date: openDate,
+    time: openTime,
+    focus: "Hitting",
   });
   const atOpen = await pgActiveOn(openDate, openTime);
   const atOld = await pgActiveOn(date, time);
-  const acct1 = vercelCurl(`/api/member?k=${encodeURIComponent(token)}`);
+  const acct1 = memberGet(token);
   const used1 = Number(acct1.json?.used);
   const rem1 = Number(acct1.json?.remaining);
   const slOpen = slots(openDate);
@@ -280,20 +283,16 @@ async function main() {
     return finish();
   }
 
-  const moveFail = vercelCurl("/api/member", {
-    method: "POST",
-    body: {
-      k: token,
-      action: "reschedule",
-      id: currentId,
-      date: blockDate,
-      time: blockTime,
-      focus: "Hitting",
-    },
+  const moveFail = memberPost(token, {
+    action: "reschedule",
+    id: currentId,
+    date: blockDate,
+    time: blockTime,
+    focus: "Hitting",
   });
   const stillOpen = await pgActiveOn(openDate, openTime);
   const blockRows = await pgActiveOn(blockDate, blockTime);
-  const acct2 = vercelCurl(`/api/member?k=${encodeURIComponent(token)}`);
+  const acct2 = memberGet(token);
   const used2 = Number(acct2.json?.used);
   const rem2 = Number(acct2.json?.remaining);
 
@@ -389,22 +388,27 @@ async function main() {
       child.stdout.on("data", (d) => (out += d));
       child.stderr.on("data", (d) => (out += d));
       child.on("close", () => {
-        const i = out.indexOf("{");
-        let json = null;
-        try {
-          json = JSON.parse(out.slice(i));
-        } catch {
-          /* ignore */
-        }
+        const { json } = extractJson(out);
         if (json?.booking?.id) createdIds.push(json.booking.id);
-        resolve({ ok: !!json?.ok, json });
+        resolve({
+          ok: !!json?.ok,
+          denied: isDeniedMove({ json }) || !!json?.error,
+          json,
+        });
       });
     });
   const [r1, r2] = await Promise.all([launch(1), launch(2)]);
   const raceRows = await pgActiveOn(raceDate, raceTime);
   const wins = [r1, r2].filter((r) => r.ok).length;
-  const s12 = seedRows.length === 1 && wins === 1 && raceRows.length === 2;
-  record("S12", !!s12, `seed=${seedRows.length} wins=${wins} r1=${r1.ok} r2=${r2.ok} pg=${raceRows.length}`);
+  const losses = [r1, r2].filter((r) => !r.ok).length;
+  // Exactly one HTTP success and one denial; Postgres must hold seed + winner only.
+  const s12 =
+    seedRows.length === 1 && wins === 1 && losses === 1 && raceRows.length === 2;
+  record(
+    "S12",
+    !!s12,
+    `seed=${seedRows.length} wins=${wins} losses=${losses} r1=${r1.ok}/${r1.json?.error || r1.json?.code || ""} r2=${r2.ok}/${r2.json?.error || r2.json?.code || ""} pg=${raceRows.length}`
+  );
 
   return finish();
 }
