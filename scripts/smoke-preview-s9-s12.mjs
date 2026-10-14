@@ -76,14 +76,24 @@ function extractJson(out) {
   return { json: null, text: slice.slice(0, 300) };
 }
 
-function vercelCurl(path, { method = "GET", body } = {}) {
+function vercelCurl(path, { method = "GET", body, bearer } = {}) {
   const args = ["vercel", "curl", path, "--deployment", DEPLOY, "--yes", "--"];
+  if (bearer) args.push("-H", `Authorization: Bearer ${bearer}`);
   if (method !== "GET") {
     args.push("-X", method, "-H", "Content-Type: application/json", "-d", JSON.stringify(body || {}));
   }
   const run = spawnSync("npx", args, { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
   const out = `${run.stdout || ""}\n${run.stderr || ""}`;
   return extractJson(out);
+}
+
+/** Member portal calls use Authorization Bearer (same as js/account.js). */
+function memberGet(token) {
+  return vercelCurl("/api/member", { bearer: token });
+}
+
+function memberPost(token, body) {
+  return vercelCurl("/api/member", { method: "POST", bearer: token, body });
 }
 
 function coach(action, fields = {}) {
