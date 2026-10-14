@@ -11,9 +11,11 @@ import { isCoachPass } from "../lib/coachAuth.js";
 import { membershipSummary, MEMBER_PERIOD_DAYS, prettyDate } from "../lib/members.js";
 import {
   listActiveMemberships,
+  activeCashMemberships,
   membershipsWithCredits,
   MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
+import { loadMembersState } from "../lib/membersStore.js";
 import { scheduledFor } from "../lib/lessons.js";
 import { loadAuthoritativeLessons } from "../lib/bookingReads.js";
 import { signMemberToken } from "../lib/memberAuth.js";
@@ -47,13 +49,26 @@ export default async function handler(req, res) {
   }
 
   let stored;
+  let membersState;
   try {
-    stored = await loadAuthoritativeLessons();
+    [stored, membersState] = await Promise.all([loadAuthoritativeLessons(), loadMembersState()]);
   } catch {
     res.status(503).send("Couldn't read bookings from the database.");
     return;
   }
-  const members = membershipsWithCredits(memberships, stored)
+  // Include cash memberships so Coach Desk rescue links match the member portal
+  // (same roster sources as membership capacity). Tokens are signed here with
+  // the Preview runtime secret — never returned from local smoke harnesses.
+  const cash = activeCashMemberships(membersState);
+  const byEmail = new Map();
+  [...memberships, ...cash].forEach((row) => {
+    const email = String(row?.email || row?.metadata?.email || "")
+      .trim()
+      .toLowerCase();
+    if (!email || byEmail.has(email)) return;
+    byEmail.set(email, row);
+  });
+  const members = membershipsWithCredits([...byEmail.values()], stored)
     .map((sub) => {
       const summary = membershipSummary(sub, scheduledFor(sub, stored));
       return {
