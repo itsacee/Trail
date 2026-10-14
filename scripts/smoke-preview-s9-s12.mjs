@@ -23,13 +23,7 @@ function record(id, pass, detail) {
   if (!pass) stopped = true;
 }
 
-function vercelCurl(path, { method = "GET", body } = {}) {
-  const args = ["vercel", "curl", path, "--deployment", DEPLOY, "--yes", "--"];
-  if (method !== "GET") {
-    args.push("-X", method, "-H", "Content-Type: application/json", "-d", JSON.stringify(body || {}));
-  }
-  const run = spawnSync("npx", args, { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
-  const out = `${run.stdout || ""}\n${run.stderr || ""}`;
+function extractJson(out) {
   const start = (() => {
     const a = out.indexOf("{");
     const b = out.indexOf("[");
@@ -37,21 +31,59 @@ function vercelCurl(path, { method = "GET", body } = {}) {
     if (b < 0) return a;
     return Math.min(a, b);
   })();
-  const text = start >= 0 ? out.slice(start).trim() : "";
-  let json = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    const lines = out.split("\n").filter((l) => l.trim().startsWith("{"));
-    if (lines.length) {
-      try {
-        json = JSON.parse(lines[lines.length - 1]);
-      } catch {
-        /* ignore */
+  if (start < 0) return { json: null, text: "" };
+  const slice = out.slice(start);
+  // Prefer balanced JSON — vercel curl often appends CLI noise after the body.
+  const open = slice[0];
+  const close = open === "[" ? "]" : "}";
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < slice.length; i++) {
+    const ch = slice[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = true;
+      continue;
+    }
+    if (ch === open) depth++;
+    else if (ch === close) {
+      depth--;
+      if (depth === 0) {
+        const text = slice.slice(0, i + 1);
+        try {
+          return { json: JSON.parse(text), text: text.slice(0, 300) };
+        } catch {
+          break;
+        }
       }
     }
   }
-  return { json, text: text.slice(0, 300) };
+  for (const line of out.split("\n")) {
+    const t = line.trim();
+    if (!t.startsWith("{") && !t.startsWith("[")) continue;
+    try {
+      return { json: JSON.parse(t), text: t.slice(0, 300) };
+    } catch {
+      /* keep looking */
+    }
+  }
+  return { json: null, text: slice.slice(0, 300) };
+}
+
+function vercelCurl(path, { method = "GET", body } = {}) {
+  const args = ["vercel", "curl", path, "--deployment", DEPLOY, "--yes", "--"];
+  if (method !== "GET") {
+    args.push("-X", method, "-H", "Content-Type: application/json", "-d", JSON.stringify(body || {}));
+  }
+  const run = spawnSync("npx", args, { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+  const out = `${run.stdout || ""}\n${run.stderr || ""}`;
+  return extractJson(out);
 }
 
 function coach(action, fields = {}) {
@@ -109,6 +141,15 @@ function memberTokenFor(email) {
   }
 }
 
+function memberTokenForRetry(email, { attempts = 8, delayMs = 750 } = {}) {
+  for (let i = 0; i < attempts; i++) {
+    const got = memberTokenFor(email);
+    if (got.token) return got;
+    spawnSync("node", ["-e", `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,${delayMs})`]);
+  }
+  return memberTokenFor(email);
+}
+
 async function pgActiveOn(date, time) {
   const store = await getBookingStore(process.env);
   const { rows } = await store.query(
@@ -139,16 +180,17 @@ async function main() {
   }
   record("PRE", true, JSON.stringify(status.json));
 
-  const memEmail = "smoke.s9.member@example.com";
-  const date = "2027-02-01"; // Monday
+  // Fresh email; lesson dates must fall inside the ~30-day cash membership period
+  // (bookingBlocked rejects out-of-period reschedule targets).
+  const memEmail = "smoke.s9c.member@example.com";
+  const date = "2026-10-19"; // Monday — within period, open day
   const time = "6:00 PM";
-  const openDate = "2027-02-02"; // Tuesday — check if open
+  const openDate = "2026-10-21"; // Wednesday — open day, free slot
   const openTime = "6:00 PM";
-  const blockDate = "2027-02-08"; // Monday
+  const blockDate = "2026-10-26"; // Monday — private blocker for failed move
   const blockTime = "6:00 PM";
 
-  // Availability: Mon/Tue open 18:00-20:00 from prior coach dash. Tue may be day 2.
-  // Use force:true already on bookCash.
+  // Availability: Mon/Tue/Wed open 18:00-20:00. force:true on bookCash.
 
   // --- S9 ---
   const memBook = bookCash({
@@ -165,9 +207,9 @@ async function main() {
     return finish();
   }
 
-  const { token, row: linkRow } = memberTokenFor(memEmail);
+  const { token } = memberTokenForRetry(memEmail);
   if (!token) {
-    record("S9", false, `member-links did not return Preview-signed token for ${memEmail}`);
+    record("S9", false, `member-links did not return Preview-signed token for ${memEmail} after retries`);
     return finish();
   }
 
@@ -261,7 +303,7 @@ async function main() {
 
   // --- S11 confirmPaid idempotency on Preview Postgres (confirm/webhook store path) ---
   const store = await getBookingStore(process.env);
-  const idemDate = "2027-02-15";
+  const idemDate = "2026-10-27"; // Tuesday — free slot inside Preview window
   const idemTime = "6:00 PM";
   const sourceId = `pi_smoke_idem_${Date.now()}`;
   const meta = {
@@ -303,7 +345,7 @@ async function main() {
   if (!s11) return finish();
 
   // --- S12 concurrent final seat ---
-  const raceDate = "2027-02-16";
+  const raceDate = "2026-11-02"; // Monday — final-seat race
   const raceTime = "6:00 PM";
   bookCash({
     date: raceDate,
