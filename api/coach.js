@@ -46,7 +46,11 @@ import {
   membershipTierOf,
   membershipLabel,
 } from "../lib/members.js";
-import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
+import {
+  bookingReadsEnabled,
+  bookingWritesEnabled,
+  bookingPostgresAuthoritative,
+} from "../lib/bookingDb/flags.js";
 import {
   dbManualBook,
   dbCancelBooking,
@@ -211,9 +215,14 @@ export default async function handler(req, res) {
 
   try {
     if (action === "collect_payment") {
-      const id = String(req.body?.id || "");
+      // Accept bookingId alias — some clients send that instead of id.
+      const id = String(req.body?.id || req.body?.bookingId || "").trim();
       const amount = Math.max(0, Number(req.body?.amountCents) || 0);
       const method = req.body?.method === "card" ? "card" : "cash";
+      if (!id) {
+        res.status(400).json({ error: "Missing booking id.", code: "missing_id" });
+        return;
+      }
       if (!amount) {
         res.status(400).json({ error: "Enter an amount." });
         return;
@@ -224,7 +233,20 @@ export default async function handler(req, res) {
         const members = await loadMembersState();
         const row = memberRecord(members, email) || { email };
         const due = Math.max(0, Number(row.amountDueCents) || 0);
-        const take = Math.min(amount, due || amount);
+        // Already settled — idempotent no-op (no finance write).
+        if (due <= 0) {
+          res.status(200).json({
+            ok: true,
+            collected: { id, take: 0, idempotent: true },
+            ...(await dashboard()),
+          });
+          return;
+        }
+        const take = Math.min(amount, due);
+        if (!take) {
+          res.status(400).json({ error: "Enter an amount." });
+          return;
+        }
         row.amountPaidCents = (Number(row.amountPaidCents) || 0) + take;
         row.amountDueCents = Math.max(0, due - take);
         upsertMember(members, email, row);
@@ -236,26 +258,55 @@ export default async function handler(req, res) {
           type: "membership",
           player: row.player || "",
           email,
+          // Unique per progressive paid total so partial collections each ledger,
+          // while a retry after the same payment hits due<=0 above.
+          bookingId: `membal_${email}_${row.amountPaidCents}`,
           note: "Membership balance collected",
         });
         await saveFinance(fin);
-        res.status(200).json({ ok: true, ...(await dashboard()) });
+        res.status(200).json({
+          ok: true,
+          collected: { id, take, idempotent: false },
+          ...(await dashboard()),
+        });
         return;
       }
 
       let collectedBooking = null;
       let take = 0;
-      if (bookingWritesEnabled()) {
+      let collectIdempotent = false;
+
+      // When Postgres is authoritative (reads and/or writes), never look up
+      // manuals in Blob — PG-created cash bookings are not dual-written.
+      if (bookingPostgresAuthoritative()) {
+        if (!bookingWritesEnabled()) {
+          res.status(503).json({
+            error:
+              "Cash collection is paused while database booking writes are disabled. No payment was recorded.",
+            code: "writes_disabled",
+          });
+          return;
+        }
         const collected = await dbCollectManualPayment({ id, amountCents: amount });
         if (!collected.ok) {
           res.status(collected.status || 503).json({
             error: collected.error || "Couldn't save that payment. Refresh and try again.",
-            code: collected.code,
+            code: collected.code || "collect_failed",
           });
           return;
         }
         collectedBooking = collected.booking;
-        take = collected.take;
+        take = Number(collected.take) || 0;
+        collectIdempotent = Boolean(collected.idempotent);
+      } else if (bookingReadsEnabled()) {
+        // Defensive: reads-on without postgres-authoritative helper should still
+        // never fall through to Blob manuals.
+        res.status(503).json({
+          error:
+            "Cash collection is paused while database booking writes are disabled. No payment was recorded.",
+          code: "writes_disabled",
+        });
+        return;
       } else {
         const collected = await mutateManualBookings((store) => {
           const b = findBooking(store, id);
@@ -263,27 +314,41 @@ export default async function handler(req, res) {
             return {
               ok: false,
               error: "Booking not found (only cash/manual bookings can be collected here).",
+              code: "not_found",
               status: 404,
             };
           }
-          const paidTake = Math.min(amount, b.amountDueCents || amount);
+          const due = Math.max(0, Number(b.amountDueCents) || 0);
+          if (due <= 0) {
+            collectedBooking = b;
+            return { ok: true, take: 0, idempotent: true };
+          }
+          const paidTake = Math.min(amount, due);
           b.amountPaidCents = (b.amountPaidCents || 0) + paidTake;
-          b.amountDueCents = Math.max(0, (b.amountDueCents || 0) - paidTake);
+          b.amountDueCents = Math.max(0, due - paidTake);
           b.paymentStatus = b.amountDueCents > 0 ? "deposit_paid" : "paid";
           collectedBooking = b;
-          return { ok: true, take: paidTake };
+          return { ok: true, take: paidTake, idempotent: false };
         });
         if (!collected.ok) {
           res.status(collected.status || 503).json({
             error: collected.error || "Couldn't save that payment. Refresh and try again.",
-            code: collected.code,
+            code: collected.code || "collect_failed",
           });
           return;
         }
-        take = collected.take;
+        take = Number(collected.take) || 0;
+        collectIdempotent = Boolean(collected.idempotent);
       }
       const b = collectedBooking;
-      if (b.email && isMembershipType(b.type)) {
+      if (!b?.id) {
+        res.status(404).json({
+          error: "Booking not found (only cash/manual bookings can be collected here).",
+          code: "not_found",
+        });
+        return;
+      }
+      if (take > 0 && b.email && isMembershipType(b.type)) {
         const members = await loadMembersState();
         const row = memberRecord(members, b.email);
         if (row) {
@@ -293,19 +358,22 @@ export default async function handler(req, res) {
           await saveMembersState(members);
         }
       }
-      const fin = await loadFinance();
-      addFinanceEntry(fin, {
-        amountCents: take,
-        method,
-        type: b.type,
-        player: b.player,
-        email: b.email,
-        bookingId: b.id,
-        date: b.date,
-        note: "Collected outstanding balance",
-      });
-      await saveFinance(fin);
-      res.status(200).json({ ok: true, ...(await dashboard()) });
+      // Skip zero-amount / idempotent retries so finance is not polluted.
+      if (take > 0 && !collectIdempotent) {
+        const fin = await loadFinance();
+        addFinanceEntry(fin, {
+          amountCents: take,
+          method,
+          type: b.type,
+          player: b.player,
+          email: b.email,
+          bookingId: b.id,
+          date: b.date,
+          note: "Collected outstanding balance",
+        });
+        await saveFinance(fin);
+      }
+      res.status(200).json({ ok: true, collected: { id: b.id, take, idempotent: collectIdempotent }, ...(await dashboard()) });
       return;
     }
 
