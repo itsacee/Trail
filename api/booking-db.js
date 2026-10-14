@@ -89,13 +89,32 @@ export default async function handler(req, res) {
       // Never mutate Blob — only read.
       if (action === "import") {
         const imported = await importBlobSnapshots(snapshots, handle.store);
+        if (imported.stopped) {
+          res.status(409).json({
+            ok: false,
+            reason: imported.stop_reason || "source_incomplete",
+            details: imported.details || {},
+            note: "Import aborted. Blob records were not modified.",
+          });
+          return;
+        }
         const reconciliation = await reconcileBlobToDb(snapshots, handle.store);
         res.status(200).json({
-          ok: reconciliation.ok,
-          imported,
+          ok: reconciliation.ok && imported.ok,
+          imported: {
+            lessons_imported: imported.lessons_imported,
+            lessons_already_present: imported.lessons_already_present,
+            holds_imported: imported.holds_imported,
+            holds_already_present: imported.holds_already_present,
+            manual_imported: imported.manual_imported,
+            manual_already_present: imported.manual_already_present,
+            credits_upserted: imported.credits_upserted,
+            errors: imported.errors.length,
+          },
           reconciliation: reconciliation.summary,
           missingInDb: reconciliation.missingInDb.length,
           missingInBlob: reconciliation.missingInBlob.length,
+          slotMismatches: reconciliation.slotCountMismatches.length,
           note: "Blob records were not modified.",
         });
         return;
