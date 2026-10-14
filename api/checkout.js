@@ -22,6 +22,7 @@ import {
   capacityWritesEnabled,
   storeConfigured,
 } from "../lib/store.js";
+import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
 import { capacityBookingBlockedMessage } from "../lib/capacityMigration.js";
 import { bookWindowBlocked, isMembershipType, membershipTierOf } from "../lib/members.js";
 import {
@@ -141,8 +142,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Keep CAPACITY_WRITES_ENABLED default-off (PR #64) and honor migration pause.
-  if (storeConfigured() && !capacityWritesEnabled()) {
+  // Pause checkout only when neither Postgres booking writes nor legacy Blob
+  // capacity writes are enabled. G4 activation should set BOOKING_WRITES_ENABLED
+  // alone — do not re-enable CAPACITY_WRITES_ENABLED for checkout.
+  if (storeConfigured() && !capacityWritesEnabled() && !bookingWritesEnabled()) {
     res.status(503).json({
       error:
         "Online booking is temporarily paused while we restore the calendar. No payment was taken — please try again shortly or call (405) 819-4401.",
