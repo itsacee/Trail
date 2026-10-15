@@ -1562,21 +1562,40 @@
       renderRemovedMembers();
 
       const alertEl = $("memCreditAlert");
-      const mismatchCount = rows.filter((m) => {
+      let reconcileBad = 0;
+      let missingWindow = 0;
+      rows.forEach((m) => {
         const link = memberLinks.find((x) => String(x.email || "").toLowerCase() === m.email);
-        if (!link) return Boolean(m.cashMembership);
+        if (!link) {
+          if (m.cashMembership) missingWindow += 1;
+          return;
+        }
         const check = link.creditCheck || {};
-        return check.reconciles === false || (check.warnings || []).some((w) =>
-          ["used_plus_remaining_mismatch", "used_over_allocation", "ledger_total_not_4"].includes(w)
-        );
-      }).length;
+        if (
+          check.reconciles === false ||
+          (check.warnings || []).some((w) =>
+            ["used_plus_remaining_mismatch", "used_over_allocation", "ledger_total_not_4"].includes(w)
+          )
+        ) {
+          reconcileBad += 1;
+        }
+      });
       if (alertEl) {
-        if (mismatchCount) {
+        const parts = [];
+        if (reconcileBad) {
+          parts.push(`${reconcileBad} member${reconcileBad === 1 ? "" : "s"} have credit totals that do not reconcile to 4`);
+        }
+        if (missingWindow) {
+          parts.push(`${missingWindow} cash roster card${missingWindow === 1 ? "" : "s"} have no active 30-day credit window (credits hidden, not guessed)`);
+        }
+        if (parts.length) {
           alertEl.hidden = false;
-          alertEl.textContent = `${mismatchCount} member${mismatchCount === 1 ? "" : "s"} need credit review — totals do not reconcile to 4 lessons for the current window.`;
+          alertEl.textContent = parts.join(" · ") + ".";
+          alertEl.classList.toggle("is-bad", reconcileBad > 0);
         } else {
           alertEl.hidden = true;
           alertEl.textContent = "";
+          alertEl.classList.remove("is-bad");
         }
       }
 
