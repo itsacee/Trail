@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Concept B — Clean & Modern · Coach Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f2f2f7;
+      --card: #ffffff;
+      --text: #111113;
+      --dim: #636366;
+      --faint: #8e8e93;
+      --line: #e5e5ea;
+      --fill: #ebebf0;
+      --blue: #111113;
+      --tint: #f7f7f8;
+      --good: #1f7a45;
+      --warn: #9a6700;
+      --bad: #c62828;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+      --display: "Instrument Serif", Georgia, serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: var(--font);
+      background: #d8d8de;
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: start center;
+      padding: 24px 12px 40px;
+    }
+    .label {
+      width: min(390px, 100%);
+      color: #555;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+    }
+    .phone {
+      width: min(390px, 100%);
+      height: 844px;
+      background: var(--bg);
+      border: 1px solid #c8c8d0;
+      border-radius: 36px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 30px 70px rgba(0,0,0,0.18);
+    }
+    .screen { display: none; height: 100%; padding: 16px 16px calc(92px + var(--safe-b)); overflow: auto; }
+    .screen.on { display: block; }
+    .large-title {
+      font-family: var(--display);
+      font-size: 40px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      margin: 8px 0 4px;
+    }
+    .subtitle { color: var(--dim); font-size: 14px; margin-bottom: 16px; }
+    .pillbar {
+      display: flex; gap: 8px; overflow: auto; margin-bottom: 16px;
+      padding-bottom: 2px;
+    }
+    .pillbar span {
+      flex: 0 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--dim);
+    }
+    .pillbar span.on { background: var(--text); color: #fff; border-color: var(--text); }
+    .group {
+      background: var(--card);
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+    }
+    .group .item {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      min-height: 56px;
+    }
+    .group .item:last-child { border-bottom: 0; }
+    .item .title { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+    .item .meta { color: var(--dim); font-size: 13px; margin-top: 2px; }
+    .item .trailing {
+      text-align: right; font-size: 13px; font-weight: 600; color: var(--dim);
+      white-space: nowrap;
+    }
+    .item .trailing strong { display: block; color: var(--text); font-size: 15px; }
+    .next-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .next-card .kicker {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--faint); margin-bottom: 8px;
+    }
+    .next-card h2 {
+      font-family: var(--display);
+      font-size: 32px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .next-card p { color: var(--dim); font-size: 14px; line-height: 1.45; }
+    .cta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+    .btn {
+      border: 0; border-radius: 14px; min-height: 46px;
+      font-weight: 700; font-size: 14px; font-family: inherit;
+    }
+    .btn.dark { background: var(--text); color: #fff; }
+    .btn.light { background: var(--fill); color: var(--text); }
+    .metrics {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .metric {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+    }
+    .metric b {
+      display: block;
+      font-family: var(--display);
+      font-size: 34px;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+    }
+    .metric span { color: var(--faint); font-size: 12px; font-weight: 600; }
+    .search {
+      background: var(--fill);
+      border-radius: 14px;
+      padding: 12px 14px;
+      color: var(--faint);
+      font-size: 15px;
+      margin-bottom: 14px;
+    }
+    .avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(145deg, #ececf1, #d9d9e0);
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 13px; color: #444;
+      flex: 0 0 auto;
+    }
+    .person { display: flex; gap: 12px; align-items: center; min-width: 0; }
+    .credit {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .credit small { display: block; color: var(--faint); font-weight: 600; font-size: 11px; }
+    .week {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+      margin-bottom: 14px;
+    }
+    .week button {
+      border: 0; background: transparent; border-radius: 14px;
+      padding: 8px 0; color: var(--dim); font-size: 11px; font-weight: 600;
+    }
+    .week button.on { background: var(--text); color: #fff; }
+    .week b { display: block; font-size: 15px; margin-top: 2px; font-weight: 700; }
+    .agenda .slot {
+      display: grid; grid-template-columns: 58px 1fr; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .agenda .when {
+      font-size: 12px; font-weight: 700; color: var(--faint); padding-top: 14px;
+    }
+    .agenda .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+    .agenda .card b { display: block; font-size: 15px; }
+    .agenda .card span { color: var(--dim); font-size: 13px; }
+    .money-top {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+    .money-top .amt {
+      font-family: var(--display);
+      font-size: 52px;
+      letter-spacing: -0.03em;
+      margin: 4px 0 8px;
+    }
+    .seg {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      background: var(--fill);
+      border-radius: 12px;
+      padding: 3px;
+      margin-bottom: 14px;
+    }
+    .seg span {
+      text-align: center; padding: 8px 0; border-radius: 10px;
+      font-size: 13px; font-weight: 700; color: var(--dim);
+    }
+    .seg span.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .settings .item .meta { max-width: 200px; }
+    .switch {
+      width: 46px; height: 28px; border-radius: 999px; background: #d1d1d6;
+      position: relative; flex: 0 0 auto;
+    }
+    .switch.on { background: #34c759; }
+    .switch::after {
+      content: ""; position: absolute; top: 2px; left: 2px;
+      width: 24px; height: 24px; border-radius: 50%; background: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .switch.on::after { left: 20px; }
+    .tabbar {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      height: calc(76px + var(--safe-b));
+      padding: 8px 8px calc(10px + var(--safe-b));
+      background: rgba(255,255,255,0.88);
+      border-top: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+      display: grid; grid-template-columns: repeat(5, 1fr);
+    }
+    .tabbar button {
+      border: 0; background: transparent; color: var(--faint);
+      font-size: 10px; font-weight: 700;
+      display: grid; place-items: center; gap: 2px;
+    }
+    .tabbar button.on { color: var(--text); }
+    .tabbar .ico { font-size: 18px; line-height: 1; }
+    .note {
+      width: min(390px, 100%);
+      margin-top: 14px;
+      color: #555;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .footnote {
+      color: var(--faint);
+      font-size: 11px;
+      line-height: 1.4;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="label">Concept B · Clean & Modern · SAMPLE DATA ONLY</div>
+  <div class="phone" id="phone">
+    <!-- HOME -->
+    <section class="screen on" data-screen="home">
+      <div class="large-title">Today</div>
+      <p class="subtitle">Wednesday, October 15 · AP Academy</p>
+      <div class="next-card">
+        <div class="kicker">Next athlete</div>
+        <h2>Elijah Alexander</h2>
+        <p>7:00 PM · Fielding at Mustang HS<br />Standard Drop-In</p>
+        <div class="cta-row">
+          <button class="btn dark">Open lesson</button>
+          <button class="btn light">Message</button>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><b>2</b><span>Lessons today</span></div>
+        <div class="metric"><b>$280</b><span>Unpaid balances</span></div>
+      </div>
+      <div class="group">
+        <div class="item">
+          <div><div class="title">5:00 PM · Jordan Lee</div><div class="meta">Hitting · Indoor</div></div>
+          <div class="trailing"><strong>$80</strong>due</div>
+        </div>
+        <div class="item">
+          <div><div class="title">7:00 PM · Elijah Alexander</div><div class="meta">Fielding · Mustang</div></div>
+          <div class="trailing"><strong>Paid</strong></div>
+        </div>
+      </div>
+      <div class="group">
+        <div class="item"><div class="title">Add a lesson</div><div class="trailing">›</div></div>
+        <div class="item"><div class="title">Collect cash</div><div class="trailing">›</div></div>
+        <div class="item"><div class="title">Edit hours</div><div class="trailing">›</div></div>
+      </div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section class="screen" data-screen="schedule">
+      <div class="large-title">Schedule</div>
+      <p class="subtitle">Week of October 13</p>
+      <div class="week">
+        <button><span>Mon</span><b>13</b></button>
+        <button><span>Tue</span><b>14</b></button>
+        <button class="on"><span>Wed</span><b>15</b></button>
+        <button><span>Thu</span><b>16</b></button>
+        <button><span>Fri</span><b>17</b></button>
+        <button><span>Sat</span><b>18</b></button>
+        <button><span>Sun</span><b>19</b></button>
+      </div>
+      <div class="agenda">
+        <div class="slot">
+          <div class="when">5:00</div>
+          <div class="card"><b>Jordan Lee</b><span>Hitting · Indoor · 60 min</span></div>
+        </div>
+        <div class="slot">
+          <div class="when">7:00</div>
+          <div class="card"><b>Elijah Alexander</b><span>Fielding · Mustang HS</span></div>
+        </div>
+        <div class="slot">
+          <div class="when">8:00</div>
+          <div class="card" style="border-style:dashed;color:var(--faint)"><b style="color:var(--faint);font-weight:600">Open hour</b><span>Add lesson</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MEMBERS -->
+    <section class="screen" data-screen="members">
+      <div class="large-title">Members</div>
+      <p class="subtitle">4 lessons per 30-day membership</p>
+      <div class="search">Search athletes</div>
+      <div class="pillbar">
+        <span class="on">All</span>
+        <span>Active</span>
+        <span>Due</span>
+        <span>Private</span>
+      </div>
+      <div class="group">
+        <div class="item">
+          <div class="person">
+            <div class="avatar">SA</div>
+            <div>
+              <div class="title">Sample Athlete A</div>
+              <div class="meta">Standard · Use by Nov 12</div>
+            </div>
+          </div>
+          <div class="credit">3 left<small>1 of 4 used</small></div>
+        </div>
+        <div class="item">
+          <div class="person">
+            <div class="avatar">SB</div>
+            <div>
+              <div class="title">Sample Athlete B</div>
+              <div class="meta">Private · Fully used</div>
+            </div>
+          </div>
+          <div class="credit">0 left<small>4 of 4 used</small></div>
+        </div>
+        <div class="item">
+          <div class="person">
+            <div class="avatar">SC</div>
+            <div>
+              <div class="title">Sample Athlete C</div>
+              <div class="meta">Standard · Hitting + Fielding</div>
+            </div>
+          </div>
+          <div class="credit">2 left<small>2 of 4 used</small></div>
+        </div>
+      </div>
+      <p class="footnote">Sample credit figures for layout only. Production balances are never invented or reset by the design.</p>
+    </section>
+
+    <!-- MONEY -->
+    <section class="screen" data-screen="money">
+      <div class="large-title">Money</div>
+      <p class="subtitle">Payments &amp; cash collection</p>
+      <div class="seg">
+        <span class="on">Owed</span>
+        <span>Week</span>
+        <span>Month</span>
+      </div>
+      <div class="money-top">
+        <div style="color:var(--faint);font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase">Outstanding</div>
+        <div class="amt">$560</div>
+        <button class="btn dark" style="width:100%">Collect payment</button>
+      </div>
+      <div class="group">
+        <div class="item">
+          <div><div class="title">Sample Parent</div><div class="meta">Membership balance</div></div>
+          <div class="trailing"><strong>$280</strong></div>
+        </div>
+        <div class="item">
+          <div><div class="title">Jordan Lee</div><div class="meta">Drop-in · today</div></div>
+          <div class="trailing"><strong>$80</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="screen settings" data-screen="settings">
+      <div class="large-title">Settings</div>
+      <p class="subtitle">Availability and desk controls</p>
+      <div class="group">
+        <div class="item"><div><div class="title">Weekly hours</div><div class="meta">Mon–Wed 6–8 PM</div></div><div class="trailing">Edit</div></div>
+        <div class="item"><div><div class="title">Days off</div><div class="meta">Block travel &amp; holidays</div></div><div class="trailing">Calendar</div></div>
+      </div>
+      <div class="group">
+        <div class="item"><div class="title">Allow cash on booking page</div><div class="switch on"></div></div>
+        <div class="item"><div class="title">Fielding only</div><div class="switch"></div></div>
+        <div class="item"><div class="title">Freeze membership clocks</div><div class="switch"></div></div>
+      </div>
+      <div class="group">
+        <div class="item"><div class="title">Lesson prices</div><div class="trailing">›</div></div>
+        <div class="item"><div class="title">Membership prices</div><div class="trailing">›</div></div>
+      </div>
+    </section>
+
+    <nav class="tabbar" aria-label="Concept B navigation">
+      <button class="on" data-go="home"><span class="ico">⌂</span>Home</button>
+      <button data-go="schedule"><span class="ico">▦</span>Schedule</button>
+      <button data-go="members"><span class="ico">☺</span>Members</button>
+      <button data-go="money"><span class="ico">$</span>Money</button>
+      <button data-go="settings"><span class="ico">◍</span>Settings</button>
+    </nav>
+  </div>
+  <p class="note">Visual concept only — Apple-like structure with Home dashboard first. Not connected to live Coach Desk data.</p>
+  <script>
+    const phone = document.getElementById('phone');
+    phone.querySelectorAll('.tabbar button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        phone.querySelectorAll('.tabbar button').forEach((b) => b.classList.remove('on'));
+        btn.classList.add('on');
+        const id = btn.dataset.go;
+        phone.querySelectorAll('.screen').forEach((s) => s.classList.toggle('on', s.dataset.screen === id));
+      });
+    });
+  </script>
+</body>
+</html>
