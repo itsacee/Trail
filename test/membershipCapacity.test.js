@@ -81,6 +81,50 @@ test("membershipsWithCredits removes a member as soon as all four lessons are us
   );
 });
 
+test("membershipsWithCredits counts Coach Desk manual membership lessons toward the 4", () => {
+  const now = Math.floor(Date.now() / 1000);
+  const email = "cash.desk@example.com";
+  const membership = {
+    id: `cash_${email}`,
+    email,
+    metadata: { email, type: "membership", privacy: "standard" },
+    current_period_start: now - 86400,
+    current_period_end: now + 27 * 86400,
+    kind: "cash",
+  };
+  const dates = Array.from({ length: 4 }, (_, i) =>
+    new Date((now + (i + 1) * 86400) * 1000).toLocaleDateString("en-CA", {
+      timeZone: "America/Chicago",
+    })
+  );
+  const stored = { voids: [], lessons: [] };
+  const manual = {
+    bookings: dates.map((date, i) => ({
+      id: `mb_${i}`,
+      email,
+      date,
+      time: "6:00 PM",
+      type: "membership",
+      focus: i === 0 ? "Both" : i === 1 ? "Hitting" : "Fielding",
+      status: "scheduled",
+      privacy: "standard",
+    })),
+  };
+
+  // Without manuals, desk-booked cash lessons would look like 4 remaining.
+  assert.equal(membershipsWithCredits([membership], stored).length, 1);
+  // With manuals, all 4 credits are used (Both counts as one lesson).
+  assert.equal(membershipsWithCredits([membership], stored, manual).length, 0);
+  assert.equal(
+    membershipsWithCredits(
+      [membership],
+      stored,
+      { bookings: manual.bookings.slice(0, 3) }
+    ).length,
+    1
+  );
+});
+
 test("capacitySummary opens and closes at exactly 15 active memberships", () => {
   const fourteen = Array.from({ length: 14 }, (_, i) => active(`m${i}`, `member${i}@example.com`, i));
   const open = capacitySummary(fourteen);

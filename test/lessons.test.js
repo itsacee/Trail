@@ -286,3 +286,89 @@ test("scheduledFor includes cash/manual membership lessons", () => {
   assert.equal(list[0].id, "mb_1");
   assert.equal(list[0].source, "manual");
 });
+
+test("scheduledFor skips Stripe metadata when Postgres store already has purchase lessons", () => {
+  const prev = process.env.BOOKING_STORE;
+  const prevR = process.env.BOOKING_READS_ENABLED;
+  process.env.BOOKING_STORE = "postgres";
+  process.env.BOOKING_READS_ENABLED = "1";
+  try {
+    const sub = {
+      id: "pi_meta",
+      metadata: {
+        player: "Sam",
+        email: "sam@example.com",
+        type: "membership",
+        date1: "2026-09-01",
+        time1: "5:00 PM",
+      },
+      current_period_start: Math.floor(new Date("2026-09-01T12:00:00Z").getTime() / 1000),
+      current_period_end: Math.floor(new Date("2026-10-01T12:00:00Z").getTime() / 1000),
+    };
+    const stored = {
+      lessons: [
+        {
+          id: "lsn_pg_1",
+          source: "member",
+          sourceId: "pi_meta",
+          subId: "pi_meta",
+          membershipId: "pi_meta",
+          type: "membership",
+          email: "sam@example.com",
+          player: "Sam",
+          date: "2026-09-10",
+          time: "6:00 PM",
+        },
+        {
+          id: "lsn_pg_2",
+          source: "member",
+          sourceId: "pi_meta",
+          subId: "pi_meta",
+          membershipId: "pi_meta",
+          type: "membership",
+          email: "sam@example.com",
+          player: "Sam",
+          date: "2026-09-17",
+          time: "6:00 PM",
+        },
+      ],
+      voids: [],
+    };
+    const list = scheduledFor(sub, stored, null, [sub]);
+    assert.equal(list.length, 2, "must not add stale Stripe date1 on top of PG rows");
+    assert.ok(list.every((l) => l.source === "member"));
+  } finally {
+    if (prev === undefined) delete process.env.BOOKING_STORE;
+    else process.env.BOOKING_STORE = prev;
+    if (prevR === undefined) delete process.env.BOOKING_READS_ENABLED;
+    else process.env.BOOKING_READS_ENABLED = prevR;
+  }
+});
+
+test("scheduledFor still uses Stripe metadata when purchase has no store lessons", () => {
+  const prev = process.env.BOOKING_STORE;
+  const prevR = process.env.BOOKING_READS_ENABLED;
+  process.env.BOOKING_STORE = "postgres";
+  process.env.BOOKING_READS_ENABLED = "1";
+  try {
+    const sub = {
+      id: "pi_only_meta",
+      metadata: {
+        player: "Sam",
+        email: "onlymeta@example.com",
+        type: "membership",
+        date1: "2026-09-01",
+        time1: "5:00 PM",
+      },
+    };
+    const list = scheduledFor(sub, { lessons: [], voids: [] }, null, [sub]);
+    assert.equal(list.length, 1);
+    assert.equal(list[0].source, "stripe");
+    assert.equal(list[0].date, "2026-09-01");
+  } finally {
+    if (prev === undefined) delete process.env.BOOKING_STORE;
+    else process.env.BOOKING_STORE = prev;
+    if (prevR === undefined) delete process.env.BOOKING_READS_ENABLED;
+    else process.env.BOOKING_READS_ENABLED = prevR;
+  }
+});
