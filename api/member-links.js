@@ -19,6 +19,8 @@ import { loadMembersState } from "../lib/membersStore.js";
 import { scheduledFor } from "../lib/lessons.js";
 import { loadAuthoritativeBookingState } from "../lib/bookingReads.js";
 import { signMemberToken } from "../lib/memberAuth.js";
+import { bookingReadsEnabled, bookingStoreMode } from "../lib/bookingDb/flags.js";
+import { createBookingStore, closeBookingStore } from "../lib/bookingDb/createStore.js";
 
 function esc(v) {
   return String(v == null ? "" : v).replace(
@@ -80,11 +82,70 @@ export default async function handler(req, res) {
   // credits. Pass manual/cash desk bookings so Coach Desk matches the portal.
   const allSubs = [...byEmail.values()];
   const occupying = membershipsWithCredits(allSubs, stored, manual);
+
+  // Optional read-only Postgres ledger snapshot (never mutates). Sparse ledgers
+  // are expected — schedule-derived used/remaining remain authoritative for UI.
+  let ledgerByMembership = new Map();
+  let ledgerByEmail = new Map();
+  if (bookingReadsEnabled() && bookingStoreMode() === "postgres") {
+    let handle;
+    try {
+      handle = await createBookingStore({
+        env: process.env,
+        mode: "postgres",
+      });
+      const rows = (await handle.store.auditMembershipCredits?.({})) || [];
+      rows.forEach((row) => {
+        if (row.membershipId) ledgerByMembership.set(String(row.membershipId), row);
+        const em = String(row.email || "")
+          .trim()
+          .toLowerCase();
+        if (em && !ledgerByEmail.has(em)) ledgerByEmail.set(em, row);
+      });
+    } catch {
+      /* keep schedule-only credits */
+    } finally {
+      if (handle) await closeBookingStore(handle);
+    }
+  }
+
   const members = allSubs
     .map((sub) => {
       const summary = membershipSummary(sub, scheduledFor(sub, stored, manual));
+      const mid = String(summary.membershipId || sub.id || "");
+      const ledger =
+        ledgerByMembership.get(mid) ||
+        ledgerByEmail.get(String(summary.email || "").toLowerCase()) ||
+        null;
+      const creditCheck = { ...(summary.creditCheck || {}) };
+      const warnings = [...(creditCheck.warnings || [])];
+      if (ledger) {
+        creditCheck.ledger = {
+          creditsTotal: ledger.creditsTotal,
+          creditsUsed: ledger.creditsUsed,
+          lessonCount: ledger.lessonCount,
+          mismatch: Boolean(ledger.mismatch),
+        };
+        if (Number(ledger.creditsTotal) && Number(ledger.creditsTotal) !== 4) {
+          warnings.push("ledger_total_not_4");
+        }
+        // Ledger is synced on portal books; cash/desk paths may lag. Surface
+        // differences without inventing schedule totals from the ledger.
+        if (Number(ledger.creditsUsed) !== Number(summary.used)) {
+          warnings.push("ledger_used_differs_from_schedule");
+        }
+        if (ledger.mismatch) warnings.push("ledger_vs_membership_id_bookings");
+      } else {
+        creditCheck.ledger = null;
+        creditCheck.ledgerAbsent = true;
+      }
+      creditCheck.warnings = warnings;
+      // Schedule-derived used+remaining must equal the 4-credit allocation.
+      creditCheck.reconciles =
+        Number(creditCheck.usedPlusRemaining) === 4 && Number(summary.used) <= 4;
       return {
         ...summary,
+        creditCheck,
         link: `${origin}/account.html?k=${encodeURIComponent(signMemberToken(summary.email))}`,
       };
     })
@@ -95,6 +156,11 @@ export default async function handler(req, res) {
       members,
       limit: MEMBERSHIP_LIMIT,
       spotsAvailable: Math.max(0, MEMBERSHIP_LIMIT - occupying.length),
+      creditRules: {
+        allocation: 4,
+        periodDays: MEMBER_PERIOD_DAYS,
+        note: "Every Standard/Private membership is 4 total lessons per purchased 30-day window. Hitting+Fielding counts as one lesson each.",
+      },
     });
     return;
   }

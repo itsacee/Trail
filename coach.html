@@ -521,12 +521,77 @@
     }
     .pill.spent { border-color: var(--bad); color: var(--bad); }
     .pill.frozen { border-color: #9eb6c9; color: #b7c9d8; }
+    .pill.ok { border-color: var(--good); color: var(--good); }
+    .pill.muted { border-color: var(--line); color: var(--dim); }
     .member__name { font-size: 1.14rem; font-weight: 700; letter-spacing: -0.01em; }
+    .member__credits {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.45rem;
+      margin: 0.75rem 0 0.35rem;
+    }
+    .member__credit {
+      text-align: center;
+      background: var(--bg);
+      border: 1px solid var(--line-soft);
+      border-radius: 12px;
+      padding: 0.55rem 0.35rem 0.5rem;
+    }
+    .member__credit b {
+      display: block;
+      font-family: var(--display);
+      font-size: 1.55rem;
+      line-height: 1;
+      color: var(--btn);
+      font-variant-numeric: tabular-nums;
+    }
+    .member__credit span {
+      display: block;
+      margin-top: 0.2rem;
+      color: var(--faint);
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .member__credit.is-warn b { color: var(--warn); }
+    .member__credit.is-bad b { color: var(--bad); }
+    .member__meta {
+      color: var(--dim);
+      font-size: 0.86rem;
+      margin-top: 0.35rem;
+    }
+    .member__alert {
+      margin-top: 0.7rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 12px;
+      border: 1px solid rgba(224, 180, 87, 0.45);
+      background: rgba(224, 180, 87, 0.08);
+      color: #e8c87a;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .member__alert.is-bad {
+      border-color: rgba(255, 143, 130, 0.45);
+      background: rgba(255, 143, 130, 0.08);
+      color: #ffb0a6;
+    }
     .member__list { list-style: none; margin: 0.7rem 0 0; padding: 0.55rem 0.7rem; background: var(--bg); border-radius: 12px; border: 1px solid var(--line-soft); }
-    .member__list li { color: #cfd4da; font-size: 0.86rem; padding: 0.22rem 0 0.22rem 0.95rem; position: relative; }
+    .member__list li { color: #cfd4da; font-size: 0.86rem; padding: 0.28rem 0 0.28rem 0.95rem; position: relative; }
     .member__list li::before { content: "•"; position: absolute; left: 0; color: var(--faint); }
     .member__list li.none { color: var(--faint); padding-left: 0; }
     .member__list li.none::before { content: ""; }
+    .member__list li .lesson-flag {
+      display: inline-block;
+      margin-left: 0.35rem;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+    .member__list li.counts .lesson-flag { color: var(--good); }
+    .member__list li.outside .lesson-flag { color: var(--warn); }
     .credit-meter {
       margin-top: 0.7rem;
       height: 6px;
@@ -827,9 +892,11 @@
         <div class="card">
           <span class="card__title">Memberships</span>
           <p class="muted" id="memCapacity" style="margin-top:0.35rem">Loading…</p>
+          <p class="faint" id="memCreditRules" style="margin-top:0.35rem">Every membership includes exactly 4 lessons in its 30-day window. Hitting + Fielding counts as one lesson.</p>
           <button type="button" class="btn btn--ghost" id="freezeAllBtn">Freeze all members</button>
           <p class="faint" style="margin-top:0.5rem">Freezing pauses booking and stops the expiry clock. Unfreezing adds the paused days back onto everyone's expiry date.</p>
           <p class="muted" id="freezeAllMsg"></p>
+          <p class="member__alert is-bad" id="memCreditAlert" hidden></p>
         </div>
         <div id="membersList"><p class="empty">Loading…</p></div>
         <div class="card" id="removedCard" hidden>
@@ -1044,10 +1111,12 @@
     }
 
     // Anything that changes the schedule comes back with a fresh dashboard, so
-    // one call both saves and refreshes the screen.
+    // one call both saves and refreshes the screen. Member credits reload too
+    // so used/remaining stay aligned after book / move / cancel / collect.
     async function act(body) {
       const data = await deskPost(body);
       desk = data;
+      await loadMemberLinks();
       renderAll();
       return data;
     }
@@ -1097,6 +1166,7 @@
       try {
         desk = await deskGet();
         hours = null;
+        await loadMemberLinks();
         renderAll();
       } catch (err) {
         alert(err.message);
@@ -1446,17 +1516,32 @@
     /* ===================== members ===================== */
     let memberLinks = [];
 
+    let memberCreditRules = null;
+
     async function loadMemberLinks() {
       try {
         const r = await fetch(`/api/member-links?key=${encodeURIComponent(pass())}&format=json`, { cache: "no-store" });
         if (!r.ok) throw new Error();
         const d = await r.json();
         memberLinks = d.members || [];
+        memberCreditRules = d.creditRules || null;
+        const rulesEl = $("memCreditRules");
+        if (rulesEl && memberCreditRules?.note) rulesEl.textContent = memberCreditRules.note;
         return { limit: Number(d.limit) || 15, spotsAvailable: Math.max(0, Number(d.spotsAvailable) || 0) };
       } catch {
         memberLinks = [];
+        memberCreditRules = null;
         return null;
       }
+    }
+
+    function memberStatusLabel(link, m) {
+      if (m?.frozen || link?.bookingPaused) return { text: "Paused", cls: "frozen" };
+      if (!link) return { text: "No active window", cls: "muted" };
+      const st = link.status || "";
+      if (st === "fully_used" || Number(link.remaining) === 0) return { text: "Fully used", cls: "spent" };
+      if (st === "expired" || link.periodOpen === false) return { text: "Expired", cls: "muted" };
+      return { text: "Active", cls: "ok" };
     }
 
     function renderMembers() {
@@ -1471,6 +1556,25 @@
       // card has been taken off the list.
       renderRemovedMembers();
 
+      const alertEl = $("memCreditAlert");
+      const mismatchCount = rows.filter((m) => {
+        const link = memberLinks.find((x) => String(x.email || "").toLowerCase() === m.email);
+        if (!link) return Boolean(m.cashMembership);
+        const check = link.creditCheck || {};
+        return check.reconciles === false || (check.warnings || []).some((w) =>
+          ["used_plus_remaining_mismatch", "used_over_allocation", "ledger_total_not_4"].includes(w)
+        );
+      }).length;
+      if (alertEl) {
+        if (mismatchCount) {
+          alertEl.hidden = false;
+          alertEl.textContent = `${mismatchCount} member${mismatchCount === 1 ? "" : "s"} need credit review — totals do not reconcile to 4 lessons for the current window.`;
+        } else {
+          alertEl.hidden = true;
+          alertEl.textContent = "";
+        }
+      }
+
       const box = $("membersList");
       if (!rows.length) {
         box.innerHTML = '<p class="empty">No members on file yet.</p>';
@@ -1478,29 +1582,56 @@
       }
       box.innerHTML = rows.map((m) => {
         const link = memberLinks.find((x) => String(x.email || "").toLowerCase() === m.email) || null;
-        const left = link ? link.remaining || 0 : null;
-        const lessons = link && (link.lessons || []).length
-          ? link.lessons.map((l) => `<li>${esc(prettyDay(l.date))} · ${esc(l.time)}</li>`).join("")
-          : '<li class="none">Nothing booked yet</li>';
+        const status = memberStatusLabel(link, m);
+        const creditsTotal = link ? Number(link.credits) || 4 : null;
+        const used = link ? Number(link.used) || 0 : null;
+        const left = link ? Number(link.remaining) || 0 : null;
+        const check = link?.creditCheck || null;
+        const hardWarn = check && (
+          check.reconciles === false ||
+          (check.warnings || []).some((w) =>
+            ["used_plus_remaining_mismatch", "used_over_allocation", "ledger_total_not_4"].includes(w)
+          )
+        );
+        const softWarn = !link && m.cashMembership;
+        const periodLessons = link?.periodLessons || [];
+        const otherLessons = link?.otherLessons || [];
+        const history = [
+          ...periodLessons.map((l) => ({ ...l, _cls: "counts", _flag: "Counts" })),
+          ...otherLessons.map((l) => ({ ...l, _cls: "outside", _flag: "Outside window" })),
+        ];
+        const lessonItems = history.length
+          ? history.map((l) =>
+              `<li class="${l._cls}">${esc(prettyDay(l.date))} · ${esc(l.time)}${l.focus ? ` · ${esc(l.focus)}` : ""}<span class="lesson-flag">${esc(l._flag)}</span></li>`
+            ).join("")
+          : '<li class="none">No membership lessons in this window yet</li>';
         const note = link
           ? `Hey${m.parent ? " " + m.parent : ""}! Here's your AP Academy membership link — it shows your lessons left and lets you book: ${link.link}`
           : "";
-        const creditsTotal = link ? (Number(link.credits) || 4) : 0;
         const pct = creditsTotal ? Math.max(0, Math.min(100, Math.round((left / creditsTotal) * 100))) : 0;
         const meterClass = left === 0 ? "is-empty" : left === 1 ? "is-low" : "";
+        const periodLine = link
+          ? `${link.periodStartDate ? `Started ${esc(prettyDay(link.periodStartDate))}` : "Period start on file"}${link.lastDayPretty ? ` · Use by ${esc(link.lastDayPretty)}` : ""}${typeof link.daysLeft === "number" && link.periodOpen ? ` · ${link.daysLeft} day${link.daysLeft === 1 ? "" : "s"} left` : ""}`
+          : "No active purchased membership window is on file for credits.";
         return `<div class="card">
           <div class="member__name">${esc(m.player || link?.player || "(no name)")}</div>
           <div class="lesson__sub">${esc(m.email)}${m.phone ? " · " + esc(m.phone) : ""}</div>
           <div class="tags">
-            ${left !== null ? `<span class="pill ${left ? "" : "spent"}">${left} of ${creditsTotal || 4} left</span>` : ""}
+            <span class="pill ${status.cls}">${esc(status.text)}</span>
             ${m.membershipLabel || link?.membershipLabel ? `<span class="tag">${esc(m.membershipLabel || link.membershipLabel)}</span>` : ""}
-            ${m.frozen ? '<span class="pill frozen">Frozen</span>' : ""}
             ${m.cashMembership ? '<span class="tag">Cash membership</span>' : ""}
             ${m.amountDueCents ? `<span class="tag tag--owed">Owes ${esc(money(m.amountDueCents))}</span>` : ""}
           </div>
-          ${left !== null ? `<div class="credit-meter ${meterClass}" aria-hidden="true"><i style="width:${left === 0 ? 100 : pct}%"></i></div>` : ""}
-          ${link && left ? `<div class="lesson__sub row-gap">Use by ${esc(link.lastDayPretty || "")}${typeof link.daysLeft === "number" ? ` · ${link.daysLeft} day${link.daysLeft === 1 ? "" : "s"} left` : ""}</div>` : ""}
-          <ul class="member__list">${lessons}</ul>
+          ${link ? `<div class="member__credits">
+            <div class="member__credit"><b>4</b><span>Total</span></div>
+            <div class="member__credit ${used ? "" : ""}"><b>${used}</b><span>Used</span></div>
+            <div class="member__credit ${left === 0 ? "is-bad" : left === 1 ? "is-warn" : ""}"><b>${left}</b><span>Remaining</span></div>
+          </div>
+          <div class="credit-meter ${meterClass}" aria-hidden="true"><i style="width:${left === 0 ? 100 : pct}%"></i></div>
+          <div class="member__meta">${periodLine}</div>` : `<div class="member__meta">${periodLine}</div>`}
+          ${hardWarn ? `<div class="member__alert is-bad">Credit totals do not reconcile to 4 for this membership window. Do not invent a fix — review the lesson list below.</div>` : ""}
+          ${softWarn ? `<div class="member__alert">On the roster, but no active 30-day credit window was found. Credits are hidden instead of guessed.</div>` : ""}
+          <ul class="member__list">${lessonItems}</ul>
           <div class="acts">
             <button type="button" data-freeze="${esc(m.email)}" data-on="${m.frozen ? "0" : "1"}">${m.frozen ? "Unfreeze" : "Freeze"}</button>
             ${m.amountDueCents ? `<button type="button" class="primary-act" data-collect="${esc(m.email)}" data-amt="${m.amountDueCents}">Collect ${esc(wholeMoney(m.amountDueCents))}</button>` : ""}
