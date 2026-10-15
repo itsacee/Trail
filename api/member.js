@@ -47,6 +47,7 @@ import {
   dbCancelBooking,
   getBookingStore,
 } from "../lib/bookingStore.js";
+import { rejectIfPublicBookingClosed } from "../lib/publicBooking.js";
 import {
   loadAuthoritativeLessons,
   loadAuthoritativeManual,
@@ -372,6 +373,14 @@ export default async function handler(req, res) {
     return;
   }
 
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  // Block customer-facing mutations before account load. GET reads stay open.
+  if (req.method === "POST" && rejectIfPublicBookingClosed(res)) return;
+
   let acct;
   try {
     acct = await loadAccount(key, email);
@@ -394,11 +403,6 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     res.status(200).json(publicAccount(acct));
-    return;
-  }
-
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
     return;
   }
 
