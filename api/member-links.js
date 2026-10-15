@@ -17,7 +17,7 @@ import {
 } from "../lib/membershipCapacity.js";
 import { loadMembersState } from "../lib/membersStore.js";
 import { scheduledFor } from "../lib/lessons.js";
-import { loadAuthoritativeLessons } from "../lib/bookingReads.js";
+import { loadAuthoritativeBookingState } from "../lib/bookingReads.js";
 import { signMemberToken } from "../lib/memberAuth.js";
 
 function esc(v) {
@@ -49,9 +49,16 @@ export default async function handler(req, res) {
   }
 
   let stored;
+  let manual;
   let membersState;
   try {
-    [stored, membersState] = await Promise.all([loadAuthoritativeLessons(), loadMembersState()]);
+    const [bookingState, state] = await Promise.all([
+      loadAuthoritativeBookingState(),
+      loadMembersState(),
+    ]);
+    stored = bookingState.lessons;
+    manual = bookingState.manual;
+    membersState = state;
   } catch {
     res.status(503).send("Couldn't read bookings from the database.");
     return;
@@ -68,9 +75,11 @@ export default async function handler(req, res) {
     if (!email || byEmail.has(email)) return;
     byEmail.set(email, row);
   });
-  const members = membershipsWithCredits([...byEmail.values()], stored)
+  // Pass manual/cash desk bookings so used/remaining match the member portal
+  // (exactly 4 credits per 30-day purchase; Hitting+Fielding counts as 1).
+  const members = membershipsWithCredits([...byEmail.values()], stored, manual)
     .map((sub) => {
-      const summary = membershipSummary(sub, scheduledFor(sub, stored));
+      const summary = membershipSummary(sub, scheduledFor(sub, stored, manual));
       return {
         ...summary,
         link: `${origin}/account.html?k=${encodeURIComponent(signMemberToken(summary.email))}`,
