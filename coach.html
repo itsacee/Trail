@@ -1143,9 +1143,14 @@
       renderAll();
       const cap = await loadMemberLinks();
       renderMembers();
-      $("memCapacity").textContent = cap
-        ? `${memberLinks.length} of ${cap.limit} memberships active · ${cap.spotsAvailable} spot${cap.spotsAvailable === 1 ? "" : "s"} open`
-        : "Membership credits are unavailable right now — everything else still works.";
+      if (cap) {
+        const withCredits = memberLinks.filter((m) => Number(m.remaining) > 0).length;
+        $("memCapacity").textContent =
+          `${memberLinks.length} credit windows · ${withCredits} of ${cap.limit} still have lessons left · ${cap.spotsAvailable} spot${cap.spotsAvailable === 1 ? "" : "s"} open`;
+      } else {
+        $("memCapacity").textContent =
+          "Membership credits are unavailable right now — everything else still works.";
+      }
     }
 
     $("passBtn").addEventListener("click", () => {
