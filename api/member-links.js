@@ -75,9 +75,12 @@ export default async function handler(req, res) {
     if (!email || byEmail.has(email)) return;
     byEmail.set(email, row);
   });
-  // Pass manual/cash desk bookings so used/remaining match the member portal
-  // (exactly 4 credits per 30-day purchase; Hitting+Fielding counts as 1).
-  const members = membershipsWithCredits([...byEmail.values()], stored, manual)
+  // Show every active-period membership with accurate used/remaining (including
+  // 0 of 4 left). Count capacity spots only from purchases that still have
+  // credits. Pass manual/cash desk bookings so Coach Desk matches the portal.
+  const allSubs = [...byEmail.values()];
+  const occupying = membershipsWithCredits(allSubs, stored, manual);
+  const members = allSubs
     .map((sub) => {
       const summary = membershipSummary(sub, scheduledFor(sub, stored, manual));
       return {
@@ -91,7 +94,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       members,
       limit: MEMBERSHIP_LIMIT,
-      spotsAvailable: Math.max(0, MEMBERSHIP_LIMIT - members.length),
+      spotsAvailable: Math.max(0, MEMBERSHIP_LIMIT - occupying.length),
     });
     return;
   }
@@ -157,7 +160,7 @@ export default async function handler(req, res) {
   .empty { color:#a8adb6; }
 </style></head><body>
 <h1>Member sign-in links</h1>
-<p class="sub">${members.length} of ${MEMBERSHIP_LIMIT} active memberships · ${Math.max(0, MEMBERSHIP_LIMIT - members.length)} spots available.
+<p class="sub">${members.length} listed · ${occupying.length} of ${MEMBERSHIP_LIMIT} still have credits · ${Math.max(0, MEMBERSHIP_LIMIT - occupying.length)} spots available.
 Each link signs that person in for 30 days — only send it to them.</p>
 ${cards || `<p class="empty">No active memberships in the last ${MEMBER_PERIOD_DAYS + 7} days.</p>`}
 </body></html>`);
