@@ -733,3 +733,227 @@ test("confirmPaid concurrent retries stay idempotent via ON CONFLICT", async () 
   );
   assert.equal(rows[0].n, 1);
 });
+
+test("membership confirmPaid sets membership_id from payment intent", async () => {
+  await clearBookings();
+  const pi = "pi_mem_attr_1";
+  const mirrored = await store.confirmPaid({
+    idempotencyKey: `mirror:${pi}`,
+    sourceId: pi,
+    metadata: {
+      date: "2026-12-01",
+      time: "6:00 PM",
+      focus: "Both",
+      type: "membership",
+      privacy: "standard",
+      email: "attr@example.com",
+      player: "Attr",
+    },
+  });
+  assert.equal(mirrored.ok, true);
+  const row = await store.getBooking(`${pi}-1`);
+  assert.equal(row.membership_id, pi);
+  assert.equal(row.stripe_pi, pi);
+  const credits = await store.getMembershipCredits(pi);
+  assert.equal(Number(credits.credits_used), 1);
+  assert.equal(Number(credits.credits_total), 4);
+});
+
+test("Declan hole: orphan stripe_pi lesson counts toward cap and blocks 5th", async () => {
+  await clearBookings();
+  const mid = "pi_declan_oct_test";
+  const email = "declan.test@example.com";
+
+  // Historical orphan: checkout mirror with stripe_pi set, membership_id empty.
+  await store.query(
+    `INSERT INTO bookings (
+       id, source, source_ref, status, slot_date, time_label, mins, location_key,
+       focus, privacy, seats, email, player, booking_type, athletes, stripe_pi, membership_id, payload
+     ) VALUES (
+       $1,'stripe',$2,'active','2026-12-02','6:00 PM',60,'mustang',
+       'Both','private',2,$3,'Declan T','membership',1,$2,NULL,'{}'::jsonb
+     )`,
+    [`${mid}-1`, mid, email]
+  );
+  // Lagging ledger as seen in Production (3 used / 1 rem) after three member books.
+  await store.query(
+    `INSERT INTO membership_credits (membership_id, email, tier, credits_total, credits_used, status)
+     VALUES ($1, $2, 'standard', 4, 0, 'active')`,
+    [mid, email]
+  );
+
+  const focuses = ["Hitting", "Fielding", "Both"];
+  for (let i = 0; i < 3; i++) {
+    const booked = await store.memberBook({
+      membershipId: mid,
+      email,
+      date: `2026-12-0${3 + i}`,
+      time: "6:00 PM",
+      focus: focuses[i],
+      type: "membership",
+      privacy: "standard",
+      creditsTotal: 4,
+    });
+    assert.equal(booked.ok, true, `book ${i + 2} should succeed`);
+  }
+
+  const credits = await store.getMembershipCredits(mid);
+  assert.equal(Number(credits.credits_used), 4, "ledger must show 4 used after orphan + 3 books");
+
+  const fifth = await store.memberBook({
+    membershipId: mid,
+    email,
+    date: "2026-12-10",
+    time: "6:00 PM",
+    focus: "Hitting",
+    type: "membership",
+    privacy: "standard",
+    creditsTotal: 4,
+  });
+  assert.equal(fifth.ok, false);
+  assert.equal(fifth.code, "no_credits");
+
+  const { rows } = await store.query(
+    `SELECT count(*)::int AS n FROM bookings WHERE status='active' AND (membership_id=$1 OR stripe_pi=$1)`,
+    [mid]
+  );
+  assert.equal(rows[0].n, 4, "four legitimate lessons remain");
+
+  const audit = await store.auditMembershipCredits({ membershipId: mid });
+  assert.equal(audit[0].lessonCount, 4);
+  assert.equal(audit[0].mismatch, false);
+});
+
+test("membership types Hitting/Fielding/Both standard+private share the same 4-credit cap", async () => {
+  await clearBookings();
+  const cases = [
+    { mid: "pi_std_hit", type: "membership", privacy: "standard", focus: "Hitting" },
+    { mid: "pi_std_fld", type: "membership", privacy: "standard", focus: "Fielding" },
+    { mid: "pi_std_both", type: "membership", privacy: "standard", focus: "Both" },
+    { mid: "pi_priv_hit", type: "membership_private", privacy: "private", focus: "Hitting" },
+    { mid: "pi_priv_fld", type: "membership_private", privacy: "private", focus: "Fielding" },
+    { mid: "pi_priv_both", type: "membership_private", privacy: "private", focus: "Both" },
+  ];
+  for (const c of cases) {
+    await store.query("DELETE FROM bookings");
+    await store.query("DELETE FROM membership_credits");
+    await store.query("DELETE FROM slot_locks");
+    for (let i = 0; i < 4; i++) {
+      const booked = await store.memberBook({
+        membershipId: c.mid,
+        email: `${c.mid}@example.com`,
+        date: `2026-12-${10 + i}`,
+        time: "5:00 PM",
+        focus: c.focus,
+        type: c.type,
+        privacy: c.privacy,
+        creditsTotal: 4,
+      });
+      assert.equal(booked.ok, true, `${c.mid} book ${i + 1}`);
+    }
+    const fifth = await store.memberBook({
+      membershipId: c.mid,
+      email: `${c.mid}@example.com`,
+      date: "2026-12-20",
+      time: "5:00 PM",
+      focus: c.focus,
+      type: c.type,
+      privacy: c.privacy,
+      creditsTotal: 4,
+    });
+    assert.equal(fifth.ok, false, `${c.mid} fifth blocked`);
+    assert.equal(fifth.code, "no_credits");
+  }
+});
+
+test("sibling purchases do not pool credits across membership ids", async () => {
+  await clearBookings();
+  const email = "siblings@example.com";
+  const a = "pi_sib_a";
+  const b = "pi_sib_b";
+  for (let i = 0; i < 4; i++) {
+    assert.equal(
+      (
+        await store.memberBook({
+          membershipId: a,
+          email,
+          date: `2026-12-${1 + i}`,
+          time: "4:00 PM",
+          focus: "Hitting",
+          type: "membership",
+          privacy: "standard",
+          creditsTotal: 4,
+        })
+      ).ok,
+      true
+    );
+  }
+  // Purchase B still has its own 4 credits despite shared email.
+  const firstB = await store.memberBook({
+    membershipId: b,
+    email,
+    date: "2026-12-15",
+    time: "4:00 PM",
+    focus: "Hitting",
+    type: "membership",
+    privacy: "standard",
+    creditsTotal: 4,
+  });
+  assert.equal(firstB.ok, true);
+  const creditsA = await store.getMembershipCredits(a);
+  const creditsB = await store.getMembershipCredits(b);
+  assert.equal(Number(creditsA.credits_used), 4);
+  assert.equal(Number(creditsB.credits_used), 1);
+});
+
+test("concurrent final-credit race: only one of two books succeeds", async () => {
+  await clearBookings();
+  const mid = "pi_race_final";
+  const email = "race@example.com";
+  for (let i = 0; i < 3; i++) {
+    assert.equal(
+      (
+        await store.memberBook({
+          membershipId: mid,
+          email,
+          date: `2026-12-${1 + i}`,
+          time: "3:00 PM",
+          focus: "Hitting",
+          type: "membership",
+          privacy: "standard",
+          creditsTotal: 4,
+        })
+      ).ok,
+      true
+    );
+  }
+  const [x, y] = await Promise.all([
+    store.memberBook({
+      membershipId: mid,
+      email,
+      date: "2026-12-10",
+      time: "3:00 PM",
+      focus: "Hitting",
+      type: "membership",
+      privacy: "standard",
+      creditsTotal: 4,
+    }),
+    store.memberBook({
+      membershipId: mid,
+      email,
+      date: "2026-12-11",
+      time: "3:00 PM",
+      focus: "Hitting",
+      type: "membership",
+      privacy: "standard",
+      creditsTotal: 4,
+    }),
+  ]);
+  const wins = [x, y].filter((r) => r.ok);
+  const losses = [x, y].filter((r) => !r.ok);
+  assert.equal(wins.length, 1);
+  assert.equal(losses.length, 1);
+  assert.equal(losses[0].code, "no_credits");
+  const credits = await store.getMembershipCredits(mid);
+  assert.equal(Number(credits.credits_used), 4);
+});
