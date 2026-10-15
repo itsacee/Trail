@@ -294,24 +294,26 @@ async function refreshAfterPgMutation(acct, { membershipId, ensureLesson = null,
     const store = await getBookingStore(process.env);
     const credit = store?.getMembershipCredits ? await store.getMembershipCredits(mid) : null;
     if (!credit) return acct;
-    const used = Number(credit.credits_used) || 0;
+    const ledgerUsed = Number(credit.credits_used) || 0;
     const total = Number(credit.credits_total) || Number(acct.summary?.credits) || 4;
+    // Never let a lagging ledger *inflate* remaining above the schedule count.
+    // Authoritative used = max(schedule-derived, ledger).
+    const scheduleUsed = Number(acct.summary?.used) || 0;
+    const used = Math.max(scheduleUsed, ledgerUsed);
     const remaining = Math.max(0, total - used);
-    // Align top-level summary + matching membership card with the ledger.
-    // Lesson arrays still come from booking rows (authoritative schedule).
     if (acct.summary && (acct.summary.membershipId === mid || acct.summary.id === mid)) {
       acct.summary = { ...acct.summary, credits: total, used, remaining };
     }
-    acct.membershipCards = (acct.membershipCards || []).map((card) =>
-      card.membershipId === mid || card.id === mid
-        ? { ...card, credits: total, used, remaining }
-        : card
-    );
-    acct.activeCards = (acct.activeCards || []).map((card) =>
-      card.membershipId === mid || card.id === mid
-        ? { ...card, credits: total, used, remaining }
-        : card
-    );
+    acct.membershipCards = (acct.membershipCards || []).map((card) => {
+      if (card.membershipId !== mid && card.id !== mid) return card;
+      const cardUsed = Math.max(Number(card.used) || 0, ledgerUsed);
+      return { ...card, credits: total, used: cardUsed, remaining: Math.max(0, total - cardUsed) };
+    });
+    acct.activeCards = (acct.activeCards || []).map((card) => {
+      if (card.membershipId !== mid && card.id !== mid) return card;
+      const cardUsed = Math.max(Number(card.used) || 0, ledgerUsed);
+      return { ...card, credits: total, used: cardUsed, remaining: Math.max(0, total - cardUsed) };
+    });
   } catch {
     /* keep lesson-derived counts */
   }
