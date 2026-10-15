@@ -1,6 +1,9 @@
 # Proposal: Checkout gate for Postgres booking writes (no Blob capacity writes)
 
-**Status:** Proposal only — do **not** deploy or activate without separate approval.  
+**Status:** Superseded in part by `PUBLIC_BOOKING_ENABLED` (see `lib/publicBooking.js`).  
+Customer-facing checkout/cash-book/member mutations now require **both**
+`BOOKING_WRITES_ENABLED=1` and `PUBLIC_BOOKING_ENABLED=1`. Capacity writes alone
+cannot reopen public booking.  
 **Related:** G4 readiness / E8 collect fix PR.
 
 ## Problem

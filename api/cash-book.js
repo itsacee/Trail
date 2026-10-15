@@ -35,9 +35,9 @@ import {
   getMembershipCapacity,
   MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
-import { storeConfigured, capacityWritesEnabled } from "../lib/store.js";
 import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
 import { dbManualBook } from "../lib/bookingStore.js";
+import { rejectIfPublicBookingClosed } from "../lib/publicBooking.js";
 
 const REPLY_TO = "Apacademybsb@gmail.com";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -86,16 +86,9 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Blob capacity pause must not block Postgres-authoritative cash books.
-  if (storeConfigured() && !capacityWritesEnabled() && !bookingWritesEnabled()) {
-    res.status(503).json({
-      error:
-        "Online booking is temporarily paused while we restore the calendar. Please try again shortly or call (405) 819-4401.",
-      code: "schedule_unavailable",
-      capacityWritesPaused: true,
-    });
-    return;
-  }
+  // Public cash booking requires Postgres booking writes AND PUBLIC_BOOKING_ENABLED=1.
+  // Coach Desk cash create uses /api/coach (authorized) and is not gated here.
+  if (rejectIfPublicBookingClosed(res)) return;
 
   const key = process.env.STRIPE_SECRET_KEY || "";
   if (!key) {

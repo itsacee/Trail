@@ -3,6 +3,8 @@
 //   /api/package-checkout?plan=8
 //   /api/package-checkout?plan=12
 
+import { rejectIfPublicBookingClosed } from "../lib/publicBooking.js";
+
 const PACKAGES = {
   8: {
     amount: 56000,
@@ -28,6 +30,9 @@ export default async function handler(req, res) {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
+
+  // Starts a new customer Stripe payment — same public gate as /api/checkout.
+  if (rejectIfPublicBookingClosed(res)) return;
 
   const planId = String(req.query?.plan || "");
   const plan = PACKAGES[planId];

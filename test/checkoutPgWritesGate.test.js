@@ -1,8 +1,10 @@
-// Checkout may reopen when BOOKING_WRITES_ENABLED is on without CAPACITY_WRITES.
+// Checkout reopen requires BOOKING_WRITES + PUBLIC_BOOKING_ENABLED.
+// CAPACITY_WRITES alone must never reopen public checkout.
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 import checkoutHandler from "../api/checkout.js";
+import { PUBLIC_BOOKING_PAUSED_CODE } from "../lib/publicBooking.js";
 
 function mockRes() {
   return {
@@ -27,6 +29,7 @@ beforeEach(() => {
     "BOOKING_WRITES_ENABLED",
     "BOOKING_STORE",
     "BOOKING_READS_ENABLED",
+    "PUBLIC_BOOKING_ENABLED",
     "BLOB_READ_WRITE_TOKEN",
     "PRIVATE_BLOB_READ_WRITE_TOKEN",
     "AVAILABILITY_URL",
@@ -48,17 +51,16 @@ function configureStoreEnv() {
   process.env.BLOB_READ_WRITE_TOKEN = "tok_public";
   process.env.PRIVATE_BLOB_READ_WRITE_TOKEN = "tok_private";
   process.env.AVAILABILITY_URL = "https://example.com/availability.json";
-  // Stripe is checked before the capacity pause gate.
   process.env.STRIPE_SECRET_KEY = "sk_test_checkout_gate";
   delete process.env.CAPACITY_MIGRATION_PAUSE;
 }
 
-test("checkout stays paused when store configured and both write flags off", async () => {
+test("checkout stays paused when booking writes on but PUBLIC_BOOKING_ENABLED unset", async () => {
   configureStoreEnv();
-  // Explicit 0 — memory store treats unset CAPACITY_WRITES as enabled.
   process.env.CAPACITY_WRITES_ENABLED = "0";
-  delete process.env.BOOKING_WRITES_ENABLED;
-  delete process.env.BOOKING_STORE;
+  process.env.BOOKING_STORE = "postgres";
+  process.env.BOOKING_WRITES_ENABLED = "1";
+  delete process.env.PUBLIC_BOOKING_ENABLED;
 
   const res = mockRes();
   await checkoutHandler(
@@ -76,17 +78,43 @@ test("checkout stays paused when store configured and both write flags off", asy
     res
   );
   assert.equal(res.statusCode, 503);
-  assert.equal(res.body?.code, "schedule_unavailable");
-  assert.equal(res.body?.capacityWritesPaused, true);
-  assert.match(String(res.body?.error || ""), /restore the calendar/);
+  assert.equal(res.body?.code, PUBLIC_BOOKING_PAUSED_CODE);
+  assert.equal(res.body?.publicBookingPaused, true);
 });
 
-test("checkout is not paused by capacity gate when BOOKING_WRITES_ENABLED=1", async () => {
+test("CAPACITY_WRITES_ENABLED cannot bypass the public booking gate", async () => {
+  configureStoreEnv();
+  process.env.CAPACITY_WRITES_ENABLED = "1";
+  process.env.BOOKING_STORE = "postgres";
+  process.env.BOOKING_WRITES_ENABLED = "1";
+  delete process.env.PUBLIC_BOOKING_ENABLED;
+
+  const res = mockRes();
+  await checkoutHandler(
+    {
+      method: "POST",
+      body: {
+        type: "single",
+        date: "2026-11-10",
+        time: "6:00 PM",
+        focus: "Hitting",
+        email: "gate@example.com",
+        player: "Gate",
+      },
+    },
+    res
+  );
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.body?.code, PUBLIC_BOOKING_PAUSED_CODE);
+});
+
+test("checkout passes public gate when BOOKING_WRITES and PUBLIC_BOOKING are both 1", async () => {
   configureStoreEnv();
   process.env.CAPACITY_WRITES_ENABLED = "0";
   process.env.BOOKING_STORE = "postgres";
   process.env.BOOKING_WRITES_ENABLED = "1";
-  // Invalid date fails later validation — proves we passed the capacity pause gate.
+  process.env.PUBLIC_BOOKING_ENABLED = "1";
+
   const res = mockRes();
   await checkoutHandler(
     {
@@ -102,10 +130,5 @@ test("checkout is not paused by capacity gate when BOOKING_WRITES_ENABLED=1", as
     },
     res
   );
-  const pausedByCapacity =
-    res.statusCode === 503 &&
-    res.body?.code === "schedule_unavailable" &&
-    res.body?.capacityWritesPaused === true &&
-    String(res.body?.error || "").includes("restore the calendar");
-  assert.equal(pausedByCapacity, false);
+  assert.notEqual(res.body?.code, PUBLIC_BOOKING_PAUSED_CODE);
 });

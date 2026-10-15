@@ -19,11 +19,10 @@ import {
 import { placeHold, releaseHold } from "../lib/holds.js";
 import {
   capacityStoreConfigured,
-  capacityWritesEnabled,
   storeConfigured,
 } from "../lib/store.js";
-import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
 import { capacityBookingBlockedMessage } from "../lib/capacityMigration.js";
+import { rejectIfPublicBookingClosed } from "../lib/publicBooking.js";
 import { bookWindowBlocked, isMembershipType, membershipTierOf } from "../lib/members.js";
 import {
   getMembershipCapacity,
@@ -142,18 +141,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Pause checkout only when neither Postgres booking writes nor legacy Blob
-  // capacity writes are enabled. G4 activation should set BOOKING_WRITES_ENABLED
-  // alone — do not re-enable CAPACITY_WRITES_ENABLED for checkout.
-  if (storeConfigured() && !capacityWritesEnabled() && !bookingWritesEnabled()) {
-    res.status(503).json({
-      error:
-        "Online booking is temporarily paused while we restore the calendar. No payment was taken — please try again shortly or call (405) 819-4401.",
-      code: "schedule_unavailable",
-      capacityWritesPaused: true,
-    });
-    return;
-  }
+  // New customer checkout requires Postgres booking writes AND an explicit
+  // PUBLIC_BOOKING_ENABLED=1. CAPACITY_WRITES alone cannot reopen public booking.
+  // Hold release / abandon cleanup above is intentionally ungated.
+  if (rejectIfPublicBookingClosed(res)) return;
   const migrationBlock = capacityBookingBlockedMessage();
   if (migrationBlock && (capacityStoreConfigured() || storeConfigured())) {
     res.status(503).json({
