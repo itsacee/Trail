@@ -80,14 +80,14 @@
       object-fit: cover;
     }
     .masthead__logo {
-      height: 28px;
+      display: block;
+      height: 22px;
       width: auto;
-      max-width: 120px;
+      max-width: min(132px, 34vw);
       object-fit: contain;
-      display: none;
     }
-    @media (min-width: 400px) {
-      .masthead__logo { display: block; }
+    @media (min-width: 520px) {
+      .masthead__logo { height: 28px; max-width: 150px; }
     }
     .masthead h1 {
       font-family: var(--display);
@@ -1179,7 +1179,7 @@
       if (cap) {
         const withCredits = memberLinks.filter((m) => Number(m.remaining) > 0).length;
         $("memCapacity").textContent =
-          `${memberLinks.length} credit windows · ${withCredits} of ${cap.limit} still have lessons left · ${cap.spotsAvailable} spot${cap.spotsAvailable === 1 ? "" : "s"} open`;
+          `${memberLinks.length} credit window${memberLinks.length === 1 ? "" : "s"} · ${withCredits} still have lessons left · ${cap.spotsAvailable} of ${cap.limit} roster spots open`;
       } else {
         $("memCapacity").textContent =
           "Membership credits are unavailable right now — everything else still works.";
