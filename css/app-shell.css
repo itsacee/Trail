@@ -170,8 +170,8 @@
     inset: auto;
     width: 100%;
     flex: 0 0 auto;
+    /* Full 3:2 frame of the original JPG — no cover crop / Ken Burns zoom */
     aspect-ratio: 3 / 2;
-    max-height: min(52svh, 420px);
     background: #050505;
     overflow: hidden;
   }
@@ -183,41 +183,45 @@
     transform: none;
     animation: none;
   }
+  /* Soft readability veil over the photo only — not a second layout crop */
   .hero--app .hero__shade,
   .hero--app .hero__grain {
     position: absolute;
-    inset: 0;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: calc(3.4rem + env(safe-area-inset-top, 0px) + 100vw * 2 / 3);
+    max-height: none;
     z-index: 1;
     pointer-events: none;
   }
   .hero--app .hero__shade {
     background:
-      linear-gradient(180deg, rgba(5, 5, 5, 0.62) 0%, rgba(5, 5, 5, 0.08) 28%, rgba(5, 5, 5, 0.15) 48%, rgba(5, 5, 5, 0.82) 72%, rgba(5, 5, 5, 0.98) 100%);
+      linear-gradient(180deg, rgba(5, 5, 5, 0.55) 0%, rgba(5, 5, 5, 0.12) 22%, rgba(5, 5, 5, 0.05) 55%, rgba(5, 5, 5, 0.45) 100%);
   }
   .hero--app .hero__inner {
     position: relative;
     z-index: 2;
-    margin-top: -4.5rem;
-    padding: 0 0 max(1.1rem, env(safe-area-inset-bottom));
-    padding-top: 0;
+    margin-top: 0;
+    padding: 0.85rem 0 max(1.1rem, env(safe-area-inset-bottom));
   }
   .hero--app .hero__copy {
     max-width: 100%;
-    padding-top: 0.2rem;
+    padding-top: 0;
   }
   .hero__brand {
-    margin: 0 0 0.45rem;
+    margin: 0 0 0.4rem;
   }
   .hero__brand-logo {
-    width: 52px;
+    width: 44px;
   }
-  /* ~32–40px on iPhone widths */
+  /* ~34–40px on iPhone widths */
   .hero--app .hero__title {
-    font-size: clamp(1.95rem, 8.4vw, 2.45rem); /* 31–39px */
-    line-height: 1.05;
-    letter-spacing: 0.025em;
-    max-width: 16ch;
-    margin: 0 0 0.5rem;
+    font-size: clamp(2.05rem, 8.8vw, 2.5rem); /* ~33–40px */
+    line-height: 1.06;
+    letter-spacing: 0.02em;
+    max-width: 14ch;
+    margin: 0 0 0.45rem;
   }
   .hero--app .hero__sub {
     font-size: 0.92rem;
