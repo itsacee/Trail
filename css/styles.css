@@ -91,11 +91,12 @@ h3 { font-size: 1.6rem; }
 }
 .btn--lg { padding: 1rem 2.2rem; font-size: 1.05rem; }
 .btn--primary {
-  background: linear-gradient(180deg, #f2f4f7 0%, #d3d9e0 55%, #b9c1ca 100%);
+  background: linear-gradient(180deg, #e0b93a 0%, var(--btn) 55%, #a88415 100%);
   color: var(--on-btn);
-  box-shadow: 0 8px 24px rgba(210, 216, 224, 0.22);
+  border-color: transparent;
+  box-shadow: 0 8px 24px rgba(201, 162, 39, 0.28);
 }
-.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(210, 216, 224, 0.32); }
+.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(201, 162, 39, 0.38); }
 .btn--ghost {
   border-color: var(--line);
   color: var(--text);
@@ -512,7 +513,7 @@ a.price-card .btn { text-align: center; }
 .price-card:hover { transform: translateY(-4px); }
 .price-card--featured {
   border-color: var(--accent);
-  box-shadow: 0 12px 48px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 48px rgba(201, 162, 39, 0.16);
 }
 .price-card__tag {
   position: absolute;
