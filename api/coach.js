@@ -37,6 +37,7 @@ import {
   privacyForPurchaseType,
   canPair,
   SLOT_CAPACITY,
+  normalizeLessonTime,
 } from "../lib/schedule.js";
 import { bookedTimes } from "./slots.js";
 import {
@@ -59,8 +60,29 @@ import {
 } from "../lib/bookingStore.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^\d{1,2}:\d{2} (AM|PM)$/;
 const BOOKING_TYPES = ["single", "thirty", "private", "membership", "membership_private"];
+
+/** Resolve coach-entered time into canonical "h:mm AM/PM", with clear errors. */
+function resolveCoachTime(raw, meridiem) {
+  const parsed = normalizeLessonTime(raw, { meridiem });
+  if (parsed.ok) return parsed;
+  if (parsed.error === "missing") {
+    return { ok: false, status: 400, error: "Choose a valid lesson time.", code: "missing_time" };
+  }
+  if (parsed.error === "ambiguous") {
+    const h = parsed.hour;
+    const mm = String(parsed.minute || 0).padStart(2, "0");
+    return {
+      ok: false,
+      status: 400,
+      error: `Is ${h}:${mm} AM or PM? Pick AM/PM and save again.`,
+      code: "ambiguous_time",
+      hour: parsed.hour,
+      minute: parsed.minute,
+    };
+  }
+  return { ok: false, status: 400, error: "Choose a valid lesson time.", code: "invalid_time" };
+}
 
 async function listOutstanding() {
   // Unpaid cash balances: prefer authoritative booking rows when reads are on
@@ -382,11 +404,21 @@ export default async function handler(req, res) {
     if (action === "move_booking") {
       const id = String(req.body?.id || "");
       const date = String(req.body?.date || "");
-      const time = String(req.body?.time || "");
-      if (!DATE_RE.test(date) || !TIME_RE.test(time)) {
-        res.status(400).json({ error: "Pick the new day and time (e.g. 6:00 PM)." });
+      if (!DATE_RE.test(date)) {
+        res.status(400).json({ error: "Select a lesson date.", code: "missing_date" });
         return;
       }
+      const resolved = resolveCoachTime(req.body?.time, req.body?.meridiem);
+      if (!resolved.ok) {
+        res.status(resolved.status).json({
+          error: resolved.error,
+          code: resolved.code,
+          hour: resolved.hour,
+          minute: resolved.minute,
+        });
+        return;
+      }
+      const time = resolved.label;
 
       const sessions = await fetchBookings(key);
       const row = sessions.find((s) => s.id === id);
@@ -712,14 +744,28 @@ export default async function handler(req, res) {
       const settings = await loadSettings();
       const type = BOOKING_TYPES.includes(req.body.type) ? req.body.type : "single";
       const date = String(req.body.date || "");
-      const time = String(req.body.time || "");
       const player = String(req.body.player || "").trim();
       const player2 = String(req.body.player2 || "").trim();
       const email = String(req.body.email || "").trim().toLowerCase();
-      if (!player || !DATE_RE.test(date) || !TIME_RE.test(time)) {
-        res.status(400).json({ error: "Need athlete, day, and time." });
+      if (!player) {
+        res.status(400).json({ error: "Enter an athlete name.", code: "missing_player" });
         return;
       }
+      if (!DATE_RE.test(date)) {
+        res.status(400).json({ error: "Select a lesson date.", code: "missing_date" });
+        return;
+      }
+      const resolved = resolveCoachTime(req.body?.time, req.body?.meridiem);
+      if (!resolved.ok) {
+        res.status(resolved.status).json({
+          error: resolved.error,
+          code: resolved.code,
+          hour: resolved.hour,
+          minute: resolved.minute,
+        });
+        return;
+      }
+      const time = resolved.label;
       const focus = normalizeFocus(req.body.focus || "Fielding", type);
       if (type === "private" && player2) {
         res.status(400).json({

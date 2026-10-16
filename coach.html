@@ -464,7 +464,7 @@
       margin-bottom: 0.3rem;
     }
     input[type="text"], input[type="email"], input[type="tel"],
-    input[type="number"], input[type="date"], input[type="password"],
+    input[type="number"], input[type="date"], input[type="time"], input[type="password"],
     input[type="search"], select, .search-input, textarea {
       width: 100%;
       background: var(--bg-elevated);
@@ -477,6 +477,42 @@
       padding: 0.7rem 0.85rem;
       -webkit-appearance: none;
       appearance: none;
+    }
+    .ampm {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+    }
+    .ampm__btn {
+      min-height: 48px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--bg-elevated);
+      color: var(--text);
+      font: inherit;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .ampm__btn.is-active {
+      background: var(--btn);
+      color: var(--on-btn);
+      border-color: var(--btn);
+    }
+    #slotOtherField .hint {
+      color: var(--dim);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+    #slotOtherField > .field { margin-top: 0.7rem; }
+    #slotOtherField > .field > span {
+      display: block;
+      color: var(--faint);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      margin-bottom: 0.3rem;
     }
     input::placeholder, .search-input::placeholder { color: var(--faint); }
     input:focus, select:focus, textarea:focus {
@@ -1576,27 +1612,170 @@
       return `
         <label class="field"><span>${label} day</span><input type="date" id="slotDate" value="${esc(date || "")}" min="${todayISO()}" /></label>
         <label class="field"><span>${label} time</span><select id="slotTime"></select></label>
-        <label class="field" id="slotOtherField" hidden><span>Time (e.g. 6:00 PM)</span><input type="text" id="slotOther" placeholder="6:00 PM" value="${esc(time || "")}" /></label>`;
+        <div id="slotOtherField" hidden>
+          <label class="field"><span>Custom time</span>
+            <input type="text" id="slotOther" inputmode="text" autocomplete="off" placeholder="5 or 5:00 or 5pm" value="${esc(time || "")}" />
+          </label>
+          <label class="field"><span>Native picker (iPhone-friendly)</span>
+            <input type="time" id="slotOtherNative" step="300" />
+          </label>
+          <div class="field"><span>AM / PM</span>
+            <div class="ampm" id="slotAmPm" role="group" aria-label="AM or PM">
+              <button type="button" class="ampm__btn" data-meridiem="AM">AM</button>
+              <button type="button" class="ampm__btn is-active" data-meridiem="PM">PM</button>
+            </div>
+            <p class="hint" id="slotTimeHint" style="margin:0.45rem 0 0">Training hours are usually PM. Tap AM only for morning make-ups.</p>
+          </div>
+        </div>`;
+    }
+
+    function parseFlexibleTime(raw, meridiem) {
+      const s = String(raw || "").trim();
+      if (!s) return { ok: false, error: "missing" };
+      // Canonical "5:00 PM"
+      let m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(s);
+      if (m) {
+        let h = parseInt(m[1], 10) % 12;
+        if (/PM/i.test(m[3])) h += 12;
+        const minutes = h * 60 + parseInt(m[2], 10);
+        return { ok: true, label: hhmmToLabel(`${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`), minutes };
+      }
+      // Native / strict 24h (zero-padded). Bare "5:00" is NOT 05:00 — needs AM/PM.
+      m = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/.exec(s);
+      if (m) {
+        const minutes = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        return { ok: true, label: hhmmToLabel(`${m[1]}:${m[2]}`), minutes };
+      }
+      // 5pm / 5:00pm
+      m = /^(\d{1,2})(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)$/i.exec(s);
+      if (m) {
+        const hour = parseInt(m[1], 10);
+        const minute = m[2] != null ? parseInt(m[2], 10) : 0;
+        if (hour < 1 || hour > 12) return { ok: false, error: "invalid" };
+        let h = hour % 12;
+        if (/p/i.test(m[3])) h += 12;
+        const minutes = h * 60 + minute;
+        return { ok: true, label: hhmmToLabel(`${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`), minutes };
+      }
+      // Bare 5 / 5:00 / 17
+      m = /^(\d{1,2})(?::([0-5]\d))?$/.exec(s);
+      if (m) {
+        const hour = parseInt(m[1], 10);
+        const minute = m[2] != null ? parseInt(m[2], 10) : 0;
+        if (minute > 59 || hour < 0 || hour > 23) return { ok: false, error: "invalid" };
+        if (hour >= 13) {
+          const minutes = hour * 60 + minute;
+          return { ok: true, label: hhmmToLabel(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`), minutes };
+        }
+        const mer = String(meridiem || "").trim().toUpperCase();
+        if (mer !== "AM" && mer !== "PM") {
+          return { ok: false, error: "ambiguous", hour: hour === 0 ? 12 : hour, minute };
+        }
+        const hour12 = hour === 0 ? 12 : hour;
+        let h = hour12 % 12;
+        if (mer === "PM") h += 12;
+        const minutes = h * 60 + minute;
+        return { ok: true, label: hhmmToLabel(`${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`), minutes };
+      }
+      return { ok: false, error: "invalid" };
     }
 
     function wireSlotPicker(mins, selected) {
       const dateEl = $("slotDate");
       const timeEl = $("slotTime");
       const otherField = $("slotOtherField");
+      const otherInput = $("slotOther");
+      const nativeInput = $("slotOtherNative");
+      const ampmBox = $("slotAmPm");
+      const hint = $("slotTimeHint");
       let duration = mins;
+      let meridiem = "PM";
+
+      const setMeridiem = (next) => {
+        meridiem = next === "AM" ? "AM" : "PM";
+        ampmBox.querySelectorAll(".ampm__btn").forEach((b) => {
+          b.classList.toggle("is-active", b.dataset.meridiem === meridiem);
+        });
+        refreshHint();
+      };
+
+      const refreshHint = () => {
+        if (otherField.hidden || !hint) return;
+        const raw = otherInput.value.trim() || (nativeInput.value ? nativeInput.value : "");
+        if (!raw) {
+          hint.textContent = "Type 5, 5pm, or 5:00 — or use the native picker. AM/PM defaults to PM.";
+          return;
+        }
+        const parsed = parseFlexibleTime(raw, meridiem);
+        if (parsed.ok) {
+          hint.textContent = `Will save as ${parsed.label}.`;
+          return;
+        }
+        if (parsed.error === "ambiguous") {
+          hint.textContent = `Is ${parsed.hour}:${String(parsed.minute).padStart(2, "0")} AM or PM? Tap AM or PM above.`;
+          return;
+        }
+        hint.textContent = "Choose a valid lesson time (examples: 5, 5pm, 5:00 PM, 17:00).";
+      };
+
       const fill = () => {
         const list = dateEl.value ? timesForDate(dateEl.value, duration) : [];
+        const inList = selected && list.includes(selected);
         timeEl.innerHTML =
           list.map((t) => `<option value="${t}"${t === selected ? " selected" : ""}>${t}</option>`).join("") +
           '<option value="__other">Another time (outside hours)…</option>';
-        if (!list.length) timeEl.value = "__other";
+        if (!list.length || (selected && !inList)) {
+          timeEl.value = "__other";
+          if (selected && !inList && otherInput && !otherInput.value) otherInput.value = selected;
+        }
         otherField.hidden = timeEl.value !== "__other";
+        refreshHint();
       };
+
       dateEl.addEventListener("change", fill);
-      timeEl.addEventListener("change", () => { otherField.hidden = timeEl.value !== "__other"; });
+      timeEl.addEventListener("change", () => {
+        otherField.hidden = timeEl.value !== "__other";
+        refreshHint();
+      });
+      otherInput?.addEventListener("input", () => {
+        // If they type 5pm, keep AM/PM UI in sync when parseable.
+        const typed = otherInput.value.trim();
+        const withMer = /([ap])\.?m\.?$/i.exec(typed);
+        if (withMer) setMeridiem(/p/i.test(withMer[1]) ? "PM" : "AM");
+        else refreshHint();
+      });
+      nativeInput?.addEventListener("change", () => {
+        if (!nativeInput.value) return;
+        // Mirror native picker into the text field as 24h so Save can normalize it.
+        otherInput.value = nativeInput.value;
+        refreshHint();
+      });
+      ampmBox?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-meridiem]");
+        if (!btn) return;
+        setMeridiem(btn.dataset.meridiem);
+      });
+      setMeridiem("PM");
       fill();
       return {
-        read: () => (timeEl.value === "__other" ? $("slotOther").value.trim() : timeEl.value),
+        read: () => {
+          if (timeEl.value !== "__other") {
+            return { ok: true, label: timeEl.value, meridiem: "" };
+          }
+          const raw = otherInput.value.trim() || nativeInput.value || "";
+          const parsed = parseFlexibleTime(raw, meridiem);
+          if (!parsed.ok) {
+            return {
+              ok: false,
+              error: parsed.error,
+              hour: parsed.hour,
+              minute: parsed.minute,
+              meridiem,
+              raw,
+            };
+          }
+          return { ok: true, label: parsed.label, meridiem, raw };
+        },
         setDuration: (m) => { duration = m; fill(); },
       };
     }
@@ -1615,21 +1794,35 @@
       );
       const slot = wireSlotPicker(mins, s.time);
       $("moveCancel").addEventListener("click", closeSheet);
+      let moving = false;
       $("moveGo").addEventListener("click", async () => {
+        if (moving) return;
         const btn = $("moveGo");
         const date = $("slotDate").value;
-        const time = slot.read();
-        if (!date || !time) {
-          $("sheetMsg").textContent = "Pick a day and a time.";
+        if (!date) {
+          $("sheetMsg").textContent = "Select a lesson date.";
           return;
         }
+        const picked = slot.read();
+        if (!picked.ok) {
+          if (picked.error === "ambiguous") {
+            $("sheetMsg").textContent = `Is ${picked.hour}:${String(picked.minute || 0).padStart(2, "0")} AM or PM? Tap AM or PM, then save.`;
+          } else if (picked.error === "missing") {
+            $("sheetMsg").textContent = "Choose a valid lesson time.";
+          } else {
+            $("sheetMsg").textContent = "Choose a valid lesson time.";
+          }
+          return;
+        }
+        moving = true;
         btn.disabled = true;
         btn.textContent = "Moving…";
         const body = {
           action: "move_booking",
           id: s.id,
           date,
-          time,
+          time: picked.label,
+          meridiem: picked.meridiem || undefined,
           notify: $("moveNotify").checked,
           message: $("moveNote").value.trim(),
         };
@@ -1639,6 +1832,7 @@
           alert(data.notified ? "Moved — they've been emailed the new time." : "Moved.");
         } catch (err) {
           $("sheetMsg").textContent = err.message;
+          moving = false;
           btn.disabled = false;
           btn.textContent = "Move this lesson";
         }
@@ -1698,14 +1892,35 @@
         slot.setDuration(DURATIONS[typeEl.value] || 60);
       });
       typeEl.dispatchEvent(new Event("change"));
+      let saving = false;
       $("addGo").addEventListener("click", async () => {
+        if (saving) return;
         const btn = $("addGo");
         const pay = $("addPay").value;
-        const time = slot.read();
-        if (!$("addPlayer").value.trim() || !$("slotDate").value || !time) {
-          $("sheetMsg").textContent = "Need an athlete, a day, and a time.";
+        const player = $("addPlayer").value.trim();
+        const date = $("slotDate").value;
+        if (!player) {
+          $("sheetMsg").textContent = "Enter an athlete name.";
           return;
         }
+        if (!date) {
+          $("sheetMsg").textContent = "Select a lesson date.";
+          return;
+        }
+        const picked = slot.read();
+        if (!picked.ok) {
+          if (picked.error === "ambiguous") {
+            $("sheetMsg").textContent = `Is ${picked.hour}:${String(picked.minute || 0).padStart(2, "0")} AM or PM? Tap AM or PM, then save.`;
+          } else {
+            $("sheetMsg").textContent = "Choose a valid lesson time.";
+          }
+          return;
+        }
+        // Confirm ambiguous-looking bare entries after PM default so coach sees the result.
+        if (picked.raw && /^\d{1,2}(?::\d{2})?$/i.test(picked.raw.trim()) && !/(am|pm)/i.test(picked.raw)) {
+          if (!window.confirm(`Save this lesson at ${picked.label}?`)) return;
+        }
+        saving = true;
         btn.disabled = true;
         btn.textContent = "Saving…";
         try {
@@ -1713,9 +1928,10 @@
             action: "create_booking",
             type: typeEl.value,
             focus: $("addFocus").value,
-            date: $("slotDate").value,
-            time,
-            player: $("addPlayer").value.trim(),
+            date,
+            time: picked.label,
+            meridiem: picked.meridiem || undefined,
+            player,
             player2: $("addPlayer2").value.trim(),
             email: $("addEmail").value.trim(),
             phone: $("addPhone").value.trim(),
@@ -1725,6 +1941,7 @@
           closeSheet();
         } catch (err) {
           $("sheetMsg").textContent = err.message;
+          saving = false;
           btn.disabled = false;
           btn.textContent = "Save lesson";
         }
