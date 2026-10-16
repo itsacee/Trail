@@ -218,12 +218,12 @@
   .hero__brand-logo {
     width: 44px;
   }
-  /* ~34–40px on iPhone widths */
+  /* ~34–40px on iPhone widths — keep as two intentional lines */
   .hero--app .hero__title {
     font-size: clamp(2.05rem, 8.8vw, 2.5rem); /* ~33–40px */
     line-height: 1.06;
     letter-spacing: 0.02em;
-    max-width: 14ch;
+    max-width: 20ch;
     margin: 0 0 0.45rem;
   }
   .hero--app .hero__sub {
