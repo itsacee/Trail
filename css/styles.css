@@ -1482,18 +1482,13 @@ html.js .hero__copy .reveal:nth-child(5) { transition-delay: 0.5s; }
   .coach__photo { max-width: 380px; margin-inline: auto; width: 100%; }
   .footer__grid { grid-template-columns: 1fr 1fr; }
 
-  .hero { min-height: 100dvh; }
-  .hero__media img { object-position: 62% 38%; }
-  .hero__shade {
-    background:
-      linear-gradient(180deg, rgba(5, 5, 5, 0.55) 0%, rgba(5, 5, 5, 0.22) 28%, rgba(5, 5, 5, 0.94) 100%),
-      linear-gradient(90deg, rgba(5, 5, 5, 0.5) 0%, transparent 55%);
-  }
-  .hero__inner { align-items: flex-end; padding: 6.5rem 0 1.4rem; }
-  .hero__copy { max-width: 100%; }
-  .hero__title { font-size: clamp(2.5rem, 11vw, 4.1rem); }
-  .hero__actions { width: 100%; }
-  .hero__actions .btn { width: 100%; }
+  /* Homepage hero mobile sizing is owned by css/app-shell.css (.hero--app).
+     Keep a calmer default for non-app heroes (about, etc.). */
+  .hero:not(.hero--app) { min-height: 100dvh; }
+  .hero:not(.hero--app) .hero__media img { object-position: 50% 40%; }
+  .hero:not(.hero--app) .hero__title { font-size: clamp(2rem, 8vw, 2.6rem); }
+  .hero:not(.hero--app) .hero__actions { width: 100%; }
+  .hero:not(.hero--app) .hero__actions .btn { width: 100%; }
   .stat { text-align: center; padding: 1rem 0.25rem; }
   .stat + .stat { padding-left: 0.25rem; }
   .stat__label { font-size: 0.62rem; letter-spacing: 0.08em; }
@@ -1571,8 +1566,8 @@ html.js .hero__copy .reveal:nth-child(5) { transition-delay: 0.5s; }
   .booking__grid { grid-template-columns: 1fr; }
   .booking__selected { flex-wrap: wrap; }
   .booking__change { margin-left: 0; }
-  .hero__title { font-size: clamp(2.3rem, 11vw, 3.1rem); }
-  .hero__sub { font-size: 0.98rem; margin-bottom: 1.3rem; }
+  .hero:not(.hero--app) .hero__title { font-size: clamp(1.9rem, 8vw, 2.4rem); }
+  .hero:not(.hero--app) .hero__sub { font-size: 0.98rem; margin-bottom: 1.3rem; }
   .partners { grid-template-columns: 1fr 1fr 1fr; max-width: none; gap: 0.7rem; }
   .partner__role, .partner__cta { display: none; }
   .partner__name { font-size: 0.72rem; }

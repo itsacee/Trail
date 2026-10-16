@@ -1,40 +1,119 @@
 /* Premium app-shell overlays for public + member portal (iPhone-first). */
 
+/* ---------- Compact mobile header ---------- */
+@media (max-width: 900px) {
+  .app-public .nav__inner {
+    gap: 0.55rem;
+    padding: max(0.45rem, env(safe-area-inset-top)) 0 0.45rem;
+    min-height: 0;
+  }
+  .app-public .nav__logo {
+    height: 32px;
+  }
+  .app-public .nav__logo img {
+    height: 32px;
+  }
+  .app-public .nav__name--solo {
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
+  }
+  /* One gold Book CTA + menu — Member Login lives in menu + hero */
+  .app-public .nav__cta--secondary {
+    display: none;
+  }
+  .app-public .nav__cta--book {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .app-public .nav__burger {
+    padding: 8px 6px;
+  }
+  .app-public .nav__burger span {
+    width: 20px;
+    height: 2px;
+  }
+}
+
+/* ---------- Hero: zoomed-out photo, balanced type ---------- */
 .hero--app {
-  min-height: 100svh;
+  min-height: min(100svh, 920px);
   display: flex;
   align-items: flex-end;
+  overflow: hidden;
 }
+
+/* Desktop: cover with calmer crop — no Ken Burns zoom-in */
+.hero--app .hero__media {
+  background: #050505;
+}
+.hero--app .hero__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 52% 42%;
+  transform: none;
+  animation: none;
+}
+
 .hero--app .hero__inner {
-  padding-bottom: clamp(2.5rem, 8vh, 5rem);
-  padding-top: 6rem;
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding-top: 5.5rem;
+  padding-bottom: clamp(1.75rem, 5vh, 3.25rem);
+}
+.hero--app .hero__copy {
+  max-width: 28rem;
 }
 .hero__brand {
-  margin: 0 0 1rem;
+  margin: 0 0 0.65rem;
 }
 .hero__brand-logo {
-  width: min(220px, 58vw);
+  display: block;
+  width: 72px;
   height: auto;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.55));
 }
 .hero--app .hero__title {
-  font-size: clamp(2.8rem, 9vw, 4.6rem);
-  max-width: 12ch;
+  font-size: clamp(2.15rem, 3.6vw, 3.35rem);
+  line-height: 0.98;
+  letter-spacing: 0.02em;
+  max-width: 14ch;
+  margin: 0 0 0.7rem;
+  text-wrap: balance;
 }
 .hero--app .hero__sub {
   max-width: 34ch;
-  color: rgba(247, 247, 248, 0.88);
+  margin: 0 0 1.15rem;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: rgba(247, 247, 248, 0.86);
 }
 .hero--app .hero__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+  gap: 0.55rem;
+  margin-top: 0;
+}
+.hero--app .hero__actions .btn {
+  padding: 0.72rem 1.35rem;
+  font-size: 0.9rem;
+  min-height: 44px;
+  border-radius: 14px;
+}
+.hero--app .hero__actions .btn--lg {
+  /* legacy class no longer used for oversized pills */
+  padding: 0.72rem 1.35rem;
+  font-size: 0.9rem;
 }
 .hero--app .hero__shade {
   background:
-    linear-gradient(180deg, rgba(5, 5, 5, 0.25) 0%, rgba(5, 5, 5, 0.55) 45%, rgba(5, 5, 5, 0.92) 100%),
-    radial-gradient(120% 80% at 70% 10%, rgba(201, 162, 39, 0.18), transparent 55%);
+    linear-gradient(90deg, rgba(5, 5, 5, 0.78) 0%, rgba(5, 5, 5, 0.35) 42%, rgba(5, 5, 5, 0.12) 70%, transparent 100%),
+    linear-gradient(180deg, rgba(5, 5, 5, 0.35) 0%, rgba(5, 5, 5, 0.08) 38%, rgba(5, 5, 5, 0.72) 78%, rgba(5, 5, 5, 0.94) 100%);
 }
 
 .section--compact { padding: 1.75rem 0 0.5rem; }
@@ -69,6 +148,120 @@
 }
 .btn--ghost:hover { border-color: var(--accent); color: #fff; }
 .nav__cta--secondary { margin-right: 0.4rem; }
+
+/* ---------- Mobile hero: show more of original photo ---------- */
+@media (max-width: 900px) {
+  .hero--app {
+    /* Compact first screen — next section peekable below CTAs */
+    position: relative;
+    min-height: 0;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: calc(3.4rem + env(safe-area-inset-top, 0px));
+  }
+  /*
+   * Pull media out of absolute fill so we can size it to the photo's 3:2 ratio
+   * and zoom OUT (object-fit: contain) instead of face-cropping with cover.
+   */
+  .hero--app .hero__media {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    flex: 0 0 auto;
+    aspect-ratio: 3 / 2;
+    max-height: min(52svh, 420px);
+    background: #050505;
+    overflow: hidden;
+  }
+  .hero--app .hero__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center center;
+    transform: none;
+    animation: none;
+  }
+  .hero--app .hero__shade,
+  .hero--app .hero__grain {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .hero--app .hero__shade {
+    background:
+      linear-gradient(180deg, rgba(5, 5, 5, 0.62) 0%, rgba(5, 5, 5, 0.08) 28%, rgba(5, 5, 5, 0.15) 48%, rgba(5, 5, 5, 0.82) 72%, rgba(5, 5, 5, 0.98) 100%);
+  }
+  .hero--app .hero__inner {
+    position: relative;
+    z-index: 2;
+    margin-top: -4.5rem;
+    padding: 0 0 max(1.1rem, env(safe-area-inset-bottom));
+    padding-top: 0;
+  }
+  .hero--app .hero__copy {
+    max-width: 100%;
+    padding-top: 0.2rem;
+  }
+  .hero__brand {
+    margin: 0 0 0.45rem;
+  }
+  .hero__brand-logo {
+    width: 52px;
+  }
+  /* ~32–40px on iPhone widths */
+  .hero--app .hero__title {
+    font-size: clamp(1.95rem, 8.4vw, 2.45rem); /* 31–39px */
+    line-height: 1.05;
+    letter-spacing: 0.025em;
+    max-width: 16ch;
+    margin: 0 0 0.5rem;
+  }
+  .hero--app .hero__sub {
+    font-size: 0.92rem;
+    line-height: 1.4;
+    max-width: 32ch;
+    margin: 0 0 0.95rem;
+  }
+  .hero--app .hero__actions {
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .hero--app .hero__actions .btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    width: auto;
+    min-width: 0;
+    padding: 0.68rem 0.9rem;
+    font-size: 0.86rem;
+    min-height: 44px;
+    border-radius: 12px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 430px) {
+  .hero--app .hero__media {
+    max-height: min(50svh, 400px);
+  }
+  .hero--app .hero__title {
+    font-size: clamp(1.9rem, 8.2vw, 2.35rem);
+  }
+}
+
+@media (max-width: 375px) {
+  .hero--app .hero__title {
+    font-size: 1.9rem; /* 30.4px — within target band */
+  }
+  .app-public .nav__name--solo {
+    font-size: 1.05rem;
+  }
+  .app-public .nav__cta--book {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.74rem;
+  }
+}
 
 /* ---------- Member app shell ---------- */
 body.page-member-app {
@@ -300,5 +493,21 @@ body.page-member-app {
     display: grid;
     grid-template-columns: 1.1fr 0.9fr;
     gap: 0.85rem;
+  }
+  /* Desktop nav keeps full "Book Training" label */
+  .nav__cta--book {
+    min-width: 8.5rem;
+  }
+  .nav__cta--book::after {
+    /* keep label as Book on mobile; desktop shows Book Training via HTML — override below */
+  }
+}
+
+/* Desktop: restore fuller Book label via CSS content only if short "Book" is awkward —
+   index uses "Book" for mobile fit; expand on desktop */
+@media (min-width: 901px) {
+  .nav__cta--book {
+    font-size: 0.9rem;
+    padding: 0.7rem 1.25rem;
   }
 }
