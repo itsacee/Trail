@@ -4,125 +4,169 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#050505" />
-  <title>Member Login | AP Academy</title>
-  <meta name="description" content="AP Academy members: sign in to book your next lesson and see how many you have left." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Members | AP Academy</title>
+  <meta name="description" content="AP Academy members: sign in with a one-time code, see credits, and book your next lesson." />
   <link rel="icon" type="image/png" href="img/logo-mark.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/app-shell.css" />
 </head>
-<body class="page-book">
+<body class="page-book page-member-app">
 
-  <header class="nav" id="top">
-    <div class="nav__inner container">
-      <a class="nav__brand" href="index.html">
-        <span class="nav__logo">
-          <img src="img/logo-mark.png" alt="AP Academy logo" />
-        </span>
-        <span class="nav__name nav__name--solo">AP&nbsp;Academy</span>
+  <div class="member-app" id="memberApp">
+    <header class="member-top">
+      <a class="member-top__brand" href="index.html">
+        <img src="img/logo-mark.png" alt="" />
+        <span class="member-top__title">AP Academy</span>
       </a>
-      <nav class="nav__links" id="navLinks">
-        <a href="index.html#partners">Coaching</a>
-        <a href="index.html#programs">Pricing</a>
-        <div class="nav__more">
-          <button type="button" class="nav__more-btn" aria-expanded="false" aria-haspopup="true">More</button>
-          <div class="nav__more-menu">
-            <a href="about.html">Coach</a>
-            <a href="instagram.html">Training Videos</a>
-            <a href="faq.html">FAQ</a>
-            <a href="account.html" aria-current="page">Members</a>
-            <a href="contact.html">Contact</a>
-            <a href="apply.html">3 days a week</a>
-          </div>
-        </div>
-      </nav>
-      <a class="btn btn--primary nav__cta" href="book.html">Book Training</a>
-      <button class="nav__burger" id="navBurger" aria-label="Open menu" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </header>
+      <a class="btn btn--ghost" href="book.html" style="padding:0.45rem 0.9rem;font-size:0.85rem">Book</a>
+    </header>
 
-  <section class="section book-page" id="account">
-    <div class="container container--narrow">
-      <p class="eyebrow center">Members</p>
-      <h1 class="center" id="acctTitle">Book Your Next Lesson</h1>
-      <p class="section__sub center" id="acctLead">Sign in with the email on your membership. We'll send a link — no password to remember.</p>
+    <!-- LOGIN -->
+    <section class="member-panel is-active" id="loginCard" data-panel="login">
+      <div class="login-hero">
+        <img src="img/logo-mark.png" alt="AP Academy" />
+        <h1>Member Login</h1>
+        <p class="member-muted">Enter the email on your membership. We’ll email a 6-digit code — no password.</p>
+      </div>
 
-      <div class="booking" id="loginCard">
+      <div class="member-card" id="otpEmailStep">
         <form id="loginForm" novalidate>
           <div class="booking__field">
             <label for="loginEmail">Email on your membership</label>
             <input type="email" id="loginEmail" name="email" placeholder="you@email.com" autocomplete="email" inputmode="email" required />
           </div>
-          <button type="submit" class="btn btn--primary btn--lg booking__submit" id="loginSubmit">Email me a sign-in link</button>
-          <p class="booking__note">Already a member? Use the same email you paid with.</p>
+          <button type="submit" class="btn btn--primary btn--lg booking__submit" id="loginSubmit">Send sign-in code</button>
+          <p class="booking__note">Use the same email you paid with. Codes expire in 10 minutes.</p>
           <p class="booking__status" id="loginStatus" role="status"></p>
         </form>
+        <button type="button" class="booking__change" id="useMagicLink" style="margin-top:0.75rem">Email me a magic link instead</button>
       </div>
 
-      <div class="booking" id="dashCard" hidden>
-        <div class="site-notice" id="acctNotice" hidden></div>
-        <div class="acct__top">
-          <div>
-            <strong id="acctPlayer">Member</strong>
-            <span id="acctCredits"></span>
+      <div class="member-card" id="otpCodeStep" hidden>
+        <h3>Enter your code</h3>
+        <p class="member-muted" id="otpHint">We sent a 6-digit code to your email.</p>
+        <form id="otpForm" novalidate>
+          <div class="otp-inputs" id="otpInputs" aria-label="One-time code">
+            <input inputmode="numeric" maxlength="1" pattern="[0-9]*" autocomplete="one-time-code" aria-label="Digit 1" />
+            <input inputmode="numeric" maxlength="1" pattern="[0-9]*" aria-label="Digit 2" />
+            <input inputmode="numeric" maxlength="1" pattern="[0-9]*" aria-label="Digit 3" />
+            <input inputmode="numeric" maxlength="1" pattern="[0-9]*" aria-label="Digit 4" />
+            <input inputmode="numeric" maxlength="1" pattern="[0-9]*" aria-label="Digit 5" />
+            <input inputmode="numeric" maxlength="1" pattern="[0-9]*" aria-label="Digit 6" />
           </div>
-          <button type="button" class="booking__change" id="signOut">Sign out</button>
-        </div>
-
-        <p class="acct__whoami" id="acctWhoami">
-          Signed in as <strong id="acctWhoName">this member</strong>
-          <button type="button" id="switchUser">Not you? Use a different email</button>
-        </p>
-
-        <div id="acctMemberships" class="acct__memberships" hidden></div>
-
-        <p class="booking__where" id="acctExpiry" hidden></p>
-        <p class="booking__where" id="acctWhere" hidden></p>
-
-        <div class="acct__lessons" id="acctLessons"></div>
-
-        <form id="weekForm" hidden>
-          <h3 class="booking__step-title" id="weekFormTitle"><span class="booking__step-num">+</span> Book another lesson</h3>
-          <div class="booking__field" id="memPurchaseField" hidden style="margin-bottom:1.1rem">
-            <label for="memPurchase">Which membership are you using?</label>
-            <select id="memPurchase"></select>
-          </div>
-          <div class="booking__field" style="margin-bottom:1.1rem">
-            <label for="memFocus">What should we work on?</label>
-            <select id="memFocus">
-              <option value="Both">Hitting &amp; Fielding</option>
-              <option value="Hitting">Hitting</option>
-              <option value="Fielding">Fielding</option>
-            </select>
-          </div>
-          <div class="booking__calendar" id="memCalendar"></div>
-          <div class="booking__times" id="memTimes" hidden>
-            <p class="booking__times-title" id="memTimesTitle">Open times</p>
-            <div class="booking__chips" id="memTimeChips" role="radiogroup" aria-label="Lesson time"></div>
-            <p class="booking__note booking__note--tight" id="memTimesNote"></p>
-          </div>
-          <button type="submit" class="btn btn--primary btn--lg booking__submit" id="weekSubmit">Lock in this lesson</button>
-          <p class="booking__note">4 lessons per month · book any open day before your membership expires · same focus can share a time (2 athletes), including Hitting &amp; Fielding · unused lessons don't roll over · does not auto-renew</p>
-          <p class="booking__status" id="weekStatus" role="status"></p>
+          <button type="submit" class="btn btn--primary btn--lg booking__submit" id="otpSubmit">Open my dashboard</button>
+          <p class="booking__status" id="otpStatus" role="status"></p>
         </form>
-
-        <p class="booking__status booking__status--ok" id="acctMsg" hidden></p>
+        <button type="button" class="booking__change" id="otpResend">Resend code</button>
+        <button type="button" class="booking__change" id="otpBack">Use a different email</button>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <footer class="footer">
-    <div class="container footer__bottom">
-      <p>&copy; <span id="year"></span> AP Academy · Ace Performance</p>
-      <p class="footer__credit"><img src="img/logo-mark.png" alt="" />Powered by AP</p>
+    <!-- DASHBOARD SHELL -->
+    <div id="dashCard" hidden>
+      <nav class="tabbar" id="tabbar" aria-label="Member navigation">
+        <button type="button" class="is-active" data-tab="home"><span class="icon" aria-hidden="true">⌂</span>Home</button>
+        <button type="button" data-tab="lessons"><span class="icon" aria-hidden="true">◷</span>Lessons</button>
+        <button type="button" data-tab="membership"><span class="icon" aria-hidden="true">◆</span>Plan</button>
+        <button type="button" data-tab="account"><span class="icon" aria-hidden="true">●</span>Account</button>
+      </nav>
+
+      <section class="member-panel is-active" id="panel-home" data-panel="home">
+        <div class="member-card">
+          <p class="eyebrow">Welcome back</p>
+          <h2 id="acctPlayer">Member</h2>
+          <p class="member-muted" id="acctWhoami">Signed in</p>
+          <div class="member-kpi">
+            <div class="member-kpi__cell">
+              <span class="member-kpi__val" id="homeRemaining">—</span>
+              <span class="member-kpi__label">Credits left</span>
+            </div>
+            <div class="member-kpi__cell">
+              <span class="member-kpi__val" id="homeUsed">—</span>
+              <span class="member-kpi__label">Used</span>
+            </div>
+          </div>
+          <p class="member-muted" id="acctCredits" style="margin-top:0.75rem"></p>
+          <p class="booking__where" id="acctExpiry" hidden></p>
+        </div>
+        <div class="member-card" id="homeNextCard">
+          <h3>Next lesson</h3>
+          <div id="homeNextLesson" class="member-muted">No upcoming lesson yet.</div>
+        </div>
+        <button type="button" class="btn btn--primary btn--lg booking__submit" id="homeBookBtn">Book a lesson</button>
+        <div class="site-notice" id="acctNotice" hidden style="margin-top:0.85rem"></div>
+      </section>
+
+      <section class="member-panel" id="panel-lessons" data-panel="lessons">
+        <div class="member-card">
+          <h2>My lessons</h2>
+          <p class="member-muted">Upcoming and recent appointments on this membership.</p>
+          <div class="acct__lessons" id="acctLessons"></div>
+        </div>
+        <div class="member-card" id="weekFormCard">
+          <form id="weekForm" hidden>
+            <h3 class="booking__step-title" id="weekFormTitle"><span class="booking__step-num">+</span> Book another lesson</h3>
+            <div class="booking__field" id="memPurchaseField" hidden style="margin-bottom:1.1rem">
+              <label for="memPurchase">Which membership are you using?</label>
+              <select id="memPurchase"></select>
+            </div>
+            <div class="booking__field" style="margin-bottom:1.1rem">
+              <label for="memFocus">What should we work on?</label>
+              <select id="memFocus">
+                <option value="Both">Hitting &amp; Fielding</option>
+                <option value="Hitting">Hitting</option>
+                <option value="Fielding">Fielding</option>
+              </select>
+            </div>
+            <div class="booking__calendar" id="memCalendar"></div>
+            <div class="booking__times" id="memTimes" hidden>
+              <p class="booking__times-title" id="memTimesTitle">Open times</p>
+              <div class="booking__chips" id="memTimeChips" role="radiogroup" aria-label="Lesson time"></div>
+              <p class="booking__note booking__note--tight" id="memTimesNote"></p>
+            </div>
+            <button type="submit" class="btn btn--primary btn--lg booking__submit" id="weekSubmit">Lock in this lesson</button>
+            <p class="booking__note">4 lessons per membership · Hitting + Fielding uses 1 credit · unused lessons don’t roll over · no auto-renew</p>
+            <p class="booking__status" id="weekStatus" role="status"></p>
+          </form>
+        </div>
+        <p class="booking__status booking__status--ok" id="acctMsg" hidden></p>
+      </section>
+
+      <section class="member-panel" id="panel-membership" data-panel="membership">
+        <div class="member-card">
+          <h2>Membership</h2>
+          <p class="member-muted" id="planLabel">Standard Membership</p>
+          <div class="credit-bar" aria-hidden="true"><span id="creditBarFill" style="width:0%"></span></div>
+          <p class="member-muted" id="planProgress">0 of 4 used</p>
+          <p class="booking__where" id="planWindow"></p>
+        </div>
+        <div id="acctMemberships" class="acct__memberships"></div>
+        <a class="btn btn--primary btn--lg booking__submit" href="book.html?type=membership">Purchase a new membership</a>
+      </section>
+
+      <section class="member-panel" id="panel-account" data-panel="account">
+        <div class="member-card">
+          <h2>Account</h2>
+          <p class="member-muted">Signed in as <strong id="acctWhoName">member</strong></p>
+          <p class="member-muted" id="acctWhere" hidden></p>
+          <button type="button" class="btn btn--ghost booking__submit" id="switchUser" style="margin-top:0.75rem">Use a different email</button>
+          <button type="button" class="btn btn--primary booking__submit" id="signOut" style="margin-top:0.55rem">Log out</button>
+        </div>
+        <div class="member-card">
+          <h3>Need help?</h3>
+          <p class="member-muted">Call or text <a href="tel:+14058194401">(405) 819-4401</a></p>
+          <p class="member-muted"><a href="faq.html">FAQ</a> · <a href="contact.html">Contact</a></p>
+        </div>
+      </section>
     </div>
-  </footer>
+  </div>
 
   <script src="js/booking-core.js"></script>
-  <script src="js/main.js"></script>
   <script src="js/account.js"></script>
 </body>
 </html>

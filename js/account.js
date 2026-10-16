@@ -122,16 +122,66 @@
     return { res, data };
   }
 
+  const otpEmailStep = document.getElementById("otpEmailStep");
+  const otpCodeStep = document.getElementById("otpCodeStep");
+  const otpForm = document.getElementById("otpForm");
+  const otpStatus = document.getElementById("otpStatus");
+  const otpInputs = [...(document.querySelectorAll("#otpInputs input") || [])];
+  let pendingEmail = "";
+
+  function setTab(name) {
+    document.querySelectorAll(".tabbar button").forEach((b) => {
+      b.classList.toggle("is-active", b.dataset.tab === name);
+    });
+    document.querySelectorAll("#dashCard .member-panel").forEach((p) => {
+      p.classList.toggle("is-active", p.dataset.panel === name);
+    });
+  }
+
   function showLogin(msg) {
     dashCard.hidden = true;
     loginCard.hidden = false;
-    if (msg) loginStatus.textContent = msg;
+    loginCard.classList.add("is-active");
+    if (otpEmailStep) otpEmailStep.hidden = false;
+    if (otpCodeStep) otpCodeStep.hidden = true;
+    if (msg && loginStatus) loginStatus.textContent = msg;
   }
 
   function showDash() {
     loginCard.hidden = true;
+    loginCard.classList.remove("is-active");
     dashCard.hidden = false;
+    setTab("home");
   }
+
+  function otpCodeValue() {
+    return otpInputs.map((i) => i.value.replace(/\D/g, "")).join("");
+  }
+
+  function wireOtpInputs() {
+    otpInputs.forEach((input, idx) => {
+      input.addEventListener("input", () => {
+        input.value = input.value.replace(/\D/g, "").slice(0, 1);
+        if (input.value && otpInputs[idx + 1]) otpInputs[idx + 1].focus();
+      });
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Backspace" && !input.value && otpInputs[idx - 1]) {
+          otpInputs[idx - 1].focus();
+        }
+      });
+      input.addEventListener("paste", (e) => {
+        const text = (e.clipboardData || window.clipboardData).getData("text") || "";
+        const digits = text.replace(/\D/g, "").slice(0, 6);
+        if (digits.length < 2) return;
+        e.preventDefault();
+        digits.split("").forEach((d, i) => {
+          if (otpInputs[i]) otpInputs[i].value = d;
+        });
+        (otpInputs[Math.min(digits.length, 5)] || otpInputs[5]).focus();
+      });
+    });
+  }
+  if (otpInputs.length) wireOtpInputs();
 
   /* ---------- day & time picking ---------- */
 
@@ -416,36 +466,63 @@
       : tierLabel;
     const whoName = document.getElementById("acctWhoName");
     if (whoName) whoName.textContent = data.email || player || "this member";
-    document.getElementById("acctCredits").textContent = multi
-      ? `${openMemberships(data).length} active · booking with ${tierLabel}`
-      : `${left} of ${mem.credits || 4} lessons left${
-          mem.membershipTier === "private" ? " · private hours" : ""
-        }${
-          expires ? (status.membershipFrozen ? ` · paused clock · use by ${expires}` : ` · use by ${expires}`) : ""
-        }`;
+    const creditsEl = document.getElementById("acctCredits");
+    if (creditsEl) {
+      creditsEl.textContent = multi
+        ? `${openMemberships(data).length} active · booking with ${tierLabel}`
+        : `${left} of ${mem.credits || 4} lessons left${
+            mem.membershipTier === "private" ? " · private hours" : ""
+          }${
+            expires ? (status.membershipFrozen ? ` · paused clock · use by ${expires}` : ` · use by ${expires}`) : ""
+          }`;
+    }
     const bookable = bookableMemberships(data);
     const canBook = bookable.length > 0;
-    document.getElementById("acctTitle").textContent = data.bookingPaused && !canBook
-      ? "Membership paused"
-      : canBook
-      ? "Book Your Next Lesson"
-      : "This membership is used up";
-    document.getElementById("acctLead").textContent =
-      !canBook && data.bookingPaused
-        ? data.bookingPausedReason || "This membership is paused. Call or text (405) 819-4401."
-        : canBook
-        ? multi
-          ? `Choose which membership to use below. Standard credits book shared hours; Private credits reserve the full hour.`
-          : status.membershipFrozen
-          ? `You have ${left} lesson${left === 1 ? "" : "s"} left. Your expiry date is temporarily paused, but each lesson you book uses one credit.`
-          : mem.membershipTier === "private"
-          ? `You have ${left} private lesson${left === 1 ? "" : "s"} left. Each one reserves the full hour for one athlete${
-              expires ? ` — they expire ${expires}` : ""
-            }.`
-          : `You have ${left} lesson${left === 1 ? "" : "s"} left. Pick any day that works${
-              expires ? ` — they expire ${expires}` : ""
-            }. Book one at a time; you don't have to plan them all now.`
-        : `You've used all available lessons on your open memberships. Buy another membership on the Book page when you're ready for 4 more.`;
+    const titleEl = document.getElementById("acctTitle");
+    const leadEl = document.getElementById("acctLead");
+    if (titleEl) {
+      titleEl.textContent =
+        data.bookingPaused && !canBook
+          ? "Membership paused"
+          : canBook
+            ? "Book Your Next Lesson"
+            : "This membership is used up";
+    }
+    if (leadEl) {
+      leadEl.textContent =
+        !canBook && data.bookingPaused
+          ? data.bookingPausedReason || "This membership is paused. Call or text (405) 819-4401."
+          : canBook
+            ? multi
+              ? `Choose which membership to use below.`
+              : `You have ${left} lesson${left === 1 ? "" : "s"} left${expires ? ` · use by ${expires}` : ""}.`
+            : `You've used all available lessons. Buy another membership when you're ready for 4 more.`;
+    }
+    const homeRem = document.getElementById("homeRemaining");
+    const homeUsed = document.getElementById("homeUsed");
+    const used = Number(mem.used) || Math.max(0, (mem.credits || 4) - left);
+    if (homeRem) homeRem.textContent = String(left);
+    if (homeUsed) homeUsed.textContent = String(used);
+    const bar = document.getElementById("creditBarFill");
+    if (bar) bar.style.width = `${Math.min(100, (used / (mem.credits || 4)) * 100)}%`;
+    const planLabel = document.getElementById("planLabel");
+    if (planLabel) planLabel.textContent = tierLabel;
+    const planProgress = document.getElementById("planProgress");
+    if (planProgress) planProgress.textContent = `${used} of ${mem.credits || 4} used · ${left} remaining`;
+    const planWindow = document.getElementById("planWindow");
+    if (planWindow) {
+      planWindow.textContent = expires
+        ? `Use by ${expires}${mem.periodStartDate ? ` · started ${AP.prettyDate(mem.periodStartDate)}` : ""}`
+        : "";
+    }
+    const nextBox = document.getElementById("homeNextLesson");
+    if (nextBox) {
+      const next = (data.lessons || [])[0];
+      nextBox.innerHTML = next
+        ? `<div class="lesson-row__when">${AP.prettyDate(next.date)} · ${next.time}</div>
+           <div class="lesson-row__meta">${next.focus || "Training"}${next.membershipLabel ? ` · ${next.membershipLabel}` : ""}</div>`
+        : "No upcoming lesson yet.";
+    }
 
     const expiry = document.getElementById("acctExpiry");
     if (expiry) {
@@ -639,25 +716,123 @@
 
   /* ---------- wiring ---------- */
 
+  async function requestOtp(email) {
+    const { data } = await api("/api/member-login", {
+      method: "POST",
+      body: JSON.stringify({ email, action: "otp" }),
+    });
+    return data;
+  }
+
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     loginStatus.textContent = "";
     loginSubmit.disabled = true;
     loginSubmit.textContent = "Sending…";
     try {
-      const { data } = await api("/api/member-login", {
-        method: "POST",
-        body: JSON.stringify({ email: loginForm.elements.email.value.trim() }),
-      });
-      // Only show it green when a link actually went out.
+      const email = loginForm.elements.email.value.trim();
+      pendingEmail = email;
+      const data = await requestOtp(email);
       loginStatus.classList.toggle("booking__status--ok", data.sent !== false);
-      loginStatus.textContent = data.message || "Check your email for a sign-in link.";
+      loginStatus.textContent = data.message || "If that email has a membership, we sent a code.";
+      if (data.sent !== false && otpCodeStep && otpEmailStep) {
+        otpEmailStep.hidden = true;
+        otpCodeStep.hidden = false;
+        const hint = document.getElementById("otpHint");
+        if (hint) hint.textContent = `Enter the 6-digit code we sent to ${email}.`;
+        otpInputs.forEach((i) => (i.value = ""));
+        otpInputs[0]?.focus();
+      }
     } catch {
       loginStatus.classList.remove("booking__status--ok");
       loginStatus.textContent = "Couldn't send that. Call or text (405) 819-4401.";
     }
     loginSubmit.disabled = false;
-    loginSubmit.textContent = "Email me a sign-in link";
+    loginSubmit.textContent = "Send sign-in code";
+  });
+
+  document.getElementById("useMagicLink")?.addEventListener("click", async () => {
+    loginStatus.textContent = "";
+    const email = loginForm.elements.email.value.trim();
+    if (!email) {
+      loginStatus.textContent = "Enter your email first.";
+      return;
+    }
+    loginSubmit.disabled = true;
+    try {
+      const { data } = await api("/api/member-login", {
+        method: "POST",
+        body: JSON.stringify({ email, action: "magic" }),
+      });
+      loginStatus.classList.toggle("booking__status--ok", data.sent !== false);
+      loginStatus.textContent = data.message || "Check your email for a sign-in link.";
+    } catch {
+      loginStatus.textContent = "Couldn't send that. Call or text (405) 819-4401.";
+    }
+    loginSubmit.disabled = false;
+  });
+
+  otpForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!otpStatus) return;
+    otpStatus.textContent = "";
+    const code = otpCodeValue();
+    if (code.length !== 6) {
+      otpStatus.textContent = "Enter all 6 digits.";
+      return;
+    }
+    const btn = document.getElementById("otpSubmit");
+    if (btn) btn.disabled = true;
+    try {
+      const { res, data } = await api("/api/member-login", {
+        method: "POST",
+        body: JSON.stringify({ email: pendingEmail, code, action: "verify" }),
+      });
+      if (!res.ok || !data.token) {
+        otpStatus.textContent = data.error || "That code didn't work.";
+        if (btn) btn.disabled = false;
+        return;
+      }
+      setToken(data.token);
+      await loadAccount();
+    } catch {
+      otpStatus.textContent = "Couldn't verify that code. Try again.";
+    }
+    if (btn) btn.disabled = false;
+  });
+
+  document.getElementById("otpResend")?.addEventListener("click", async () => {
+    if (!pendingEmail || !otpStatus) return;
+    otpStatus.textContent = "Sending a new code…";
+    try {
+      const data = await requestOtp(pendingEmail);
+      otpStatus.classList.toggle("booking__status--ok", data.sent !== false);
+      otpStatus.textContent = data.message || "Check your inbox for a new code.";
+    } catch {
+      otpStatus.textContent = "Couldn't resend. Wait a minute and try again.";
+    }
+  });
+
+  document.getElementById("otpBack")?.addEventListener("click", () => {
+    if (otpEmailStep) otpEmailStep.hidden = false;
+    if (otpCodeStep) otpCodeStep.hidden = true;
+    if (otpStatus) otpStatus.textContent = "";
+  });
+
+  document.getElementById("tabbar")?.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-tab]");
+    if (!btn) return;
+    setTab(btn.dataset.tab);
+    if (btn.dataset.tab === "lessons") {
+      const form = document.getElementById("weekForm");
+      if (form && !form.hidden) form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
+
+  document.getElementById("homeBookBtn")?.addEventListener("click", () => {
+    setTab("lessons");
+    const form = document.getElementById("weekForm");
+    if (form && !form.hidden) form.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
   weekForm.addEventListener("submit", async (e) => {
@@ -726,18 +901,27 @@
     });
   }
 
-  function signOut() {
+  async function signOut() {
     clearToken();
     account = null;
-    loginStatus.classList.remove("booking__status--ok");
-    loginStatus.textContent = "";
+    try {
+      await api("/api/member-login", {
+        method: "POST",
+        body: JSON.stringify({ action: "logout", email: "logout@local" }),
+      });
+    } catch {
+      /* cookie clear best-effort */
+    }
+    if (loginStatus) {
+      loginStatus.classList.remove("booking__status--ok");
+      loginStatus.textContent = "";
+    }
     const emailField = document.getElementById("loginEmail");
     if (emailField) emailField.value = "";
     showLogin();
   }
 
-  document.getElementById("signOut").addEventListener("click", signOut);
-  // Same thing, worded for someone who didn't expect to be signed in at all.
+  document.getElementById("signOut")?.addEventListener("click", signOut);
   document.getElementById("switchUser")?.addEventListener("click", signOut);
 
   (async function init() {
