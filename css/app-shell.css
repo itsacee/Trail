@@ -183,21 +183,24 @@
     transform: none;
     animation: none;
   }
-  /* Soft readability veil over the photo only — not a second layout crop */
-  .hero--app .hero__shade,
-  .hero--app .hero__grain {
+  /* Subtle dark overlay for header readability — scoped to the photo box */
+  .hero--app .hero__media::after {
+    content: "";
     position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    height: calc(3.4rem + env(safe-area-inset-top, 0px) + 100vw * 2 / 3);
-    max-height: none;
+    inset: 0;
     z-index: 1;
     pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgba(5, 5, 5, 0.5) 0%,
+      rgba(5, 5, 5, 0.08) 28%,
+      rgba(5, 5, 5, 0.04) 70%,
+      rgba(5, 5, 5, 0.28) 100%
+    );
   }
-  .hero--app .hero__shade {
-    background:
-      linear-gradient(180deg, rgba(5, 5, 5, 0.55) 0%, rgba(5, 5, 5, 0.12) 22%, rgba(5, 5, 5, 0.05) 55%, rgba(5, 5, 5, 0.45) 100%);
+  .hero--app .hero__shade,
+  .hero--app .hero__grain {
+    display: none;
   }
   .hero--app .hero__inner {
     position: relative;
@@ -246,17 +249,14 @@
 }
 
 @media (max-width: 430px) {
-  .hero--app .hero__media {
-    max-height: min(50svh, 400px);
-  }
   .hero--app .hero__title {
-    font-size: clamp(1.9rem, 8.2vw, 2.35rem);
+    font-size: clamp(2.1rem, 9vw, 2.5rem); /* ~34–40px */
   }
 }
 
 @media (max-width: 375px) {
   .hero--app .hero__title {
-    font-size: 1.9rem; /* 30.4px — within target band */
+    font-size: 2.125rem; /* 34px */
   }
   .app-public .nav__name--solo {
     font-size: 1.05rem;
