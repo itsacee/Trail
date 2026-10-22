@@ -45,8 +45,14 @@ import {
   MEMBER_PERIOD_DAYS,
   isMembershipType,
   membershipTierOf,
+  membershipTypeOf,
   membershipLabel,
 } from "../lib/members.js";
+import {
+  listActiveMemberships,
+  activeCashMemberships,
+} from "../lib/membershipCapacity.js";
+import { resolveCoachMembershipTypeDisplay } from "../lib/membershipDisplay.js";
 import {
   bookingReadsEnabled,
   bookingWritesEnabled,
@@ -190,9 +196,62 @@ async function dashboard() {
       });
     });
 
+  // Display-only overlay: active purchase type from Stripe/cash credit windows
+  // wins over a stale roster card. Never mutates members.json / Stripe metadata.
+  const purchaseByEmail = new Map();
+  try {
+    if (key) {
+      const active = await listActiveMemberships(key);
+      for (const sub of active) {
+        const email = String(sub.email || sub.metadata?.email || "")
+          .trim()
+          .toLowerCase();
+        if (!email || purchaseByEmail.has(email)) continue;
+        const type = membershipTypeOf(sub);
+        const tier = membershipTierOf(sub);
+        purchaseByEmail.set(email, {
+          membershipId: sub.id,
+          membershipType: type,
+          membershipTier: tier,
+          membershipLabel: membershipLabel(tier),
+        });
+      }
+    }
+  } catch {
+    /* keep roster labels until member-links can verify */
+  }
+  for (const cash of activeCashMemberships(membersState)) {
+    const email = String(cash.email || cash.metadata?.email || "")
+      .trim()
+      .toLowerCase();
+    if (!email || purchaseByEmail.has(email)) continue;
+    const type = membershipTypeOf(cash);
+    const tier = membershipTierOf(cash);
+    purchaseByEmail.set(email, {
+      membershipId: cash.id,
+      membershipType: type,
+      membershipTier: tier,
+      membershipLabel: membershipLabel(tier),
+    });
+  }
+
+  const membersWithDisplay = members.map((m) => {
+    const purchase = purchaseByEmail.get(String(m.email || "").toLowerCase()) || null;
+    const display = resolveCoachMembershipTypeDisplay({ link: purchase, desk: m });
+    return {
+      ...m,
+      membershipLabel: display.text,
+      membershipTypeVerified: display.verified,
+      membershipTypeSource: display.source,
+      activeMembershipId: purchase?.membershipId || "",
+    };
+  });
+
   return {
     sessions,
-    members: members.sort((a, b) => (a.player || a.email).localeCompare(b.player || b.email)),
+    members: membersWithDisplay.sort((a, b) =>
+      (a.player || a.email).localeCompare(b.player || b.email)
+    ),
     removedMembers: removedMembers(membersState).map((m) => ({
       email: m.email,
       player: m.player || "",
