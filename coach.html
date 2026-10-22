@@ -429,6 +429,7 @@
     .tag--key { border-color: var(--surface3); color: var(--text); }
     .tag--full { border-color: var(--surface3); color: var(--dim); }
     .tag--owed { border-color: rgba(255,159,10,0.45); color: var(--warn); background: rgba(255,159,10,0.08); }
+    .tag--warn { border-color: rgba(255,159,10,0.45); color: var(--warn); background: rgba(255,159,10,0.08); }
 
     .acts { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.75rem; }
     .acts > * {
@@ -1979,6 +1980,36 @@
       return { text: "Active", cls: "ok" };
     }
 
+    // Keep in sync with lib/membershipDisplay.js — prefer the active purchase
+    // from member-links over a stale roster card label. Never invent Standard.
+    function membershipTypeDisplay(m, link) {
+      const purchaseType = String(link?.membershipType || "").toLowerCase();
+      if (link && (purchaseType === "membership" || purchaseType === "membership_private")) {
+        return (
+          String(link.membershipLabel || "").trim() ||
+          (purchaseType === "membership_private" ? "Private Membership" : "Standard Membership")
+        );
+      }
+      // /api/coach may already overlay a verified purchase label before links load.
+      if (m?.membershipTypeVerified && String(m.membershipLabel || "").trim()) {
+        return String(m.membershipLabel).trim();
+      }
+      if (m?.cashMembership) {
+        const cashType = String(m.membershipType || "").toLowerCase();
+        if (cashType === "membership" || cashType === "membership_private") {
+          return (
+            String(m.membershipLabel || "").trim() ||
+            (cashType === "membership_private" ? "Private Membership" : "Standard Membership")
+          );
+        }
+        if (String(m.membershipLabel || "").trim()) return String(m.membershipLabel).trim();
+      }
+      if (link || m?.membershipLabel || m?.membershipType) {
+        return "Membership type needs review";
+      }
+      return "";
+    }
+
     function renderMembers() {
       const rows = desk.members || [];
       badge("badgeMembers", rows.length);
@@ -2088,7 +2119,12 @@
           <div class="lesson__sub">${esc(m.email)}${m.phone ? " · " + esc(m.phone) : ""}</div>
           <div class="tags">
             <span class="pill ${status.cls}">${esc(status.text)}</span>
-            ${m.membershipLabel || link?.membershipLabel ? `<span class="tag">${esc(m.membershipLabel || link.membershipLabel)}</span>` : ""}
+            ${(() => {
+              const typeText = membershipTypeDisplay(m, link);
+              return typeText
+                ? `<span class="tag${typeText === "Membership type needs review" ? " tag--warn" : ""}">${esc(typeText)}</span>`
+                : "";
+            })()}
             ${m.cashMembership ? '<span class="tag">Cash membership</span>' : ""}
             ${m.amountDueCents ? `<span class="tag tag--owed">Owes ${esc(money(m.amountDueCents))}</span>` : ""}
           </div>
