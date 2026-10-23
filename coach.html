@@ -430,6 +430,13 @@
     .tag--full { border-color: var(--surface3); color: var(--dim); }
     .tag--owed { border-color: rgba(255,159,10,0.45); color: var(--warn); background: rgba(255,159,10,0.08); }
     .tag--warn { border-color: rgba(255,159,10,0.45); color: var(--warn); background: rgba(255,159,10,0.08); }
+    .tag--prepaid { border-color: rgba(100,210,255,0.45); color: #64d2ff; background: rgba(100,210,255,0.08); }
+    .package-row {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .package-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .package-row:first-child { padding-top: 0; }
 
     .acts { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.75rem; }
     .acts > * {
@@ -1045,6 +1052,33 @@
           <div class="stat"><b id="finMonth">–</b><span>This month</span></div>
         </div>
         <p class="muted" id="finSplit" style="margin-bottom:0.75rem"></p>
+        <div class="card" id="packageLinksCard">
+          <span class="card__title">Private Training Packages</span>
+          <p class="faint" style="margin:0.35rem 0 0.75rem">Occasional one-time packages. Copy a link to text parents — then add each private lesson with <strong>Prepaid — No Payment Needed</strong>.</p>
+          <div class="stack row-gap" id="packageLinksList">
+            <div class="package-row" data-package-plan="8">
+              <div>
+                <div style="font-weight:650">2 Days / Week — $640 — 8 Private Lessons</div>
+                <div class="faint" style="font-size:0.8rem;margin-top:0.15rem">One-time · 4 weeks · not a membership</div>
+              </div>
+              <div class="acts" style="margin-top:0.55rem">
+                <button type="button" class="primary-act" data-copy-package="8">Copy Payment Link</button>
+                <button type="button" data-share-package="8">Share</button>
+              </div>
+            </div>
+            <div class="package-row" data-package-plan="12">
+              <div>
+                <div style="font-weight:650">3 Days / Week — $960 — 12 Private Lessons</div>
+                <div class="faint" style="font-size:0.8rem;margin-top:0.15rem">One-time · 4 weeks · not a membership</div>
+              </div>
+              <div class="acts" style="margin-top:0.55rem">
+                <button type="button" class="primary-act" data-copy-package="12">Copy Payment Link</button>
+                <button type="button" data-share-package="12">Share</button>
+              </div>
+            </div>
+          </div>
+          <p class="muted" id="packageLinksMsg" style="margin-top:0.65rem"></p>
+        </div>
         <div class="grid2">
           <div class="card">
             <span class="card__title">Still owed</span>
@@ -1544,7 +1578,10 @@
           ${two ? `<span class="tag tag--full">2 athletes · ${s.type === "private" ? "private hour" : "hour full"}</span>` : ""}
           ${place ? `<span class="tag">${esc(place)}</span>` : ""}
           ${owed ? `<span class="tag tag--owed">Owes ${esc(money(owed))}</span>` : ""}
-          ${s.source === "manual" ? '<span class="tag">Cash / desk</span>' : ""}
+          ${s.paymentMethod === "prepaid_external" || s.paymentStatus === "prepaid_external"
+            ? '<span class="tag tag--prepaid">Prepaid</span>'
+            : ""}
+          ${s.source === "manual" && s.paymentMethod !== "prepaid_external" ? '<span class="tag">Cash / desk</span>' : ""}
         </div>
         <div class="acts">
           ${owed ? `<button type="button" class="primary-act" data-collect-lesson="${esc(s.id)}" data-amt="${owed}">Collect ${esc(wholeMoney(owed))}</button>` : ""}
@@ -1879,25 +1916,38 @@
              <option value="cash">Cash — collect later</option>
              <option value="cash_paid">Cash — already paid</option>
              <option value="card">Card — already paid</option>
+             <option value="prepaid_external">Prepaid — No Payment Needed</option>
              <option value="comp">Comp / free</option>
            </select></label>
+         <p class="faint" id="addPayHint" style="margin:-0.35rem 0 0.55rem" hidden>Confirm the package was paid before saving. No Stripe charge, invoice, or Money ledger entry is created.</p>
          <button class="btn" id="addGo">Save lesson</button>`
       );
       const slot = wireSlotPicker(60, "");
       const typeEl = $("addType");
-      typeEl.addEventListener("change", () => {
-        // Standard drop-in and legacy 30-min can pair. Private / membership credits are one athlete.
-        const canPair = typeEl.value === "single" || typeEl.value === "thirty";
+      const payEl = $("addPay");
+      const syncAddForm = () => {
+        const prepaid = payEl.value === "prepaid_external";
+        $("addPayHint").hidden = !prepaid;
+        if (prepaid) {
+          // Prepaid package lessons are exclusive private hours only.
+          typeEl.value = "private";
+          typeEl.disabled = true;
+        } else {
+          typeEl.disabled = false;
+        }
+        const canPair = !prepaid && (typeEl.value === "single" || typeEl.value === "thirty");
         $("addPlayer2Field").hidden = !canPair;
         if (!canPair) $("addPlayer2").value = "";
         slot.setDuration(DURATIONS[typeEl.value] || 60);
-      });
-      typeEl.dispatchEvent(new Event("change"));
+      };
+      typeEl.addEventListener("change", syncAddForm);
+      payEl.addEventListener("change", syncAddForm);
+      syncAddForm();
       let saving = false;
       $("addGo").addEventListener("click", async () => {
         if (saving) return;
         const btn = $("addGo");
-        const pay = $("addPay").value;
+        const pay = payEl.value;
         const player = $("addPlayer").value.trim();
         const date = $("slotDate").value;
         if (!player) {
@@ -1921,22 +1971,33 @@
         if (picked.raw && /^\d{1,2}(?::\d{2})?$/i.test(picked.raw.trim()) && !/(am|pm)/i.test(picked.raw)) {
           if (!window.confirm(`Save this lesson at ${picked.label}?`)) return;
         }
+        if (pay === "prepaid_external") {
+          if (!window.confirm("Save as Prepaid — No Payment Needed? Only use this after the package was paid.")) return;
+        }
         saving = true;
         btn.disabled = true;
         btn.textContent = "Saving…";
         try {
+          const paymentMethod =
+            pay === "prepaid_external"
+              ? "prepaid_external"
+              : pay === "card"
+              ? "card"
+              : pay === "comp"
+              ? "comp"
+              : "cash";
           await sendWithForce({
             action: "create_booking",
-            type: typeEl.value,
+            type: pay === "prepaid_external" ? "private" : typeEl.value,
             focus: $("addFocus").value,
             date,
             time: picked.label,
             meridiem: picked.meridiem || undefined,
             player,
-            player2: $("addPlayer2").value.trim(),
+            player2: pay === "prepaid_external" ? "" : $("addPlayer2").value.trim(),
             email: $("addEmail").value.trim(),
             phone: $("addPhone").value.trim(),
-            paymentMethod: pay === "card" ? "card" : pay === "comp" ? "comp" : "cash",
+            paymentMethod,
             markPaid: pay === "cash_paid" || pay === "card",
           });
           closeSheet();
@@ -2283,6 +2344,73 @@
         msg.className = "error";
         msg.textContent = err.message;
       }
+    });
+
+    // Stable shareable Checkout entry points (no Stripe secrets in the page).
+    function packagePaymentUrl(plan) {
+      const id = String(plan) === "12" ? "12" : "8";
+      return `${window.location.origin}/api/package-checkout?plan=${id}`;
+    }
+    function packageShareText(plan) {
+      const id = String(plan) === "12" ? "12" : "8";
+      const label =
+        id === "12"
+          ? "AP Academy — 3 Days Per Week Private Training ($960)"
+          : "AP Academy — 2 Days Per Week Private Training ($640)";
+      return `Here's the payment link for ${label}: ${packagePaymentUrl(id)}`;
+    }
+    async function copyText(text) {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    const packageMsg = $("packageLinksMsg");
+    $("packageLinksList")?.querySelectorAll("[data-copy-package]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await copyText(packagePaymentUrl(btn.dataset.copyPackage));
+          if (packageMsg) {
+            packageMsg.className = "ok-msg";
+            packageMsg.textContent = "Payment link copied.";
+          }
+        } catch {
+          if (packageMsg) {
+            packageMsg.className = "error";
+            packageMsg.textContent = "Couldn't copy — long-press the Share button instead.";
+          }
+        }
+      });
+    });
+    $("packageLinksList")?.querySelectorAll("[data-share-package]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const plan = btn.dataset.sharePackage;
+        const text = packageShareText(plan);
+        const url = packagePaymentUrl(plan);
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: "AP Academy package", text, url });
+            if (packageMsg) {
+              packageMsg.className = "ok-msg";
+              packageMsg.textContent = "Share sheet opened.";
+            }
+            return;
+          }
+        } catch (err) {
+          if (err && err.name === "AbortError") return;
+        }
+        // Fallback: SMS compose on iPhone, else copy.
+        window.location.href = `sms:&body=${encodeURIComponent(text)}`;
+      });
     });
 
     /* ===================== settings ===================== */

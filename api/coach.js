@@ -848,11 +848,51 @@ export default async function handler(req, res) {
           return;
         }
       }
-      const payMethod = req.body.paymentMethod === "card" ? "card" : req.body.paymentMethod === "comp" ? "comp" : "cash";
+      // prepaid_external = coach already collected a private-training package
+      // outside this form. Zero amount, no ledger revenue, no membership credits.
+      const payMethod =
+        req.body.paymentMethod === "prepaid_external"
+          ? "prepaid_external"
+          : req.body.paymentMethod === "card"
+          ? "card"
+          : req.body.paymentMethod === "comp"
+          ? "comp"
+          : "cash";
+      const isPrepaid = payMethod === "prepaid_external";
+      if (isPrepaid && isMembershipType(type)) {
+        res.status(400).json({
+          error:
+            "Prepaid package lessons are private drop-ins only — they do not use four-credit memberships.",
+        });
+        return;
+      }
+      if (isPrepaid && type !== "private") {
+        res.status(400).json({
+          error: "Prepaid package lessons must be Private (exclusive hour).",
+        });
+        return;
+      }
       const listPrice = unitPriceFor(type, athletes, settings.prices) * athletes;
-      const total = req.body.amountCents != null ? Number(req.body.amountCents) : listPrice;
-      const paid = req.body.markPaid || payMethod === "card" ? total : payMethod === "comp" ? 0 : 0;
-      const due = Math.max(0, total - paid);
+      const total = isPrepaid
+        ? 0
+        : req.body.amountCents != null
+        ? Number(req.body.amountCents)
+        : listPrice;
+      const paid = isPrepaid
+        ? 0
+        : req.body.markPaid || payMethod === "card"
+        ? total
+        : payMethod === "comp"
+        ? 0
+        : 0;
+      const due = isPrepaid ? 0 : Math.max(0, total - paid);
+      const paymentStatus = isPrepaid
+        ? "prepaid_external"
+        : due > 0
+        ? "unpaid"
+        : payMethod === "comp"
+        ? "waived"
+        : "paid";
       const booking = makeManualBooking({
         type,
         player,
@@ -867,7 +907,7 @@ export default async function handler(req, res) {
         time,
         availability,
         paymentMethod: payMethod,
-        paymentStatus: due > 0 ? "unpaid" : payMethod === "comp" ? "waived" : "paid",
+        paymentStatus,
         amountCents: total,
         amountPaidCents: paid,
         amountDueCents: due,
@@ -889,7 +929,8 @@ export default async function handler(req, res) {
           player2,
           parent: booking.parent || "",
           phone: booking.phone || "",
-          membershipId: isMembershipType(type) && email ? `cash_${email}` : null,
+          // Never attach prepaid package lessons to membership credit ledgers.
+          membershipId: !isPrepaid && isMembershipType(type) && email ? `cash_${email}` : null,
           payload: {
             paymentMethod: payMethod,
             paymentStatus: booking.paymentStatus,
@@ -907,7 +948,7 @@ export default async function handler(req, res) {
           });
           return;
         }
-        if (isMembershipType(type) && email) {
+        if (!isPrepaid && isMembershipType(type) && email) {
           const members = await loadMembersState();
           const start = Math.floor(Date.now() / 1000);
           upsertMember(members, email, {
@@ -977,7 +1018,7 @@ export default async function handler(req, res) {
         });
         return;
       }
-      if (isMembershipType(type) && email) {
+      if (!isPrepaid && isMembershipType(type) && email) {
         const members = await loadMembersState();
         const start = Math.floor(Date.now() / 1000);
         upsertMember(members, email, {

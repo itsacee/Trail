@@ -11,6 +11,7 @@
 
 import { LOCATIONS, locationKeyFor, LOCATION_KEY } from "../lib/schedule.js";
 import { signMemberToken } from "../lib/memberAuth.js";
+import { isPrivateTrainingPackageType } from "../lib/privateTrainingPackages.js";
 import {
   MEMBER_CREDITS,
   MEMBER_PERIOD_DAYS,
@@ -573,7 +574,9 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
       address: p.address || "",
       mapUrl: p.address ? mapUrl(p.address) : "",
     }));
-    const isMember = isMembershipType(meta.type) || Boolean(session.subscription);
+    const isPackage = isPrivateTrainingPackageType(meta.type);
+    const isMember =
+      !isPackage && (isMembershipType(meta.type) || Boolean(session.subscription));
     const memberToken = isMember && to ? signMemberToken(to) : "";
     const summary = {
       player: meta.player || "",
@@ -582,6 +585,7 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
       places,
       member: isMember,
       memberToken,
+      package: isPackage,
       // Deposit checkouts still owe the balance in cash on day one.
       amountDue: Math.max(0, Number(meta.amount_due) || 0),
     };
@@ -606,6 +610,47 @@ export async function deliverConfirmation({ key, resendKey, from, sessionId, ori
           alreadySent = true;
         }
       }
+    }
+
+    // Occasional private training packages: record the Stripe payment once,
+    // never create lessons, membership credits, or player entitlements.
+    if (isPackage) {
+      if (alreadySent) {
+        return { status: 200, body: { sent: true, alreadySent: true, recorded: true, ...summary } };
+      }
+      try {
+        const amountPaid = Number(session.amount_total || meta.amount_paid || 0) || 0;
+        const fin = await loadFinance();
+        addFinanceEntry(fin, {
+          amountCents: amountPaid,
+          method: "card",
+          type: meta.type || "private_training_package",
+          player: meta.player || "",
+          email: to,
+          bookingId: String(session.payment_intent || sessionId),
+          note: "Private training package (Stripe)",
+          date: new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" }),
+        });
+        await saveFinance(fin);
+      } catch {
+        /* payment still stands in Stripe */
+      }
+      if (target) {
+        await stripe(target.path, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ "metadata[confirmation_sent]": "1" }),
+        });
+      }
+      return {
+        status: 200,
+        body: {
+          sent: false,
+          recorded: true,
+          package: true,
+          ...summary,
+        },
+      };
     }
 
     // Stripe Search can lag after a payment. Mirror the paid lesson before any
