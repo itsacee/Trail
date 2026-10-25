@@ -1331,9 +1331,11 @@
       const cap = await loadMemberLinks();
       renderMembers();
       if (cap) {
-        const withCredits = memberLinks.filter((m) => Number(m.remaining) > 0).length;
+        const std = cap.standard || {};
+        const priv = cap.private || {};
         $("memCapacity").textContent =
-          `${memberLinks.length} credit window${memberLinks.length === 1 ? "" : "s"} · ${withCredits} still have lessons left · ${cap.spotsAvailable} of ${cap.limit} roster spots open`;
+          `Standard: ${Number(std.active) || 0} / ${Number(std.limit) || 8} · Private: ${Number(priv.active) || 0} / ${Number(priv.limit) || 4}` +
+          (cap.unverifiedActive ? ` · ${cap.unverifiedActive} needs type review` : "");
       } else {
         $("memCapacity").textContent =
           "Membership credits are unavailable right now — everything else still works.";
@@ -2024,7 +2026,13 @@
         memberCreditRules = d.creditRules || null;
         const rulesEl = $("memCreditRules");
         if (rulesEl && memberCreditRules?.note) rulesEl.textContent = memberCreditRules.note;
-        return { limit: Number(d.limit) || 15, spotsAvailable: Math.max(0, Number(d.spotsAvailable) || 0) };
+        return {
+          standard: d.standard || { active: 0, limit: 8, spotsAvailable: 0 },
+          private: d.private || { active: 0, limit: 4, spotsAvailable: 0 },
+          unverifiedActive: Number(d.unverifiedActive) || 0,
+          limit: Number(d.limit) || 12,
+          spotsAvailable: Math.max(0, Number(d.spotsAvailable) || 0),
+        };
       } catch {
         memberLinks = [];
         memberCreditRules = null;

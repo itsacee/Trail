@@ -33,7 +33,8 @@ import {
 } from "../lib/siteStatus.js";
 import {
   getMembershipCapacity,
-  MEMBERSHIP_LIMIT,
+  membershipFullMessage,
+  capacityTierOf,
 } from "../lib/membershipCapacity.js";
 import { bookingWritesEnabled } from "../lib/bookingDb/flags.js";
 import { dbManualBook } from "../lib/bookingStore.js";
@@ -141,11 +142,13 @@ export default async function handler(req, res) {
       return;
     }
     try {
-      const { summary } = await getMembershipCapacity(key, email);
+      const { summary } = await getMembershipCapacity(key, email, type);
       if (!summary.available) {
+        const tier = capacityTierOf({ type });
         res.status(409).json({
-          error: `Memberships are full — all ${MEMBERSHIP_LIMIT} spots are taken.`,
+          error: membershipFullMessage(tier === "private" ? "private" : "standard"),
           code: "membership_full",
+          membershipTier: tier === "private" ? "private" : "standard",
         });
         return;
       }
