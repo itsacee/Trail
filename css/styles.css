@@ -6,19 +6,22 @@
 
 :root {
   --bg: #050505;              /* black */
-  --bg-alt: #0b0b0d;
-  --surface: #111114;
-  --line: #26262b;            /* dark silver */
-  --text: #f5f6f8;            /* white */
-  --text-dim: #a8adb6;        /* silver */
-  --accent: #ffffff;          /* white accent (labels, highlights, borders) */
-  --accent-soft: rgba(255, 255, 255, 0.09);
-  --btn: #dfe4ea;             /* brushed silver — clickable buttons only */
-  --on-btn: #0a0a0c;          /* near-black text on silver buttons */
-  --on-accent: #0a0a0c;       /* dark text on white accents */
-  --radius: 16px;
+  --bg-alt: #0c0c0f;          /* charcoal */
+  --surface: #141418;
+  --surface-2: #1a1a20;
+  --line: #2a2a32;
+  --text: #f7f7f8;            /* crisp white */
+  --text-dim: #9a9aa3;
+  --accent: #c9a227;          /* tasteful gold */
+  --accent-soft: rgba(201, 162, 39, 0.14);
+  --btn: #c9a227;
+  --on-btn: #0a0a0c;
+  --on-accent: #0a0a0c;
+  --radius: 18px;
   --font-display: "Bebas Neue", sans-serif;
-  --font-body: "Inter", system-ui, sans-serif;
+  --font-body: "Manrope", system-ui, sans-serif;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --tabbar-h: 64px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -88,11 +91,12 @@ h3 { font-size: 1.6rem; }
 }
 .btn--lg { padding: 1rem 2.2rem; font-size: 1.05rem; }
 .btn--primary {
-  background: linear-gradient(180deg, #f2f4f7 0%, #d3d9e0 55%, #b9c1ca 100%);
+  background: linear-gradient(180deg, #e0b93a 0%, var(--btn) 55%, #a88415 100%);
   color: var(--on-btn);
-  box-shadow: 0 8px 24px rgba(210, 216, 224, 0.22);
+  border-color: transparent;
+  box-shadow: 0 8px 24px rgba(201, 162, 39, 0.28);
 }
-.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(210, 216, 224, 0.32); }
+.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(201, 162, 39, 0.38); }
 .btn--ghost {
   border-color: var(--line);
   color: var(--text);
@@ -509,7 +513,7 @@ a.price-card .btn { text-align: center; }
 .price-card:hover { transform: translateY(-4px); }
 .price-card--featured {
   border-color: var(--accent);
-  box-shadow: 0 12px 48px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 48px rgba(201, 162, 39, 0.16);
 }
 .price-card__tag {
   position: absolute;
@@ -1478,18 +1482,13 @@ html.js .hero__copy .reveal:nth-child(5) { transition-delay: 0.5s; }
   .coach__photo { max-width: 380px; margin-inline: auto; width: 100%; }
   .footer__grid { grid-template-columns: 1fr 1fr; }
 
-  .hero { min-height: 100dvh; }
-  .hero__media img { object-position: 62% 38%; }
-  .hero__shade {
-    background:
-      linear-gradient(180deg, rgba(5, 5, 5, 0.55) 0%, rgba(5, 5, 5, 0.22) 28%, rgba(5, 5, 5, 0.94) 100%),
-      linear-gradient(90deg, rgba(5, 5, 5, 0.5) 0%, transparent 55%);
-  }
-  .hero__inner { align-items: flex-end; padding: 6.5rem 0 1.4rem; }
-  .hero__copy { max-width: 100%; }
-  .hero__title { font-size: clamp(2.5rem, 11vw, 4.1rem); }
-  .hero__actions { width: 100%; }
-  .hero__actions .btn { width: 100%; }
+  /* Homepage hero mobile sizing is owned by css/app-shell.css (.hero--app).
+     Keep a calmer default for non-app heroes (about, etc.). */
+  .hero:not(.hero--app) { min-height: 100dvh; }
+  .hero:not(.hero--app) .hero__media img { object-position: 50% 40%; }
+  .hero:not(.hero--app) .hero__title { font-size: clamp(2rem, 8vw, 2.6rem); }
+  .hero:not(.hero--app) .hero__actions { width: 100%; }
+  .hero:not(.hero--app) .hero__actions .btn { width: 100%; }
   .stat { text-align: center; padding: 1rem 0.25rem; }
   .stat + .stat { padding-left: 0.25rem; }
   .stat__label { font-size: 0.62rem; letter-spacing: 0.08em; }
@@ -1567,8 +1566,8 @@ html.js .hero__copy .reveal:nth-child(5) { transition-delay: 0.5s; }
   .booking__grid { grid-template-columns: 1fr; }
   .booking__selected { flex-wrap: wrap; }
   .booking__change { margin-left: 0; }
-  .hero__title { font-size: clamp(2.3rem, 11vw, 3.1rem); }
-  .hero__sub { font-size: 0.98rem; margin-bottom: 1.3rem; }
+  .hero:not(.hero--app) .hero__title { font-size: clamp(1.9rem, 8vw, 2.4rem); }
+  .hero:not(.hero--app) .hero__sub { font-size: 0.98rem; margin-bottom: 1.3rem; }
   .partners { grid-template-columns: 1fr 1fr 1fr; max-width: none; gap: 0.7rem; }
   .partner__role, .partner__cta { display: none; }
   .partner__name { font-size: 0.72rem; }

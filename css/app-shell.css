@@ -1,0 +1,517 @@
+/* Premium app-shell overlays for public + member portal (iPhone-first). */
+
+/* ---------- Compact mobile header ---------- */
+@media (max-width: 900px) {
+  .app-public .nav__inner {
+    gap: 0.55rem;
+    padding: max(0.45rem, env(safe-area-inset-top)) 0 0.45rem;
+    min-height: 0;
+  }
+  .app-public .nav__logo {
+    height: 32px;
+  }
+  .app-public .nav__logo img {
+    height: 32px;
+  }
+  .app-public .nav__name--solo {
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
+  }
+  /* One gold Book CTA + menu — Member Login lives in menu + hero */
+  .app-public .nav__cta--secondary {
+    display: none;
+  }
+  .app-public .nav__cta--book {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .app-public .nav__burger {
+    padding: 8px 6px;
+  }
+  .app-public .nav__burger span {
+    width: 20px;
+    height: 2px;
+  }
+}
+
+/* ---------- Hero: zoomed-out photo, balanced type ---------- */
+.hero--app {
+  min-height: min(100svh, 920px);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+/* Desktop: cover with calmer crop — no Ken Burns zoom-in */
+.hero--app .hero__media {
+  background: #050505;
+}
+.hero--app .hero__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 52% 42%;
+  transform: none;
+  animation: none;
+}
+
+.hero--app .hero__inner {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding-top: 5.5rem;
+  padding-bottom: clamp(1.75rem, 5vh, 3.25rem);
+}
+.hero--app .hero__copy {
+  max-width: 28rem;
+}
+.hero__brand {
+  margin: 0 0 0.65rem;
+}
+.hero__brand-logo {
+  display: block;
+  width: 72px;
+  height: auto;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.55));
+}
+.hero--app .hero__title {
+  font-size: clamp(2.15rem, 3.6vw, 3.35rem);
+  line-height: 0.98;
+  letter-spacing: 0.02em;
+  max-width: 18ch;
+  margin: 0 0 0.7rem;
+  text-wrap: balance;
+}
+.hero--app .hero__sub {
+  max-width: 34ch;
+  margin: 0 0 1.15rem;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: rgba(247, 247, 248, 0.86);
+}
+.hero--app .hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0;
+}
+.hero--app .hero__actions .btn {
+  padding: 0.72rem 1.35rem;
+  font-size: 0.9rem;
+  min-height: 44px;
+  border-radius: 14px;
+}
+.hero--app .hero__actions .btn--lg {
+  /* legacy class no longer used for oversized pills */
+  padding: 0.72rem 1.35rem;
+  font-size: 0.9rem;
+}
+.hero--app .hero__shade {
+  background:
+    linear-gradient(90deg, rgba(5, 5, 5, 0.78) 0%, rgba(5, 5, 5, 0.35) 42%, rgba(5, 5, 5, 0.12) 70%, transparent 100%),
+    linear-gradient(180deg, rgba(5, 5, 5, 0.35) 0%, rgba(5, 5, 5, 0.08) 38%, rgba(5, 5, 5, 0.72) 78%, rgba(5, 5, 5, 0.94) 100%);
+}
+
+.section--compact { padding: 1.75rem 0 0.5rem; }
+.proof-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  background: linear-gradient(180deg, var(--surface), var(--bg-alt));
+}
+.proof-strip .stat { text-align: center; }
+.proof-strip .stat__num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.proof-strip .stat__label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid rgba(247, 247, 248, 0.28);
+}
+.btn--ghost:hover { border-color: var(--accent); color: #fff; }
+.nav__cta--secondary { margin-right: 0.4rem; }
+
+/* ---------- Mobile hero: show more of original photo ---------- */
+@media (max-width: 900px) {
+  .hero--app {
+    /* Compact first screen — next section peekable below CTAs */
+    position: relative;
+    min-height: 0;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: calc(3.4rem + env(safe-area-inset-top, 0px));
+  }
+  /*
+   * Pull media out of absolute fill so we can size it to the photo's 3:2 ratio
+   * and zoom OUT (object-fit: contain) instead of face-cropping with cover.
+   */
+  .hero--app .hero__media {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    flex: 0 0 auto;
+    /* Full 3:2 frame of the original JPG — no cover crop / Ken Burns zoom */
+    aspect-ratio: 3 / 2;
+    background: #050505;
+    overflow: hidden;
+  }
+  .hero--app .hero__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center center;
+    transform: none;
+    animation: none;
+  }
+  /* Subtle dark overlay for header readability — scoped to the photo box */
+  .hero--app .hero__media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgba(5, 5, 5, 0.5) 0%,
+      rgba(5, 5, 5, 0.08) 28%,
+      rgba(5, 5, 5, 0.04) 70%,
+      rgba(5, 5, 5, 0.28) 100%
+    );
+  }
+  .hero--app .hero__shade,
+  .hero--app .hero__grain {
+    display: none;
+  }
+  .hero--app .hero__inner {
+    position: relative;
+    z-index: 2;
+    margin-top: 0;
+    padding: 0.85rem 0 max(1.1rem, env(safe-area-inset-bottom));
+  }
+  .hero--app .hero__copy {
+    max-width: 100%;
+    padding-top: 0;
+  }
+  .hero__brand {
+    margin: 0 0 0.4rem;
+  }
+  .hero__brand-logo {
+    width: 44px;
+  }
+  /* ~34–40px on iPhone widths — keep as two intentional lines */
+  .hero--app .hero__title {
+    font-size: clamp(2.05rem, 8.8vw, 2.5rem); /* ~33–40px */
+    line-height: 1.06;
+    letter-spacing: 0.02em;
+    max-width: 20ch;
+    margin: 0 0 0.45rem;
+  }
+  .hero--app .hero__sub {
+    font-size: 0.92rem;
+    line-height: 1.4;
+    max-width: 32ch;
+    margin: 0 0 0.95rem;
+  }
+  .hero--app .hero__actions {
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .hero--app .hero__actions .btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    width: auto;
+    min-width: 0;
+    padding: 0.68rem 0.9rem;
+    font-size: 0.86rem;
+    min-height: 44px;
+    border-radius: 12px;
+    text-align: center;
+  }
+}
+
+@media (max-width: 430px) {
+  .hero--app .hero__title {
+    font-size: clamp(2.1rem, 9vw, 2.5rem); /* ~34–40px */
+  }
+}
+
+@media (max-width: 375px) {
+  .hero--app .hero__title {
+    font-size: 2.125rem; /* 34px */
+  }
+  .app-public .nav__name--solo {
+    font-size: 1.05rem;
+  }
+  .app-public .nav__cta--book {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.74rem;
+  }
+}
+
+/* ---------- Member app shell ---------- */
+body.page-member-app {
+  background:
+    radial-gradient(90% 50% at 50% -10%, rgba(201, 162, 39, 0.12), transparent 55%),
+    var(--bg);
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 1rem);
+}
+.member-app {
+  width: min(480px, 100%);
+  margin: 0 auto;
+  min-height: 100svh;
+}
+.member-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: max(0.85rem, env(safe-area-inset-top)) 1.1rem 0.85rem;
+  background: rgba(5, 5, 5, 0.82);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.member-top__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+}
+.member-top__brand img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.member-top__title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: 0.04em;
+}
+.member-panel { display: none; padding: 1.1rem 1.1rem 2rem; }
+.member-panel.is-active { display: block; animation: memberIn 280ms ease; }
+@keyframes memberIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.member-card {
+  background: linear-gradient(165deg, var(--surface-2), var(--surface));
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 1.15rem 1.2rem;
+  margin-bottom: 0.85rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+.member-card h2,
+.member-card h3 {
+  font-size: 1.55rem;
+  margin-bottom: 0.35rem;
+}
+.member-muted { color: var(--text-dim); font-size: 0.92rem; }
+.member-kpi {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+}
+.member-kpi__cell {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 0.8rem;
+}
+.member-kpi__val {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+.member-kpi__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+.credit-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin: 0.85rem 0 0.35rem;
+}
+.credit-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #a88415, var(--accent));
+  border-radius: inherit;
+  transition: width 400ms ease;
+}
+
+.lesson-row {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.lesson-row:last-child { border-bottom: 0; }
+.lesson-row__when {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.lesson-row__meta { color: var(--text-dim); font-size: 0.88rem; }
+.lesson-row__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+}
+.lesson-row__actions button {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.otp-inputs {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.4rem;
+  margin: 1rem 0;
+}
+.otp-inputs input {
+  width: 100%;
+  aspect-ratio: 1;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-alt);
+  color: var(--text);
+}
+.otp-inputs input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(480px, 100%);
+  height: calc(var(--tabbar-h) + var(--safe-b));
+  padding: 0.35rem 0.4rem calc(0.35rem + var(--safe-b));
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.2rem;
+  background: rgba(10, 10, 12, 0.92);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+  z-index: 30;
+}
+.tabbar button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  border-radius: 14px;
+  padding: 0.35rem 0.2rem;
+}
+.tabbar button span.icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.tabbar button.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.login-hero {
+  text-align: center;
+  padding: 1.5rem 0 0.5rem;
+}
+.login-hero img {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 0.85rem;
+  object-fit: contain;
+}
+.login-hero h1 {
+  font-size: 2.4rem;
+  margin-bottom: 0.35rem;
+}
+
+@media (min-width: 900px) {
+  .member-app { width: min(920px, 94%); padding-bottom: 2rem; }
+  body.page-member-app { padding-bottom: 2rem; }
+  .tabbar {
+    position: sticky;
+    top: auto;
+    bottom: auto;
+    transform: none;
+    left: auto;
+    width: auto;
+    height: auto;
+    margin: 1rem 1.1rem 0;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 0.45rem;
+  }
+  .member-dash-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 0.85rem;
+  }
+  /* Desktop nav keeps full "Book Training" label */
+  .nav__cta--book {
+    min-width: 8.5rem;
+  }
+  .nav__cta--book::after {
+    /* keep label as Book on mobile; desktop shows Book Training via HTML — override below */
+  }
+}
+
+/* Desktop: restore fuller Book label via CSS content only if short "Book" is awkward —
+   index uses "Book" for mobile fit; expand on desktop */
+@media (min-width: 901px) {
+  .nav__cta--book {
+    font-size: 0.9rem;
+    padding: 0.7rem 1.25rem;
+  }
+}
