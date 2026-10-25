@@ -135,6 +135,11 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   }
 
   function selectedMembershipTier() {
+    // Prefer the in-memory booking type (URL / tab clicks). The aria-selected
+    // tab can lag behind on first paint before URL type is applied.
+    if (typeof selectedType === "string" && isMemberType(selectedType)) {
+      return tierKeyFromType(selectedType);
+    }
     const tab = document.querySelector('[data-book][aria-selected="true"]');
     const type = tab?.dataset?.book || "membership";
     return tierKeyFromType(type);
@@ -898,6 +903,24 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   }
 
   const params = new URLSearchParams(window.location.search);
+  let typeFromUrl = params.get("type");
+  // Retired public type — send old links to Standard Drop-In.
+  if (typeFromUrl === "thirty") {
+    typeFromUrl = "single";
+    const url = new URL(window.location.href);
+    url.searchParams.set("type", "single");
+    history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+    if (els.status) {
+      els.status.textContent =
+        "30-minute lessons aren't offered for new bookings. Showing Standard Drop-In instead.";
+    }
+  }
+  // Apply URL type before capacity render so Standard/Private availability
+  // matches the selected membership tab on first paint.
+  if (SESSIONS[typeFromUrl] && !(isMemberType(typeFromUrl) && membershipsPaused())) {
+    selectedType = typeFromUrl;
+    if (!pairType()) athletes = 1;
+  }
   syncTypeTabs();
   updateFocusField();
   syncAthleteField();
@@ -906,25 +929,6 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   loadPricing();
   loadMembershipCapacity();
   loadAvailability().then(() => {
-    let typeFromUrl = params.get("type");
-    // Retired public type — send old links to Standard Drop-In.
-    if (typeFromUrl === "thirty") {
-      typeFromUrl = "single";
-      const url = new URL(window.location.href);
-      url.searchParams.set("type", "single");
-      history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
-      if (els.status) {
-        els.status.textContent =
-          "30-minute lessons aren't offered for new bookings. Showing Standard Drop-In instead.";
-      }
-    }
-    if (SESSIONS[typeFromUrl] && !(isMemberType(typeFromUrl) && membershipsPaused())) {
-      selectedType = typeFromUrl;
-      if (!pairType()) athletes = 1;
-      syncTypeTabs();
-      updateFocusField();
-      syncAthleteField();
-    }
     calendar.render();
     refreshSubmit();
     prefetchWindow();
