@@ -85,43 +85,100 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   /* ---------- membership availability (also used on the pricing page) ---------- */
 
-  let membershipCapacity = { state: "loading", limit: 15, spotsAvailable: 0, available: false };
+  const EMPTY_TIER = { limit: 0, active: 0, pending: 0, spotsAvailable: 0, available: false };
+  let membershipCapacity = {
+    state: "loading",
+    standard: { ...EMPTY_TIER, limit: 8, tier: "standard" },
+    private: { ...EMPTY_TIER, limit: 4, tier: "private" },
+    unverifiedActive: 0,
+    limit: 12,
+    spotsAvailable: 0,
+    available: false,
+  };
   const form = document.getElementById("bookingForm");
 
   function membershipsPaused() {
     return Boolean(SITE_STATUS.blockNewMemberships || SITE_STATUS.membershipPaused);
   }
 
-  function membershipCapacityText() {
+  function tierKeyFromType(type) {
+    return type === "membership_private" || type === "private" ? "private" : "standard";
+  }
+
+  function tierCapacity(tier) {
+    const key = tier === "private" ? "private" : "standard";
+    return membershipCapacity[key] || { ...EMPTY_TIER, limit: key === "private" ? 4 : 8, tier: key };
+  }
+
+  function membershipCapacityText(tier) {
+    const label = tier === "private" ? "Private" : "Standard";
     if (membershipsPaused()) {
       return SITE_STATUS.blockNewMembershipsReason || SITE_STATUS.membershipPausedReason;
     }
-    if (membershipCapacity.state === "loading") return "Checking membership availability…";
+    if (membershipCapacity.state === "loading") return `Checking ${label} availability…`;
     if (membershipCapacity.state !== "ready") {
-      return "Membership availability is temporarily unavailable. Please try again soon.";
+      return `${label} membership availability is temporarily unavailable. Please try again soon.`;
     }
-    if (!membershipCapacity.available) {
-      return `Memberships are full — 0 of ${membershipCapacity.limit} spots available. A spot opens automatically when a current membership ends.`;
+    const cap = tierCapacity(tier);
+    if (!cap.available || cap.spotsAvailable <= 0) {
+      return `${label} Membership: SOLD OUT — 0 of ${cap.limit} spots available. A spot opens when a current ${label.toLowerCase()} membership ends or uses all four lessons.`;
     }
-    return `${membershipCapacity.spotsAvailable} of ${membershipCapacity.limit} membership spots available.`;
+    const filled = Math.max(0, Number(cap.active) || 0) + Math.max(0, Number(cap.pending) || 0);
+    return `${label} Membership: ${filled} of ${cap.limit} filled · ${cap.spotsAvailable} spot${cap.spotsAvailable === 1 ? "" : "s"} left`;
   }
 
-  function membershipBlocked() {
-    return (
-      membershipsPaused() || membershipCapacity.state !== "ready" || !membershipCapacity.available
-    );
+  function membershipBlocked(tier) {
+    if (membershipsPaused()) return true;
+    if (membershipCapacity.state !== "ready") return true;
+    const cap = tierCapacity(tier);
+    return !cap.available || cap.spotsAvailable <= 0;
+  }
+
+  function selectedMembershipTier() {
+    // Prefer the in-memory booking type (URL / tab clicks). The aria-selected
+    // tab can lag behind on first paint before URL type is applied.
+    if (typeof selectedType === "string" && isMemberType(selectedType)) {
+      return tierKeyFromType(selectedType);
+    }
+    const tab = document.querySelector('[data-book][aria-selected="true"]');
+    const type = tab?.dataset?.book || "membership";
+    return tierKeyFromType(type);
   }
 
   function renderMembershipCapacity() {
     document.querySelectorAll("[data-membership-availability]").forEach((el) => {
-      el.textContent = membershipCapacityText();
-      el.classList.toggle("is-full", membershipBlocked());
+      const attr = el.getAttribute("data-membership-availability") || "standard";
+      const tier =
+        attr === "selected" ? selectedMembershipTier() : attr === "private" ? "private" : "standard";
+      el.textContent = membershipCapacityText(tier);
+      el.classList.toggle("is-full", membershipBlocked(tier));
     });
     document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
-      el.classList.toggle("is-unavailable", membershipBlocked());
-      el.setAttribute("aria-disabled", membershipBlocked() ? "true" : "false");
+      const tier = el.getAttribute("data-membership-purchase") === "private" ? "private" : "standard";
+      const blocked = membershipBlocked(tier);
+      el.classList.toggle("is-unavailable", blocked);
+      el.setAttribute("aria-disabled", blocked ? "true" : "false");
     });
-    if (form && AP) refreshSubmit();
+    // Sold-out only disables that category's purchase tab — the other stays open.
+    document.querySelectorAll('[data-book="membership"], [data-book="membership_private"]').forEach((el) => {
+      if (membershipsPaused()) return;
+      const tier = el.dataset.book === "membership_private" ? "private" : "standard";
+      const soldOut = membershipCapacity.state === "ready" && membershipBlocked(tier);
+      const tag = el.querySelector(".booking__type-tag");
+      if (tag && !membershipsPaused()) {
+        tag.hidden = !soldOut;
+        tag.textContent = soldOut ? "Sold out" : "Paused";
+      }
+      if (soldOut) {
+        el.classList.add("is-disabled");
+        el.setAttribute("aria-disabled", "true");
+      } else if (!membershipsPaused()) {
+        el.classList.remove("is-disabled");
+        el.disabled = false;
+        el.setAttribute("aria-disabled", "false");
+      }
+    });
+    if (form && typeof refreshSubmit === "function") refreshSubmit();
   }
 
   async function loadMembershipCapacity() {
@@ -129,17 +186,26 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     try {
       const response = await fetch("/api/membership-capacity", { cache: "no-store" });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || typeof data.spotsAvailable !== "number") throw new Error("unavailable");
+      if (!response.ok || !data.standard || !data.private) throw new Error("unavailable");
       membershipCapacity = { ...data, state: "ready" };
     } catch {
-      membershipCapacity = { state: "error", limit: 15, spotsAvailable: 0, available: false };
+      membershipCapacity = {
+        state: "error",
+        standard: { ...EMPTY_TIER, limit: 8, tier: "standard" },
+        private: { ...EMPTY_TIER, limit: 4, tier: "private" },
+        unverifiedActive: 0,
+        limit: 12,
+        spotsAvailable: 0,
+        available: false,
+      };
     }
     renderMembershipCapacity();
   }
 
   document.querySelectorAll("[data-membership-purchase]").forEach((el) => {
     el.addEventListener("click", (event) => {
-      if (membershipBlocked()) event.preventDefault();
+      const tier = el.getAttribute("data-membership-purchase") === "private" ? "private" : "standard";
+      if (membershipBlocked(tier)) event.preventDefault();
     });
   });
 
@@ -422,8 +488,10 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     if (membershipsPaused()) {
       if (isMemberType(selectedType)) setType("single");
       membershipCapacity = {
+        ...membershipCapacity,
         state: "ready",
-        limit: membershipCapacity.limit || 15,
+        standard: { ...(membershipCapacity.standard || {}), available: false, spotsAvailable: 0 },
+        private: { ...(membershipCapacity.private || {}), available: false, spotsAvailable: 0 },
         spotsAvailable: 0,
         available: false,
         paused: true,
@@ -710,8 +778,11 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       els.submit.disabled = true;
       return;
     }
-    if (isMemberType() && !membershipCapacity.available) {
-      els.submit.textContent = `Memberships Full — 0 of ${membershipCapacity.limit} Spots`;
+    if (isMemberType() && membershipBlocked(tierKeyFromType(selectedType))) {
+      const tier = tierKeyFromType(selectedType);
+      const cap = tierCapacity(tier);
+      const label = tier === "private" ? "Private" : "Standard";
+      els.submit.textContent = `${label} Membership Sold Out — 0 of ${cap.limit} Spots`;
       els.submit.disabled = true;
       return;
     }
@@ -762,7 +833,8 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   function setType(type) {
     if (!SESSIONS[type]) return;
-    if (type === "membership" && membershipsPaused()) return;
+    if (isMemberType(type) && membershipsPaused()) return;
+    if (isMemberType(type) && membershipBlocked(tierKeyFromType(type))) return;
     if (type === selectedType) return;
     selectedType = type;
     if (!pairType()) athletes = 1;
@@ -770,6 +842,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
     updateFocusField();
     syncAthleteField();
     resetSlot();
+    renderMembershipCapacity();
     const url = new URL(window.location.href);
     url.searchParams.set("type", type);
     url.searchParams.delete("booked");
@@ -830,6 +903,24 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   }
 
   const params = new URLSearchParams(window.location.search);
+  let typeFromUrl = params.get("type");
+  // Retired public type — send old links to Standard Drop-In.
+  if (typeFromUrl === "thirty") {
+    typeFromUrl = "single";
+    const url = new URL(window.location.href);
+    url.searchParams.set("type", "single");
+    history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+    if (els.status) {
+      els.status.textContent =
+        "30-minute lessons aren't offered for new bookings. Showing Standard Drop-In instead.";
+    }
+  }
+  // Apply URL type before capacity render so Standard/Private availability
+  // matches the selected membership tab on first paint.
+  if (SESSIONS[typeFromUrl] && !(isMemberType(typeFromUrl) && membershipsPaused())) {
+    selectedType = typeFromUrl;
+    if (!pairType()) athletes = 1;
+  }
   syncTypeTabs();
   updateFocusField();
   syncAthleteField();
@@ -838,25 +929,6 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
   loadPricing();
   loadMembershipCapacity();
   loadAvailability().then(() => {
-    let typeFromUrl = params.get("type");
-    // Retired public type — send old links to Standard Drop-In.
-    if (typeFromUrl === "thirty") {
-      typeFromUrl = "single";
-      const url = new URL(window.location.href);
-      url.searchParams.set("type", "single");
-      history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
-      if (els.status) {
-        els.status.textContent =
-          "30-minute lessons aren't offered for new bookings. Showing Standard Drop-In instead.";
-      }
-    }
-    if (SESSIONS[typeFromUrl] && !(isMemberType(typeFromUrl) && membershipsPaused())) {
-      selectedType = typeFromUrl;
-      if (!pairType()) athletes = 1;
-      syncTypeTabs();
-      updateFocusField();
-      syncAthleteField();
-    }
     calendar.render();
     refreshSubmit();
     prefetchWindow();
@@ -931,8 +1003,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
         if (!res.ok) {
           els.status.textContent = data.error || "Couldn't reserve that spot. Call or text (405) 819-4401.";
           if (data.code === "membership_full") {
-            membershipCapacity = { state: "ready", limit: 15, spotsAvailable: 0, available: false };
-            renderMembershipCapacity();
+            await loadMembershipCapacity();
           } else if (res.status === 409) {
             onConflict();
           }
@@ -971,8 +1042,7 @@ if (yearEl) yearEl.textContent = new Date().getFullYear();
       }
       els.status.textContent = data.error || "Online booking isn't live yet — call or text (405) 819-4401 to book.";
       if (data.code === "membership_full") {
-        membershipCapacity = { state: "ready", limit: 15, spotsAvailable: 0, available: false };
-        renderMembershipCapacity();
+        await loadMembershipCapacity();
       } else if (res.status === 409) {
         onConflict();
       }

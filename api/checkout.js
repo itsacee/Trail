@@ -27,7 +27,8 @@ import { bookWindowBlocked, isMembershipType, membershipTierOf } from "../lib/me
 import {
   getMembershipCapacity,
   MEMBERSHIP_CHECKOUT_MINUTES,
-  MEMBERSHIP_LIMIT,
+  membershipFullMessage,
+  capacityTierOf,
 } from "../lib/membershipCapacity.js";
 import { membershipBlockedMessage, normalizeFocus, focusBlockedMessage } from "../lib/siteStatus.js";
 import { loadSettings, unitPriceFor } from "../lib/settings.js";
@@ -232,17 +233,19 @@ export default async function handler(req, res) {
 
   if (isMember) {
     try {
-      const { summary } = await getMembershipCapacity(key, email);
+      const { summary } = await getMembershipCapacity(key, email, type);
       if (!summary.available) {
+        const tier = capacityTierOf({ type });
         res.status(409).json({
-          error: `Memberships are full right now — all ${MEMBERSHIP_LIMIT} spots are taken. A spot will reopen automatically when a membership ends.`,
+          error: membershipFullMessage(tier === "private" ? "private" : "standard"),
           code: "membership_full",
+          membershipTier: tier === "private" ? "private" : "standard",
         });
         return;
       }
     } catch {
-      // The limit is a hard cap. If Stripe cannot confirm the live count, do
-      // not create a checkout that could become membership number 16.
+      // Hard per-category caps. If Stripe cannot confirm the live count, do
+      // not create a checkout that could oversell Standard or Private.
       res.status(503).json({
         error: "I couldn't confirm membership availability. Please try again in a moment.",
         code: "membership_unavailable",
@@ -411,18 +414,20 @@ export default async function handler(req, res) {
 
   if (isMember && data.id) {
     try {
-      // Count this new open Checkout as a reserved spot. If simultaneous
-      // buyers reached the last opening, Stripe's creation order determines
-      // who got spot 15; any later Checkout is expired before we return it.
-      const { summary } = await getMembershipCapacity(key, email);
+      // Count this new open Checkout as a reserved spot in its category.
+      // Simultaneous buyers: Stripe creation order decides who keeps the last
+      // Standard or Private seat; later Checkouts are expired before return.
+      const { summary } = await getMembershipCapacity(key, email, type);
       if (!summary.requestedAdmitted) {
         await fetch(`https://api.stripe.com/v1/checkout/sessions/${data.id}/expire`, {
           method: "POST",
           headers: { Authorization: `Bearer ${key}` },
         }).catch(() => {});
+        const tier = capacityTierOf({ type });
         res.status(409).json({
-          error: `The last membership spot was just taken. All ${MEMBERSHIP_LIMIT} spots are now full.`,
+          error: membershipFullMessage(tier === "private" ? "private" : "standard"),
           code: "membership_full",
+          membershipTier: tier === "private" ? "private" : "standard",
         });
         return;
       }

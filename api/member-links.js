@@ -13,7 +13,10 @@ import {
   listActiveMemberships,
   activeCashMemberships,
   membershipsWithCredits,
-  MEMBERSHIP_LIMIT,
+  capacitySummary,
+  STANDARD_MEMBERSHIP_CAP,
+  PRIVATE_MEMBERSHIP_CAP,
+  MEMBERSHIP_TOTAL_CAP,
 } from "../lib/membershipCapacity.js";
 import { loadMembersState } from "../lib/membersStore.js";
 import { scheduledFor } from "../lib/lessons.js";
@@ -151,11 +154,16 @@ export default async function handler(req, res) {
     })
     .sort((a, b) => b.periodStart - a.periodStart);
 
+  const summary = capacitySummary(occupying, []);
+
   if (String(req.query?.format || "") === "json") {
     res.status(200).json({
       members,
-      limit: MEMBERSHIP_LIMIT,
-      spotsAvailable: Math.max(0, MEMBERSHIP_LIMIT - occupying.length),
+      standard: summary.standard,
+      private: summary.private,
+      unverifiedActive: summary.unverifiedActive,
+      limit: MEMBERSHIP_TOTAL_CAP,
+      spotsAvailable: summary.spotsAvailable,
       creditRules: {
         allocation: 4,
         periodDays: MEMBER_PERIOD_DAYS,
@@ -226,7 +234,7 @@ export default async function handler(req, res) {
   .empty { color:#a8adb6; }
 </style></head><body>
 <h1>Member sign-in links</h1>
-<p class="sub">${members.length} listed · ${occupying.length} of ${MEMBERSHIP_LIMIT} still have credits · ${Math.max(0, MEMBERSHIP_LIMIT - occupying.length)} spots available.
+<p class="sub">${members.length} listed · Standard ${summary.standard.active} / ${STANDARD_MEMBERSHIP_CAP} · Private ${summary.private.active} / ${PRIVATE_MEMBERSHIP_CAP} still have credits.
 Each link signs that person in for 30 days — only send it to them.</p>
 ${cards || `<p class="empty">No active memberships in the last ${MEMBER_PERIOD_DAYS + 7} days.</p>`}
 </body></html>`);

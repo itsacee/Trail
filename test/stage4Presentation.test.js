@@ -117,8 +117,8 @@ test("public cash booking rejects new 30-minute purchases", async () => {
   assert.match(res.body.error, /30-minute/i);
 });
 
-test("membership capacity constant remains 15", () => {
-  assert.equal(MEMBERSHIP_LIMIT, 15);
+test("membership capacity uses separate 8 Standard / 4 Private caps", () => {
+  assert.equal(MEMBERSHIP_LIMIT, 12);
 });
 
 test("customer-facing main.js no longer registers a thirty session type", () => {

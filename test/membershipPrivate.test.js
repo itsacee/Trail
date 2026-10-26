@@ -33,7 +33,6 @@ import { makeMemberLesson, upsertStripeLessons } from "../lib/lessons.js";
 import {
   activeMembershipsFromPayments,
   capacitySummary,
-  MEMBERSHIP_LIMIT,
 } from "../lib/membershipCapacity.js";
 
 function chicagoIso(offsetDays = 2) {
@@ -249,23 +248,40 @@ test("overlapping purchases prefer the newest primary membership", () => {
   assert.equal(membershipTierOf(pick), "private");
 });
 
-test("capacity counts standard and private toward the shared 15", () => {
+test("capacity counts standard and private in separate pools", () => {
   const rows = [];
-  for (let i = 0; i < 9; i++) rows.push(payment(`pi_s${i}`, `std${i}@example.com`, "membership"));
-  for (let i = 0; i < 6; i++) rows.push(payment(`pi_p${i}`, `priv${i}@example.com`, "membership_private"));
+  for (let i = 0; i < 8; i++) rows.push(payment(`pi_s${i}`, `std${i}@example.com`, "membership"));
+  for (let i = 0; i < 4; i++) rows.push(payment(`pi_p${i}`, `priv${i}@example.com`, "membership_private"));
   const active = activeMembershipsFromPayments(rows);
-  assert.equal(active.length, 15);
-  const summary = capacitySummary(active, [], "newbie@example.com");
-  assert.equal(summary.limit, MEMBERSHIP_LIMIT);
+  assert.equal(active.length, 12);
+  const summary = capacitySummary(active, [], "newbie@example.com", "membership");
+  assert.equal(summary.standard.limit, 8);
+  assert.equal(summary.private.limit, 4);
+  assert.equal(summary.standard.available, false);
+  assert.equal(summary.private.available, false);
   assert.equal(summary.available, false);
+  // Buying Private while both are full stays blocked; with room only in Private:
+  const roomPriv = capacitySummary(
+    activeMembershipsFromPayments(rows.slice(0, 8)),
+    [],
+    "newbie@example.com",
+    "membership_private"
+  );
+  assert.equal(roomPriv.standard.available, false);
+  assert.equal(roomPriv.private.available, true);
+  assert.equal(roomPriv.available, true);
 });
 
-test("mixed roster still admits renewals of an existing email", () => {
-  const rows = Array.from({ length: 15 }, (_, i) =>
-    payment(`pi_${i}`, `m${i}@example.com`, i % 2 ? "membership_private" : "membership")
+test("mixed roster still admits renewals of an existing email in its category", () => {
+  const rows = Array.from({ length: 12 }, (_, i) =>
+    payment(
+      `pi_${i}`,
+      `m${i}@example.com`,
+      i < 8 ? "membership" : "membership_private"
+    )
   );
   const active = activeMembershipsFromPayments(rows);
-  const summary = capacitySummary(active, [], "m0@example.com");
+  const summary = capacitySummary(active, [], "m0@example.com", "membership");
   assert.equal(summary.available, true);
   assert.equal(summary.requestedAdmitted, true);
 });
