@@ -1,0 +1,241 @@
+{
+  "gate": "G4-P1",
+  "capturedAt": "2026-10-14T20:37:14.552Z",
+  "checks": {
+    "isolation": {
+      "result": "PASS",
+      "project": "dark-base-01659888",
+      "host": "ep-fragrant-credit-b8quqqal.c-14.us-east-1.aws.neon.tech",
+      "resource": "apacademy-booking-production"
+    },
+    "prod_reads_on_writes_off": {
+      "result": "PASS",
+      "ok": true,
+      "mode": "postgres",
+      "reads": true,
+      "writes": false,
+      "vercel_env": "production",
+      "dual_write_blob": false
+    },
+    "slots_postgres": {
+      "result": "PASS",
+      "source": "postgres"
+    },
+    "oct15_slot": {
+      "result": "PASS",
+      "time": "5:00 PM",
+      "mins": 60,
+      "count": 2,
+      "seats": 2,
+      "exclusive": true,
+      "privacy": "standard",
+      "focuses": [
+        "Both"
+      ]
+    },
+    "checkout_paused": {
+      "result": "PASS",
+      "status": 503,
+      "paused": true
+    },
+    "coach_desk_reachable": {
+      "result": "PASS",
+      "day": {
+        "status": 400,
+        "keys": [
+          "error"
+        ],
+        "error": "Unknown action."
+      },
+      "schedule": {
+        "status": 400,
+        "keys": [
+          "error"
+        ],
+        "error": "Unknown action."
+      }
+    },
+    "calendar_visible": {
+      "result": "PASS",
+      "bytes": 35648
+    },
+    "member_links_visible": {
+      "result": "PASS",
+      "keys": []
+    },
+    "stripe_reconcile_clean": {
+      "result": "PASS",
+      "status": 200,
+      "summary": {
+        "scanned": 1,
+        "mirrored": 0,
+        "already": 1,
+        "alerts": 0,
+        "deferred": 0,
+        "failed": 0
+      },
+      "needsOperator": false,
+      "openAlerts": 0
+    },
+    "db_counts": {
+      "result": "PASS",
+      "counts": {
+        "bookings": 54,
+        "membership_credits": 18,
+        "reconcile_alerts": 0,
+        "slot_locks": 0
+      },
+      "byStatus": {
+        "cancelled": 3,
+        "active": 51
+      }
+    },
+    "reconcile": {
+      "result": "PASS",
+      "blob_active": 51,
+      "db_active": 51,
+      "missing_in_db": 0,
+      "missing_in_blob": 0,
+      "slot_mismatches": 0
+    },
+    "credits": {
+      "result": "PASS",
+      "rows": 18
+    },
+    "oct15_pg_targets": {
+      "result": "PASS",
+      "oct15": [
+        {
+          "id": "lsn_mv3zgqy2_zos8on",
+          "source": "member",
+          "focus": "Both",
+          "privacy": "standard",
+          "seats": 1,
+          "location_key": "mustang"
+        },
+        {
+          "id": "mb_muvxcb7c_1656bd",
+          "source": "manual",
+          "focus": "Both",
+          "privacy": "standard",
+          "seats": 1,
+          "location_key": "mustang"
+        }
+      ]
+    },
+    "blob_hashes_stable": {
+      "result": "PASS",
+      "lessons": "1b9a49724f00d5de7028fa0f20285eec5b2876673031284ba4b603ce6c549dfe",
+      "manual": "4cb32a9e0a82ffb58f52a146a56ca8a947e2d3bd469f6ad09b0493999ba2e46f",
+      "holds": "523d82c22c85dcb2429043c35cb2a0c5be6e0d287a31e5db0cb318dbd4aca44d",
+      "members": "a63ba65762c4542ae344c4580c05f4f31cdadd36524f935005dfac80408505c1",
+      "finance": "831d0b9c955bf9dad3b173fa61ad79d851c7190e7735050d01a6d1f0a1c8bfb3"
+    }
+  },
+  "blockers": [],
+  "live": {
+    "booking_db": {
+      "ok": true,
+      "mode": "postgres",
+      "reads": true,
+      "writes": false,
+      "vercel_env": "production",
+      "dual_write_blob": false
+    },
+    "slots_source": "postgres",
+    "oct15_5pm": {
+      "time": "5:00 PM",
+      "mins": 60,
+      "count": 2,
+      "seats": 2,
+      "exclusive": true,
+      "privacy": "standard",
+      "focuses": [
+        "Both"
+      ]
+    },
+    "checkout": {
+      "status": 503,
+      "paused": true
+    },
+    "cash": {
+      "status": 503,
+      "paused": true
+    }
+  },
+  "coach": {
+    "day": {
+      "status": 400,
+      "keys": [
+        "error"
+      ],
+      "error": "Unknown action."
+    },
+    "schedule": {
+      "status": 400,
+      "keys": [
+        "error"
+      ],
+      "error": "Unknown action."
+    }
+  },
+  "stripe": {
+    "status": 200,
+    "summary": {
+      "scanned": 1,
+      "mirrored": 0,
+      "already": 1,
+      "alerts": 0,
+      "deferred": 0,
+      "failed": 0
+    },
+    "needsOperator": false,
+    "openAlerts": 0
+  },
+  "db": {
+    "counts": {
+      "bookings": 54,
+      "membership_credits": 18,
+      "reconcile_alerts": 0,
+      "slot_locks": 0
+    },
+    "byStatus": {
+      "cancelled": 3,
+      "active": 51
+    },
+    "oct15": [
+      {
+        "id": "lsn_mv3zgqy2_zos8on",
+        "source": "member",
+        "focus": "Both",
+        "privacy": "standard",
+        "seats": 1,
+        "location_key": "mustang"
+      },
+      {
+        "id": "mb_muvxcb7c_1656bd",
+        "source": "manual",
+        "focus": "Both",
+        "privacy": "standard",
+        "seats": 1,
+        "location_key": "mustang"
+      }
+    ],
+    "credit_mismatches": 0
+  },
+  "reconcile": {
+    "blob_active": 51,
+    "db_active": 51,
+    "missing_in_db": 0,
+    "missing_in_blob": 0,
+    "slot_mismatches": 0
+  },
+  "hashes": {
+    "lessons": "1b9a49724f00d5de7028fa0f20285eec5b2876673031284ba4b603ce6c549dfe",
+    "manual": "4cb32a9e0a82ffb58f52a146a56ca8a947e2d3bd469f6ad09b0493999ba2e46f",
+    "holds": "523d82c22c85dcb2429043c35cb2a0c5be6e0d287a31e5db0cb318dbd4aca44d",
+    "members": "a63ba65762c4542ae344c4580c05f4f31cdadd36524f935005dfac80408505c1",
+    "finance": "831d0b9c955bf9dad3b173fa61ad79d851c7190e7735050d01a6d1f0a1c8bfb3"
+  },
+  "verdict": "PASS"
+}

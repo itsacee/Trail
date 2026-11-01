@@ -1,0 +1,279 @@
+{
+  "gate": "G4-P2",
+  "capturedAt": "2026-10-14T20:58:28.503Z",
+  "previewDeployWritesOn": "https://apacademywebsite-ppbmx6pv3-nubulahfr4-4891s-projects.vercel.app",
+  "previewDeployWritesOff": "https://apacademywebsite-c6x4hr4vo-nubulahfr4-4891s-projects.vercel.app",
+  "db": {
+    "project": "withered-mud-40468222",
+    "host": "ep-polished-moon-b7cbl2y0"
+  },
+  "s1_s8": [
+    {
+      "result": "PASS",
+      "id": "PRE",
+      "detail": "{\"ok\":true,\"mode\":\"postgres\",\"reads\":true,\"writes\":true,\"vercel_env\":\"preview\",\"dual_write_blob\":false}"
+    },
+    {
+      "result": "PASS",
+      "id": "S1",
+      "detail": "okAB=true/true denyC=true pg=2 seats=2 src=postgres cErr=That slot is already taken."
+    },
+    {
+      "result": "PASS",
+      "id": "S2",
+      "detail": "okAB=true/true denyC=true pg=2"
+    },
+    {
+      "result": "PASS",
+      "id": "S3",
+      "detail": "okAB=true/true denyMiss=true pg=2 focuses=Both,Both"
+    },
+    {
+      "result": "PASS",
+      "id": "S4",
+      "detail": "priv=true deny=true pg=1 privacy=private"
+    },
+    {
+      "result": "PASS",
+      "id": "S5",
+      "detail": "priv=true deny=true pg=1"
+    },
+    {
+      "result": "PASS",
+      "id": "S6",
+      "detail": "priv=true deny=true pg=1"
+    },
+    {
+      "result": "PASS",
+      "id": "S7",
+      "detail": "drop=true mem=true deny3=true pg=2 types=membership,single"
+    },
+    {
+      "result": "PASS",
+      "id": "S8",
+      "detail": "id=mb_mv8kssgr_5r32i4 cancelOk=true before=1 after=0 slotGone=true"
+    },
+    {
+      "result": "PASS",
+      "id": "PRE",
+      "detail": "{\"ok\":true,\"mode\":\"postgres\",\"reads\":true,\"writes\":true,\"vercel_env\":\"preview\",\"dual_write_blob\":false}"
+    },
+    {
+      "result": "PASS",
+      "id": "S1",
+      "detail": "okAB=true/true denyC=true pg=2 seats=2 src=postgres cErr=That slot is already taken."
+    },
+    {
+      "result": "PASS",
+      "id": "S2",
+      "detail": "okAB=true/true denyC=true pg=2"
+    },
+    {
+      "result": "PASS",
+      "id": "S3",
+      "detail": "okAB=true/true denyMiss=true pg=2 focuses=Both,Both"
+    },
+    {
+      "result": "PASS",
+      "id": "S4",
+      "detail": "priv=true deny=true pg=1 privacy=private"
+    },
+    {
+      "result": "PASS",
+      "id": "S5",
+      "detail": "priv=true deny=true pg=1"
+    },
+    {
+      "result": "PASS",
+      "id": "S6",
+      "detail": "priv=true deny=true pg=1"
+    },
+    {
+      "result": "PASS",
+      "id": "S7",
+      "detail": "drop=true mem=true deny3=true pg=2 types=membership,single"
+    },
+    {
+      "result": "PASS",
+      "id": "S8",
+      "detail": "id=mb_mv8kssgr_5r32i4 cancelOk=true before=1 after=0 slotGone=true"
+    }
+  ],
+  "s9_s12": [
+    {
+      "result": "PASS",
+      "id": "PRE",
+      "detail": "{\"ok\":true,\"mode\":\"postgres\",\"reads\":true,\"writes\":true,\"vercel_env\":\"preview\",\"dual_write_blob\":false}"
+    },
+    {
+      "result": "PASS",
+      "id": "S9",
+      "detail": "moveOk=true err= atOpen=1 atOld=0 used 1->1 rem 3->3 slotsSrc=postgres"
+    },
+    {
+      "result": "PASS",
+      "id": "S10",
+      "detail": "denied=true err=Sorry — that time is full or has a different training focus. Pick another. stillOpen=1 block=1 used 1->1 rem 3->3"
+    },
+    {
+      "result": "PASS",
+      "id": "S11",
+      "detail": "first=true/false second=true/true rows=1 slotsSrc=postgres"
+    },
+    {
+      "result": "PASS",
+      "id": "S12",
+      "detail": "seed=1 wins=1 losses=1 r1=true/ r2=false/That slot is already taken. pg=2"
+    },
+    {
+      "result": "PASS",
+      "id": "PRE",
+      "detail": "{\"ok\":true,\"mode\":\"postgres\",\"reads\":true,\"writes\":true,\"vercel_env\":\"preview\",\"dual_write_blob\":false}"
+    },
+    {
+      "result": "PASS",
+      "id": "S9",
+      "detail": "moveOk=true err= atOpen=1 atOld=0 used 1->1 rem 3->3 slotsSrc=postgres"
+    },
+    {
+      "result": "PASS",
+      "id": "S10",
+      "detail": "denied=true err=Sorry — that time is full or has a different training focus. Pick another. stillOpen=1 block=1 used 1->1 rem 3->3"
+    },
+    {
+      "result": "PASS",
+      "id": "S11",
+      "detail": "first=true/false second=true/true rows=1 slotsSrc=postgres"
+    },
+    {
+      "result": "PASS",
+      "id": "S12",
+      "detail": "seed=1 wins=1 losses=1 r1=true/ r2=false/That slot is already taken. pg=2"
+    }
+  ],
+  "extra": [
+    {
+      "result": "PASS",
+      "id": "PRE",
+      "detail": "{\"ok\":true,\"mode\":\"postgres\",\"reads\":true,\"writes\":true,\"vercel_env\":\"preview\",\"dual_write_blob\":false,\"host\":\"ep-polished-moon-b7cbl2y0.c-13.us-east-1.aws.neon.tech\",\"project\":\"withered-mud-40468222\"}"
+    },
+    {
+      "result": "PASS",
+      "id": "E1_credit_return",
+      "detail": "memOk=true cancelOk=true slotClear=true used 1->0 rem 3->4"
+    },
+    {
+      "result": "PASS",
+      "id": "E2_portal_book",
+      "detail": "memOk=true portalOk=true err= mine=1 pgActive=2 firstStill=1 used 1->1 rem 3->3 lessons 1->1"
+    },
+    {
+      "result": "PASS",
+      "id": "E3_mixed_focus",
+      "detail": "okA=true denyB=true pg=1 focus=Hitting err=That slot is already taken."
+    },
+    {
+      "result": "PASS",
+      "id": "E4_private_exclusive",
+      "detail": "priv=true deny=true pg=1 privacy=private err=That slot is already taken."
+    },
+    {
+      "result": "PASS",
+      "id": "E5_checkout_stripe_test",
+      "detail": "opened url=true stripeish=true session=true"
+    },
+    {
+      "result": "PASS",
+      "id": "E6_confirm_idempotent",
+      "detail": "first=true/false second=true/true rows=1"
+    },
+    {
+      "result": "PASS",
+      "id": "E7_coach_move",
+      "detail": "create=true move=true old=0 new=1 err="
+    },
+    {
+      "result": "FAIL",
+      "id": "E8_cash_collect",
+      "detail": "create=true id=mb_mv8lakof_eg6r7g collectOk=false code= err=Booking not found (only cash/manual bookings can be collected here)."
+    },
+    {
+      "result": "PASS",
+      "id": "E9_fail_reschedule_credits",
+      "detail": "deny=true still=1 used 1->1 rem 3->3 err=Sorry — that time is full or has a different training focus. Pick another."
+    },
+    {
+      "result": "PASS",
+      "id": "E10_membership_plans",
+      "detail": "Hitting:true Fielding:true Both:true"
+    },
+    {
+      "result": "PASS",
+      "id": "PRE",
+      "detail": "{\"ok\":true,\"mode\":\"postgres\",\"reads\":true,\"writes\":true,\"vercel_env\":\"preview\",\"dual_write_blob\":false,\"host\":\"ep-polished-moon-b7cbl2y0.c-13.us-east-1.aws.neon.tech\",\"project\":\"withered-mud-40468222\"}"
+    },
+    {
+      "result": "PASS",
+      "id": "E1_credit_return",
+      "detail": "memOk=true cancelOk=true slotClear=true used 1->0 rem 3->4"
+    },
+    {
+      "result": "PASS",
+      "id": "E2_portal_book",
+      "detail": "memOk=true portalOk=true err= mine=1 pgActive=2 firstStill=1 used 1->1 rem 3->3 lessons 1->1"
+    },
+    {
+      "result": "PASS",
+      "id": "E3_mixed_focus",
+      "detail": "okA=true denyB=true pg=1 focus=Hitting err=That slot is already taken."
+    },
+    {
+      "result": "PASS",
+      "id": "E4_private_exclusive",
+      "detail": "priv=true deny=true pg=1 privacy=private err=That slot is already taken."
+    },
+    {
+      "result": "PASS",
+      "id": "E5_checkout_stripe_test",
+      "detail": "opened url=true stripeish=true session=true"
+    },
+    {
+      "result": "PASS",
+      "id": "E6_confirm_idempotent",
+      "detail": "first=true/false second=true/true rows=1"
+    },
+    {
+      "result": "PASS",
+      "id": "E7_coach_move",
+      "detail": "create=true move=true old=0 new=1 err="
+    },
+    {
+      "result": "FAIL",
+      "id": "E8_cash_collect",
+      "detail": "create=true id=mb_mv8lakof_eg6r7g collectOk=false code= err=Booking not found (only cash/manual bookings can be collected here)."
+    },
+    {
+      "result": "PASS",
+      "id": "E9_fail_reschedule_credits",
+      "detail": "deny=true still=1 used 1->1 rem 3->3 err=Sorry — that time is full or has a different training focus. Pick another."
+    },
+    {
+      "result": "PASS",
+      "id": "E10_membership_plans",
+      "detail": "Hitting:true Fielding:true Both:true"
+    }
+  ],
+  "verdict": "FAIL",
+  "realFails": [
+    {
+      "result": "FAIL",
+      "id": "E8_cash_collect",
+      "detail": "create=true id=mb_mv8lakof_eg6r7g collectOk=false code= err=Booking not found (only cash/manual bookings can be collected here)."
+    },
+    {
+      "result": "FAIL",
+      "id": "E8_cash_collect",
+      "detail": "create=true id=mb_mv8lakof_eg6r7g collectOk=false code= err=Booking not found (only cash/manual bookings can be collected here)."
+    }
+  ]
+}
