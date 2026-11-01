@@ -330,44 +330,43 @@
     .home-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 0.85rem 0 1rem; }
     .home-actions .btn { margin-top: 0; min-height: 48px; }
 
-    .week-strip {
-      display: flex;
-      gap: 0.4rem;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      padding: 0.1rem 0 0.7rem;
-      margin: 0 -4px 0.4rem;
-      scrollbar-width: none;
+    /* Coach Desk schedule — full-month calendar (reuses .cal__* primitives). */
+    .schedule-cal {
+      margin: 0 0 0.85rem;
+      max-width: 100%;
+      overflow: hidden;
     }
-    .week-strip::-webkit-scrollbar { display: none; }
-    .week-day {
-      flex: 1 0 3rem;
-      min-width: 3rem;
-      min-height: 68px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: var(--surface);
-      display: grid;
-      place-items: center;
-      gap: 0.12rem;
-      cursor: pointer;
+    .schedule-cal .cal__day {
       position: relative;
-      color: var(--dim);
+      min-height: 0;
+      width: 100%;
+      padding: 0.15rem 0 0.55rem;
+      font-size: 0.82rem;
     }
-    .week-day.is-today { border-color: var(--faint); }
-    .week-day.is-selected {
+    .schedule-cal .cal__day.is-today:not(.is-selected) {
+      border-color: var(--faint);
+      box-shadow: inset 0 0 0 1px var(--faint);
+    }
+    .schedule-cal .cal__day.is-selected {
       background: var(--text);
       color: var(--on-btn);
       border-color: var(--text);
     }
-    .week-day__dow { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-    .week-day__num { font-size: 1.2rem; font-weight: 700; line-height: 1; }
-    .week-day__dot {
-      position: absolute; bottom: 7px;
-      width: 5px; height: 5px; border-radius: 50%;
-      background: currentColor; opacity: 0.7;
+    .schedule-cal .cal__day.has-lessons::after {
+      content: "";
+      position: absolute;
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.75;
     }
-    .week-day.is-selected .week-day__dot { background: var(--on-btn); }
+    .schedule-cal .cal__day.is-selected.has-lessons::after {
+      background: var(--on-btn);
+    }
 
     .dayhead {
       font-size: 1.05rem;
@@ -1017,7 +1016,17 @@
 
       <section id="panel-schedule" hidden>
         <h2 class="page-title">Schedule</h2>
-        <div class="week-strip" id="weekStrip" role="group" aria-label="Week"></div>
+        <div class="schedule-cal" id="scheduleCal">
+          <div class="cal__navrow">
+            <button type="button" id="schedPrev" class="cal__nav" aria-label="Previous month">‹</button>
+            <span id="schedLabel" class="cal__label"></span>
+            <button type="button" id="schedNext" class="cal__nav" aria-label="Next month">›</button>
+          </div>
+          <div class="cal__grid cal__dow" aria-hidden="true">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+          <div class="cal__grid" id="schedDays" role="group" aria-label="Month"></div>
+        </div>
         <button type="button" class="btn btn--cta" id="openAddBooking">+ Add a lesson</button>
         <div id="scheduleList"></div>
       </section>
@@ -1276,6 +1285,10 @@
     let hours = null;     // editable copy of availability
     let offMonth = null;  // month shown on the days-off calendar
     let scheduleSelectedDay = todayISO();
+    let scheduleMonth = (() => {
+      const n = new Date();
+      return new Date(n.getFullYear(), n.getMonth(), 1);
+    })();
 
     const pass = () => localStorage.getItem(PASS_KEY) || "";
 
@@ -1409,56 +1422,70 @@
 
     function upcomingSessions() {
       const today = todayISO();
-      return (desk.sessions || [])
+      return activeScheduleSessions()
         .filter((s) => s.date >= today)
         .sort((a, b) => (a.date === b.date ? toMinutes(a.time) - toMinutes(b.time) : a.date < b.date ? -1 : 1));
     }
 
-    function weekIsoList(anchorIso) {
-      const d = new Date((anchorIso || todayISO()) + "T12:00:00");
-      const day = (d.getDay() + 6) % 7;
-      const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
-      const out = [];
-      for (let i = 0; i < 7; i++) {
-        const x = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
-        out.push(isoOf(x));
-      }
-      return out;
+    function activeScheduleSessions() {
+      return (desk.sessions || []).filter((s) => {
+        const st = String(s.status || "").toLowerCase();
+        return st !== "cancelled" && st !== "canceled" && st !== "voided";
+      });
     }
 
-    function renderWeekStrip() {
-      const strip = $("weekStrip");
-      if (!strip) return;
+    function renderScheduleMonth() {
+      const grid = $("schedDays");
+      const label = $("schedLabel");
+      if (!grid || !label) return;
+      if (!scheduleMonth) {
+        const n = new Date();
+        scheduleMonth = new Date(n.getFullYear(), n.getMonth(), 1);
+      }
+      label.textContent = scheduleMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      const y = scheduleMonth.getFullYear();
+      const m = scheduleMonth.getMonth();
+      const firstDow = new Date(y, m, 1).getDay();
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
       const today = todayISO();
-      const days = weekIsoList(scheduleSelectedDay);
       const counts = {};
-      (desk.sessions || []).forEach((s) => { counts[s.date] = (counts[s.date] || 0) + 1; });
-      strip.innerHTML = days.map((iso) => {
-        const d = new Date(iso + "T12:00:00");
+      activeScheduleSessions().forEach((s) => {
+        if (s.date) counts[s.date] = (counts[s.date] || 0) + 1;
+      });
+      grid.innerHTML = "";
+      for (let i = 0; i < firstDow; i++) {
+        const pad = document.createElement("div");
+        pad.className = "cal__day pad";
+        pad.setAttribute("aria-hidden", "true");
+        grid.appendChild(pad);
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const iso = isoOf(new Date(y, m, d));
         const n = counts[iso] || 0;
-        const cls = [
-          "week-day",
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.dataset.iso = iso;
+        btn.setAttribute("aria-label", prettyDay(iso) + (n ? `, ${n} lesson${n === 1 ? "" : "s"}` : ""));
+        btn.setAttribute("aria-pressed", String(iso === scheduleSelectedDay));
+        btn.className = [
+          "cal__day",
           iso === today ? "is-today" : "",
           iso === scheduleSelectedDay ? "is-selected" : "",
+          n ? "has-lessons" : "",
         ].filter(Boolean).join(" ");
-        return `<button type="button" class="${cls}" data-iso="${iso}" aria-pressed="${iso === scheduleSelectedDay}">
-          <span class="week-day__dow">${esc(DAYS_SHORT[d.getDay()])}</span>
-          <span class="week-day__num">${d.getDate()}</span>
-          ${n ? `<span class="week-day__dot" aria-label="${n} lessons"></span>` : ""}
-        </button>`;
-      }).join("");
-      strip.querySelectorAll("[data-iso]").forEach((btn) => {
+        btn.textContent = String(d);
         btn.addEventListener("click", () => {
-          scheduleSelectedDay = btn.dataset.iso;
-          renderWeekStrip();
+          scheduleSelectedDay = iso;
+          renderScheduleMonth();
           renderScheduleList();
         });
-      });
+        grid.appendChild(btn);
+      }
     }
 
     function renderHome() {
       const today = todayISO();
-      const all = desk.sessions || [];
+      const all = activeScheduleSessions();
       const upcoming = upcomingSessions();
       const [mon, sun] = weekRange();
       const owedList = desk.finance?.outstanding || [];
@@ -1525,7 +1552,12 @@
     }
 
     function renderSchedule() {
-      renderWeekStrip();
+      // Keep the month view aligned with the selected day (including after cancel/add).
+      if (scheduleSelectedDay) {
+        const d = new Date(scheduleSelectedDay + "T12:00:00");
+        if (!isNaN(d)) scheduleMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+      }
+      renderScheduleMonth();
       renderScheduleList();
     }
 
@@ -1534,7 +1566,7 @@
       if (!wrap) return;
       const iso = scheduleSelectedDay || todayISO();
       const today = todayISO();
-      const daySessions = (desk.sessions || [])
+      const daySessions = activeScheduleSessions()
         .filter((s) => s.date === iso)
         .sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
       wrap.innerHTML = "";
@@ -1545,7 +1577,7 @@
       if (!daySessions.length) {
         const p = document.createElement("p");
         p.className = "empty compact";
-        p.textContent = "No lessons this day. Add one above or pick another date on the strip.";
+        p.textContent = "No lessons this day. Add one above or pick another date on the calendar.";
         wrap.appendChild(p);
         return;
       }
@@ -1602,7 +1634,13 @@
 
     async function cancelLesson(s) {
       const who = s.player || s.email || "this lesson";
-      if (!window.confirm(`Cancel ${who} on ${prettyDay(s.date)} at ${s.time}?\n\nThe time opens back up right away.`)) return;
+      const isMember = s.type === "membership" || s.type === "membership_private" || s.source === "member";
+      const creditLine = isMember
+        ? "\n\nIf this booking used a membership credit, that credit is returned once to the member."
+        : "";
+      if (!window.confirm(`Cancel ${who} on ${prettyDay(s.date)} at ${s.time}?\n\nThe time opens back up right away.${creditLine}`)) {
+        return;
+      }
       try {
         await act({ action: "cancel_booking", id: s.id });
       } catch (err) {
@@ -1906,7 +1944,7 @@
            </select></label>
          <label class="field"><span>Focus</span>
            <select id="addFocus"><option value="Fielding">Fielding</option><option value="Hitting">Hitting</option><option value="Both">Hitting &amp; Fielding</option></select></label>
-         ${slotPicker("Lesson", todayISO(), "")}
+         ${slotPicker("Lesson", scheduleSelectedDay || todayISO(), "")}
          <label class="field"><span>Athlete *</span><input type="text" id="addPlayer" placeholder="Athlete's name" /></label>
          <label class="field" id="addPlayer2Field"><span>Second athlete (fills the hour)</span><input type="text" id="addPlayer2" placeholder="Leave blank for one athlete" /></label>
          <div class="two">
@@ -2594,6 +2632,15 @@
     $("offNext").addEventListener("click", () => {
       offMonth = new Date(offMonth.getFullYear(), offMonth.getMonth() + 1, 1);
       renderOffCal();
+    });
+
+    $("schedPrev")?.addEventListener("click", () => {
+      scheduleMonth = new Date(scheduleMonth.getFullYear(), scheduleMonth.getMonth() - 1, 1);
+      renderScheduleMonth();
+    });
+    $("schedNext")?.addEventListener("click", () => {
+      scheduleMonth = new Date(scheduleMonth.getFullYear(), scheduleMonth.getMonth() + 1, 1);
+      renderScheduleMonth();
     });
 
     $("hoursSave").addEventListener("click", async () => {

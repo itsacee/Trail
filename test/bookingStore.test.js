@@ -305,6 +305,104 @@ test("cancel restores membership credit", async () => {
   assert.equal(credits.credits_used, 0);
 });
 
+test("repeated cancel restores credit exactly once", async () => {
+  await clearBookings();
+  const membershipId = "sub_cancel_once";
+  const book = await store.memberBook({
+    membershipId,
+    email: "once@example.com",
+    date: "2026-11-12",
+    time: "5:00 PM",
+    focus: "Hitting",
+    type: "membership",
+    privacy: "standard",
+    creditsTotal: 4,
+  });
+  assert.equal(book.ok, true);
+  assert.equal((await store.getMembershipCredits(membershipId)).credits_used, 1);
+
+  const first = await store.cancelBooking(book.bookingId, { restoreCredit: true });
+  assert.equal(first.ok, true);
+  assert.equal(first.already, undefined);
+  assert.equal((await store.getMembershipCredits(membershipId)).credits_used, 0);
+
+  const second = await store.cancelBooking(book.bookingId, { restoreCredit: true });
+  assert.equal(second.ok, true);
+  assert.equal(second.already, true);
+  assert.equal((await store.getMembershipCredits(membershipId)).credits_used, 0);
+
+  const third = await store.cancelBooking(book.bookingId, { restoreCredit: true });
+  assert.equal(third.ok, true);
+  assert.equal(third.already, true);
+  assert.equal((await store.getMembershipCredits(membershipId)).credits_used, 0);
+
+  const { rows } = await store.query(`SELECT status FROM bookings WHERE id = $1`, [book.bookingId]);
+  assert.equal(rows[0].status, "cancelled");
+});
+
+test("cancel without prior credit ledger does not invent credits", async () => {
+  await clearBookings();
+  const booked = await store.manualBook({
+    id: "mb_nocredit",
+    date: "2026-11-13",
+    time: "6:00 PM",
+    focus: "Fielding",
+    type: "single",
+    privacy: "standard",
+    seats: 1,
+    email: "cash@example.com",
+    player: "Cash Kid",
+  });
+  assert.equal(booked.ok, true);
+
+  const cancelled = await store.cancelBooking(booked.bookingId, { restoreCredit: true });
+  assert.equal(cancelled.ok, true);
+  assert.equal(cancelled.creditRestored, false);
+
+  const { rows } = await store.query(`SELECT COUNT(*)::int AS n FROM membership_credits`);
+  assert.equal(rows[0].n, 0);
+
+  const booking = await store.getBooking(booked.bookingId);
+  assert.equal(booking.status, "cancelled");
+});
+
+test("cancel one membership booking does not restore sibling booking credit", async () => {
+  await clearBookings();
+  const membershipId = "sub_two_lessons";
+  const a = await store.memberBook({
+    membershipId,
+    email: "two@example.com",
+    date: "2026-11-14",
+    time: "5:00 PM",
+    focus: "Hitting",
+    type: "membership",
+    privacy: "standard",
+    creditsTotal: 4,
+  });
+  const b = await store.memberBook({
+    membershipId,
+    email: "two@example.com",
+    date: "2026-11-15",
+    time: "5:00 PM",
+    focus: "Fielding",
+    type: "membership",
+    privacy: "standard",
+    creditsTotal: 4,
+  });
+  assert.equal(a.ok, true);
+  assert.equal(b.ok, true);
+  assert.equal((await store.getMembershipCredits(membershipId)).credits_used, 2);
+
+  const cancelled = await store.cancelBooking(a.bookingId, { restoreCredit: true });
+  assert.equal(cancelled.ok, true);
+  assert.equal((await store.getMembershipCredits(membershipId)).credits_used, 1);
+
+  const stillActive = await store.getBooking(b.bookingId);
+  assert.equal(stillActive.status, "active");
+  const gone = await store.getBooking(a.bookingId);
+  assert.equal(gone.status, "cancelled");
+});
+
 test("import from Blob snapshots is read-only on Blob and reconciles", async () => {
   await clearBookings();
   const snapshots = {
